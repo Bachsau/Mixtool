@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 
-import os as OS
-#import io as IO
+import os         as OS
 
 import abstractio as AbstractIO
+from mixtool      import messagebox
 
 # Constants
 FLAG_CHECKSUM  = 1
@@ -15,6 +15,8 @@ TYPE_TS        = 3
 
 MIXDB_TD       = 0
 MIXDB_TS       = 0
+
+BYTEORDER      = "little"
 
 # Instance representing a single MIX file
 # Think of this like a file system driver
@@ -33,13 +35,13 @@ class MixFile:
 		
 		# First two bytes are zero for RA/TS and the number of files for TD
 		self.Stream.seek(0, OS.SEEK_SET)
-		firstbytes = int.from_bytes(self.Stream.read(2), 'little')
+		firstbytes = int.from_bytes(self.Stream.read(2), BYTEORDER)
 		if firstbytes == 0:
 			# It seems we have a TS MIX so decode the flags
 			self.type = TYPE_TS
-			self.flags = int.from_bytes(self.Stream.read(2), 'little')
-			self.has_checksum = (True if self.flags & FLAG_CHECKSUM == FLAG_CHECKSUM else False)
-			self.is_encrypted = (True if self.flags & FLAG_ENCRYPTED == FLAG_ENCRYPTED else False)
+			self.flags = int.from_bytes(self.Stream.read(2), BYTEORDER)
+			self.has_checksum = self.flags & FLAG_CHECKSUM == FLAG_CHECKSUM
+			self.is_encrypted = self.flags & FLAG_ENCRYPTED == FLAG_ENCRYPTED
 			
 			# Get header data for RA/TS
 			if self.is_encrypted:
@@ -47,7 +49,7 @@ class MixFile:
 				self.key_source = self.Stream.read(80)
 			else:
 				# Easy going
-				self.numfiles = int.from_bytes(self.Stream.read(2), 'little')
+				self.numfiles = int.from_bytes(self.Stream.read(2), BYTEORDER)
 		else:
 			# Maybe it's a TD or RA MIX
 			self.type = TYPE_TD
@@ -60,24 +62,28 @@ class MixFile:
 			
 		# From here it's the same for every unencrypted MIX
 		if not self.is_encrypted:
-			self.bodysize = int.from_bytes(self.Stream.read(4), 'little')
+			self.bodysize = int.from_bytes(self.Stream.read(4), BYTEORDER)
 			self.indexstart = self.Stream.tell()
-			self.indexsize = 12 * self.numfiles
+			self.indexsize = self.numfiles * 12
 			self.bodystart = self.indexstart + self.indexsize
 			
 			# Check if data is sane
 			if self.filesize - self.bodystart != self.bodysize:
-				raise Exception("Incorrect filesize")
+				raise Exception("Incorrect filesize or invalid header.")
 				
 			# OK, time to read the index
+			minoffset = None
 			self.contents = {}
 			for index in range(0, self.numfiles):
-				key    = int.from_bytes(self.Stream.read(4), 'little')
-				offset = int.from_bytes(self.Stream.read(4), 'little')
-				size   = int.from_bytes(self.Stream.read(4), 'little')
+				key    = int.from_bytes(self.Stream.read(4), BYTEORDER)
+				offset = int.from_bytes(self.Stream.read(4), BYTEORDER)
+				size   = int.from_bytes(self.Stream.read(4), BYTEORDER)
 				
 				self.contents[key] = {"offset": offset, "size": size, "index": index, "name": None}
-			
+				
+				if minoffset is None or offset < minoffset: minoffset = offset
+				
+			self.indexfree = int(minoffset / 12)
 		
 	# Returns a AbstractIO instance
 	def open(self, file):
@@ -100,7 +106,8 @@ class MixFile:
 		pass
 		
 	# Compact mix function // Works like defragmentation
-	def compact(self):
+	# Reorganizing orders contents by size with the smallest at that beginning
+	def compact(self, reorganize=False):
 		pass
 		
 	# Return current Local Mix Database file

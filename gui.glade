@@ -24,7 +24,7 @@
     <property name="default_height">500</property>
     <property name="icon">icon.png</property>
     <property name="show_menubar">False</property>
-    <signal name="delete-event" handler="quit" swapped="no"/>
+    <signal name="delete-event" handler="close" swapped="no"/>
     <child>
       <object class="GtkBox" id="MainBox">
         <property name="visible">True</property>
@@ -182,12 +182,12 @@
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="ToolbarQuit">
+              <object class="GtkToolButton" id="ToolbarClose">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label">Quit</property>
                 <property name="stock_id">gtk-quit</property>
-                <signal name="clicked" handler="quit" swapped="no"/>
+                <signal name="clicked" handler="close" swapped="no"/>
                 <accelerator key="q" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
@@ -351,6 +351,7 @@
   <object class="GtkFileChooserDialog" id="ExtractDialog">
     <property name="can_focus">False</property>
     <property name="modal">True</property>
+    <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>
     <property name="skip_taskbar_hint">True</property>
@@ -421,6 +422,7 @@
     <property name="can_focus">False</property>
     <property name="title">Search filename</property>
     <property name="modal">True</property>
+    <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>
     <property name="skip_taskbar_hint">True</property>
@@ -541,6 +543,7 @@
     <property name="can_focus">False</property>
     <property name="title">Open MIX File</property>
     <property name="modal">True</property>
+    <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>
     <property name="skip_taskbar_hint">True</property>
@@ -610,6 +613,7 @@
     <property name="can_focus">False</property>
     <property name="title">Save MIX File</property>
     <property name="modal">True</property>
+    <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>
     <property name="skip_taskbar_hint">True</property>

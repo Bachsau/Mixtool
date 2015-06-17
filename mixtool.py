@@ -1,19 +1,26 @@
 #!/usr/bin/python3
 
 import os           as OS
-#import signal       as Signal
-#import sys          as Sys
-#import threading    as Threading
-#import time         as Time
-#import configparser as ConfigParser
+import configparser as ConfigParser
 
-from gi.repository   import GObject, Gtk
-import mixlib     as MixLib
+from gi.repository  import GObject, Gdk, Gtk
+import mixlib       as MixLib
+
+# Global vars
+windowlist = []
+settings   = {}
 
 # Handles all GUI commands
-class GUIControlClass:
-	# Constructor gets objects from GtkBuilder for interaction
-	def __init__(self, GtkBuilder):
+class GUIController:
+	# Read GUI from file and retrieve objects from GtkBuilder
+	def __init__(self, filename):
+		try:
+			GtkBuilder = Gtk.Builder.new_from_file("gui.glade")
+			GtkBuilder.connect_signals(self)
+		except GObject.GError:
+			messagebox("Error reading GUI file", "e")
+			raise
+			
 		self.MainWindow        = GtkBuilder.get_object("MainWindow")
 		self.OpenDialog        = GtkBuilder.get_object("OpenDialog")
 		self.SaveDialog        = GtkBuilder.get_object("SaveDialog")
@@ -22,7 +29,11 @@ class GUIControlClass:
 		self.SearchDialogEntry = GtkBuilder.get_object("SearchDialogEntry")
 		self.ContentStore      = GtkBuilder.get_object("ContentStore")
 		self.StatusBar         = GtkBuilder.get_object("StatusBar")
-		self.reset()
+		
+		if filename is not None:
+			self.loadfile(filename)
+		else:
+			self.reset()
 	
 	# Reset GUI and close file
 	def reset(self, *args):
@@ -99,8 +110,8 @@ class GUIControlClass:
 		messagebox("Not implemented yet", "i", self.MainWindow)
 		
 	def searchdialog(self, *args):
-		self.SearchDialogEntry.set_text("")
 		self.SearchDialogEntry.grab_focus()
+		self.SearchDialogEntry.select_region(0, -1)
 		response = self.SearchDialog.run()
 		self.SearchDialog.hide()
 		search = self.SearchDialogEntry.get_text()
@@ -119,11 +130,13 @@ class GUIControlClass:
 	def set_titlebar(self, text):
 		self.MainWindow.set_title(text + " – Mixtool")
 		
-	# Exit program
-	def quit(self, *args):
+	# Close window / Exit program
+	def close(self, *args):
+		global windowlist
 		self.reset()
-		Gtk.main_quit()
-		print("GTK sauber beendet!")
+		self.MainWindow.destroy()
+		windowlist.remove(self)
+		if len(windowlist) < 1: Gtk.main_quit()
 
 # A simple, instance-independant messagebox
 def messagebox(text, type="i", parent=None):
@@ -138,22 +151,20 @@ def messagebox(text, type="i", parent=None):
 	response = dialogwidget.run()
 	dialogwidget.destroy()
 	return response
-
+	
+# Initiliaze GtkBuilder and GUI controller
+def open_window(filename=None):
+	global windowlist
+	windowlist.append(GUIController(filename))
+	
 # Main application
 def main():
-	# Create GtkBuilder and GUI controller
-	GtkBuilder = Gtk.Builder()
-	
-	try:
-		GtkBuilder.add_from_file("gui.glade")
-	except GObject.GError:
-		messagebox("Error reading GUI file", "e")
-		raise
+	# Open first window
+	open_window()
 		
-	GUIControl = GUIControlClass(GtkBuilder)
-	GtkBuilder.connect_signals(GUIControl)
-	
 	# Start GUI
 	Gtk.main()
+	
+	print("GTK quit cleanly")
 	
 if __name__ == "__main__": main()
