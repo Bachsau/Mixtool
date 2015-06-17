@@ -22,12 +22,17 @@ class MixFile:
 	# Constructor opens MIX file
 	def __init__(self, Stream):
 		# TODO: Test stream
-		self.Stream = Stream
+		self.Stream   = Stream
+		self.filesize = self.Stream.seek(0, OS.SEEK_END)
+		
+		if self.filesize < 4:
+			raise Exception("File too small")
 		
 		# Generic initial values
 		self.compactwrite = True # True: Size optimized write; False: Speed optimized write
 		
 		# First two bytes are zero for RA/TS and the number of files for TD
+		self.Stream.seek(0, OS.SEEK_SET)
 		firstbytes = int.from_bytes(self.Stream.read(2), 'little')
 		if firstbytes == 0:
 			# It seems we have a TS MIX so decode the flags
@@ -60,13 +65,11 @@ class MixFile:
 			self.indexsize = 12 * self.numfiles
 			self.bodystart = self.indexstart + self.indexsize
 			
-			# Let's check those header data against reality
-			self.filesize = self.Stream.seek(0, OS.SEEK_END)
+			# Check if data is sane
 			if self.filesize - self.bodystart != self.bodysize:
 				raise Exception("Incorrect filesize")
 				
 			# OK, time to read the index
-			self.Stream.seek(self.indexstart)
 			self.contents = {}
 			for index in range(0, self.numfiles):
 				key    = int.from_bytes(self.Stream.read(4), 'little')
@@ -76,22 +79,28 @@ class MixFile:
 				self.contents[key] = {"offset": offset, "size": size, "index": index, "name": None}
 			
 		
-	# Returns an AbstractIO instance
-	def open_by_name(self):
-		# Search a names dict, use genid if not found
-		pass
-	
 	# Returns a AbstractIO instance
-	def open_by_key(self):
+	def open(self, file):
+		if file:
+			pass
+			
 		# TODO: Check if valid
 		return AbstractIO.AbstractIO(self, self.contents["key"]["offset"], self.contents["key"]["size"])
+		
+	# Moves content out of the way
+	def move_away(self, key):
+		# Write new content to holes if at least 2M free
+		# Move content to holes if big enough
+		# Leave at least 1M for index, move away first file when file is added
+		# If running out of space while writing content, check if current or 
+		pass
 		
 	def fstat(self):
 		# Returns information on a file contained
 		pass
 		
 	# Compact mix function // Works like defragmentation
-	def compact(self, reorganize = False):
+	def compact(self):
 		pass
 		
 	# Return current Local Mix Database file
