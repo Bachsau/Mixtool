@@ -1,6 +1,8 @@
 #!/usr/bin/python3
+# coding=utf8
 
 import os         as OS
+import binascii   as BinASCII
 
 import abstractio as AbstractIO
 from mixtool      import messagebox
@@ -17,6 +19,7 @@ MIXDB_TD       = 0
 MIXDB_TS       = 0
 
 BYTEORDER      = "little"
+XCC_ID         = b"XCC by Olaf van der Spek\x1a\x04\x17\x27\x10\x19\x80"
 
 # Instance representing a single MIX file
 # Think of this like a file system driver
@@ -45,7 +48,7 @@ class MixFile:
 			
 			# Get header data for RA/TS
 			if self.is_encrypted:
-				# FUCK. We have to handle this shit
+				# OK, we have to deal with this first
 				self.key_source = self.Stream.read(80)
 			else:
 				# Easy going
@@ -73,17 +76,37 @@ class MixFile:
 				
 			# OK, time to read the index
 			minoffset = None
+			self.index    = []
 			self.contents = {}
-			for index in range(0, self.numfiles):
+			for i in range(0, self.numfiles):
 				key    = int.from_bytes(self.Stream.read(4), BYTEORDER)
 				offset = int.from_bytes(self.Stream.read(4), BYTEORDER)
 				size   = int.from_bytes(self.Stream.read(4), BYTEORDER)
 				
-				self.contents[key] = {"offset": offset, "size": size, "index": index, "name": None}
+				self.index.append({"key": key, "offset": offset, "size": size, "name": None})
+				self.contents[key] = self.index[i]
+				
+				
 				
 				if minoffset is None or offset < minoffset: minoffset = offset
 				
 			self.indexfree = int(minoffset / 12)
+		
+	# Get a file out of the MIX
+	def get_file(name, start=0, bytes=-1):
+		# Negative start counts bytes from the end
+		pass
+		
+	def get_index(self, key):
+		return self.index.index(self.contents[key]) if key in self.contents else None
+		
+	# Rename a file in the MIX
+	def rename(old, new):
+		pass
+		
+	# Write current index to MIX
+	def write_index():
+		pass
 		
 	# Returns a AbstractIO instance
 	def open(self, file):
@@ -119,9 +142,42 @@ class MixError(Exception):
 	# Error Class
 	pass
 
-# Hash function to create MIX-Identifier from filename
-def genid(name, type):
-	if type != TYPE_TS:
-		pass
+# Create MIX-Identifier from filename
+# Thanks to Olaf van der Spek for providing these functions
+def genkey(name, type):
+	name   = name.upper()
+	name   = name.replace("/", "\\\\")
+	name   = name.encode("windows-1252", "replace")
+	length = len(name)
+	
+	if type == TYPE_TS:
+		# Compute a key for TS MIXes
+		a = length & ~3
+		if length & 3:
+			name += (length - a).to_bytes(1, BYTEORDER)
+			name.append(3 - (length & 3), name[a]);
+		return BinASCII.crc32(name, len(name)) & 4294967295
+			
+#           #################################################
+#			const int l = name.length();
+#			int a = l & ~3;
+#			if (l & 3)
+#			{
+#				name += static_cast<char>(l - a);
+#				name.append(3 - (l & 3), name[a]);
+#			}
+#			return compute_crc(name.c_str(), name.length());
+#           #################################################
 	else:
-		pass
+		# Compute a key for TD / RA MIXes
+		i   = 0
+		key = 0
+		while i < length:
+			a = 0
+			for j in range(0, 4):
+				a >>= 8
+				if i < length:
+					a |= (name[i] << 24)
+					i += 1					
+			key = (key << 1 | key >> 31) + a & 4294967295
+		return key

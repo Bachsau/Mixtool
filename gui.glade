@@ -233,7 +233,6 @@
                     <property name="min_width">30</property>
                     <property name="title">Name</property>
                     <property name="clickable">True</property>
-                    <property name="sort_indicator">True</property>
                     <property name="sort_column_id">0</property>
                     <child>
                       <object class="GtkCellRendererText" id="ContentListNameRenderer">
@@ -254,7 +253,6 @@
                     <property name="title">Size</property>
                     <property name="clickable">True</property>
                     <property name="alignment">1</property>
-                    <property name="sort_indicator">True</property>
                     <property name="sort_column_id">1</property>
                     <child>
                       <object class="GtkCellRendererText" id="ContentListSizeRenderer">
@@ -275,7 +273,6 @@
                     <property name="title">Offset</property>
                     <property name="clickable">True</property>
                     <property name="alignment">1</property>
-                    <property name="sort_indicator">True</property>
                     <property name="sort_column_id">2</property>
                     <child>
                       <object class="GtkCellRendererText" id="ContentListOffsetRenderer">
@@ -296,7 +293,6 @@
                     <property name="title">Index</property>
                     <property name="clickable">True</property>
                     <property name="alignment">1</property>
-                    <property name="sort_indicator">True</property>
                     <property name="sort_column_id">3</property>
                     <child>
                       <object class="GtkCellRendererText" id="ContentListIndexRenderer">

@@ -1,10 +1,17 @@
 #!/usr/bin/python3
+# coding=utf8
 
 import os           as OS
 import configparser as ConfigParser
 
 from gi.repository  import GObject, Gdk, Gtk
 import mixlib       as MixLib
+
+# Constants
+COLUMN_NAME   = 0
+COLUMN_SIZE   = 1
+COLUMN_OFFSET = 2
+COLUMN_INDEX  = 3
 
 # Global vars
 windowlist = []
@@ -27,8 +34,12 @@ class GUIController:
 		self.ExtractDialog     = GtkBuilder.get_object("ExtractDialog")
 		self.SearchDialog      = GtkBuilder.get_object("SearchDialog")
 		self.SearchDialogEntry = GtkBuilder.get_object("SearchDialogEntry")
+		self.ContentList       = GtkBuilder.get_object("ContentList")
 		self.ContentStore      = GtkBuilder.get_object("ContentStore")
 		self.StatusBar         = GtkBuilder.get_object("StatusBar")
+		
+		# Initially sort by Offset
+		self.ContentStore.set_sort_column_id(COLUMN_OFFSET, Gtk.SortType.ASCENDING)
 		
 		if filename is not None:
 			self.loadfile(filename)
@@ -39,9 +50,10 @@ class GUIController:
 	def reset(self, *args):
 		self.MixFile  = None
 		self.unsaved  = False
-		self.filename = ""
+		self.filename = "Untitled"
+		self.contents = []
 		self.ContentStore.clear()
-		self.set_titlebar("Untitled")
+		self.set_titlebar(self.filename)
 		self.set_statusbar("This is alpha software. Use at your own risk!")
 		
 	# Load file
@@ -56,15 +68,26 @@ class GUIController:
 			raise
 		
 		self.filename = OS.path.basename(filename)
-		
-		# List MIX content in Window
-		for key, val in self.MixFile.contents.items():
-			self.ContentStore.insert_with_valuesv(-1, (0, 1, 2, 3), (hex(key) if val["name"] is None else val["name"], val["size"] , val["offset"], val["index"]))
-		
 		self.set_titlebar(self.filename)
 		self.set_statusbar(self.filename + " contains " + str(len(self.MixFile.contents)) + " files.")
+		
+		self.update_contents()
+		
+	# List MIX content in Window
+	def update_contents(self, *args):
+		self.contents = []
+		self.ContentStore.clear()
+		index = 0
+		for content in self.MixFile.index:
+			treeiter = self.ContentStore.insert_with_valuesv(-1,
+				(COLUMN_NAME, COLUMN_SIZE, COLUMN_OFFSET, COLUMN_INDEX),
+				(hex(content["key"]) if content["name"] is None else content["name"], content["size"] , content["offset"], index))
 			
-	
+			self.contents.append(treeiter)
+			
+			index += 1
+			
+			
 	def newfile(self, *args):
 		if self.unsaved:
 			# TODO: Ask user for saving
@@ -115,11 +138,21 @@ class GUIController:
 		response = self.SearchDialog.run()
 		self.SearchDialog.hide()
 		search = self.SearchDialogEntry.get_text()
-		if response == Gtk.ResponseType.OK and search != "":
-			messagebox(self.SearchDialogEntry.get_text(), "i", self.MainWindow)
 		
-		
+		if response == Gtk.ResponseType.OK  and search != "":
+			name  = self.SearchDialogEntry.get_text()
+			key   = MixLib.genkey(name, MixLib.TYPE_TD)
+			index = self.MixFile.get_index(key)
 			
+			if index is not None:
+				self.ContentStore[self.contents[index]][0] = name
+				
+				path = self.ContentStore.get_path(self.contents[index])
+				self.ContentList.set_cursor(path)
+			else:
+				messagebox(self.filename + " does not cotain a file with key " + hex(key), "i", self.MainWindow)
+				
+				
 	# Add content dialog
 	def adddialog(self, *args):
 		pass
