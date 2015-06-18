@@ -5,7 +5,7 @@ import os         as OS
 import binascii   as BinASCII
 
 import abstractio as AbstractIO
-from mixtool      import messagebox
+from mixtool_gtk  import messagebox
 
 # Constants
 FLAG_CHECKSUM  = 1
