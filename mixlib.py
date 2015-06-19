@@ -7,19 +7,22 @@ import binascii   as BinASCII
 import abstractio as AbstractIO
 from mixtool_gtk  import messagebox
 
+
 # Constants
 FLAG_CHECKSUM  = 1
 FLAG_ENCRYPTED = 2
 
-TYPE_TD        = 1
-TYPE_RA        = 2
-TYPE_TS        = 3
+TYPE_TD = 0
+TYPE_RA = 1
+TYPE_TS = 2
 
-MIXDB_TD       = 0
-MIXDB_TS       = 0
+MIXDB_TD = 1422054725 # local mix database.dat
+MIXDB_TS = 913179935  # local mix database.dat
+KEYFILE  = 1983676893 # key.ini
 
-BYTEORDER      = "little"
-XCC_ID         = b"XCC by Olaf van der Spek\x1a\x04\x17\x27\x10\x19\x80"
+BYTEORDER = "little"
+XCC_ID = b"XCC by Olaf van der Spek\x1a\x04\x17\x27\x10\x19\x80"
+
 
 # Instance representing a single MIX file
 # Think of this like a file system driver
@@ -45,7 +48,7 @@ class MixFile:
 			self.has_checksum = flags & FLAG_CHECKSUM == FLAG_CHECKSUM
 			self.is_encrypted = flags & FLAG_ENCRYPTED == FLAG_ENCRYPTED
 			
-			# Encrypted TS MIXes have a key.ini (1983676893) we can check for later,
+			# Encrypted TS MIXes have a key.ini we can check for later,
 			# so at this point assume TYPE_TS only if unencrypted
 			self.mixtype = TYPE_RA if self.is_encrypted else TYPE_TS
 			
@@ -80,7 +83,7 @@ class MixFile:
 				
 			# OK, time to read the index
 			minoffset = None
-			self.index    = []
+			self.index = []
 			self.contents = {}
 			for i in range(0, self.numfiles):
 				key    = int.from_bytes(self.Stream.read(4), BYTEORDER)
@@ -92,6 +95,9 @@ class MixFile:
 				
 				if minoffset is None or offset < minoffset: minoffset = offset
 			self.indexfree = int(minoffset / 12)
+			
+			# Now read the Local MIX Database
+			self.names = {} # Pairs of "Name: Key"; Not referencing an index object!
 		
 		
 	# Get a file out of the MIX
@@ -99,16 +105,82 @@ class MixFile:
 		# Negative start counts bytes from the end
 		pass
 		
+	# Get the index number of a file
 	def get_index(self, key):
+		if isinstance(key, str):
+			key = self.get_key(key)
+			
 		return self.index.index(self.contents[key]) if key in self.contents else None
 		
+	# Get the key for a filename
+	def get_key(self, name):
+		if name in self.names:
+			return self.names[name]
+		else:
+			key = genkey(name, self.mixtype)
+			
+			# Add name to index if file exists
+			if key in self.contents:
+				self.contents[key]["name"] = name
+				self.names[name] = key
+				
+			return key
+			
+			
 	# Rename a file in the MIX
 	def rename(old, new):
-		pass
+		index = self.get_index(old)
+		
+		if index is None:
+			raise MixError("File not found")
+			
+		if isinstance(new, str):
+			newname = new
+			new = self.get_key(new)
+		else:
+			newname = None
+			
+		if new in self.contents:
+			raise MixError("File exists")
+			
+		del(self.contents[old])
+		self.index[index]["key"] = new
+		self.index[index]["name"] = newname
+		self.contents[new] = self.index[index]
+		
+		self.write_index()
+		return self.index[index]
+		
+		
+	# Set a new name for file at given index
+	def set_name(index, new):
+		if isinstance(new, str):
+			newname = new
+			new = self.get_key(new)
+		else:
+			newname = None
+			
+		if new in self.contents:
+			raise MixError("File exists")
+			
+		old = self.index[index]["key"] if self.index[index]["name"] is None else self.index[index]["name"]
+		
+		del(self.contents[self.index[index]["key"]])
+		self.index[index]["key"] = new
+		self.index[index]["name"] = newname
+		self.contents[new] = self.index[index]
+		
+		self.write_index()
+		return old
 		
 	# Write current index to MIX
 	def write_index():
-		pass
+		if self.Stream.writable():
+			# Sort index and write
+			pass
+		else:
+			# Raise warning
+			pass
 		
 	# Returns a AbstractIO instance
 	def open(self, file):
@@ -120,11 +192,22 @@ class MixFile:
 		
 	# Moves content out of the way
 	def move_away(self, key):
-		# Write new content to holes if at least 2M free
+		# Write new content to holes if at least 4M free
 		# Move content to holes if big enough
 		# Leave at least 1M for index, move away first file when file is added
 		# If running out of space while writing content, check if current or 
 		pass
+		
+	# Return if MIX is TD, RA or TS
+	def get_type(self):
+		return self.mixtype
+		
+	# Change MIX type only if every file has a name
+	def set_type(self):
+		if len(self.names) < len(self.index):
+			messagebox("Can't set type without knowledge of all names")
+			# TODO: raise a warning instead; show message in mixtool
+		return self.mixtype
 		
 	def fstat(self):
 		# Returns information on a file contained
@@ -146,21 +229,21 @@ class MixError(Exception):
 
 # Create MIX-Identifier from filename
 # Thanks to Olaf van der Spek for providing these functions
-def get_key(name, mixtype):
+def genkey(name, mixtype):
 	name   = name.upper()
 	name   = name.replace("/", "\\\\")
 	name   = name.encode("windows-1252", "replace")
 	length = len(name)
 	
 	if mixtype == TYPE_TS:
-		# Compute a key for TS MIXes
+		# Compute key for TS MIXes
 		a = length & ~3
 		if length & 3:
 			name += bytes((length - a,))
 			name += bytes((name[a],)) * (3 - (length & 3))
-		return BinASCII.crc32(name) & 4294967295
+		return BinASCII.crc32(name)
 	else:
-		# Compute a key for TD/RA MIXes
+		# Compute key for TD/RA MIXes
 		i   = 0
 		key = 0
 		while i < length:

@@ -10,8 +10,8 @@
       <column type="guint"/>
       <!-- column-name Offset -->
       <column type="guint"/>
-      <!-- column-name Index -->
-      <column type="guint"/>
+      <!-- column-name Key -->
+      <column type="gchararray"/>
     </columns>
   </object>
   <object class="GtkApplicationWindow" id="MainWindow">
@@ -248,7 +248,7 @@
                   <object class="GtkTreeViewColumn" id="ContentListSize">
                     <property name="resizable">True</property>
                     <property name="sizing">fixed</property>
-                    <property name="fixed_width">150</property>
+                    <property name="fixed_width">200</property>
                     <property name="min_width">30</property>
                     <property name="title">Size</property>
                     <property name="clickable">True</property>
@@ -268,7 +268,7 @@
                   <object class="GtkTreeViewColumn" id="ContentListOffset">
                     <property name="resizable">True</property>
                     <property name="sizing">fixed</property>
-                    <property name="fixed_width">150</property>
+                    <property name="fixed_width">200</property>
                     <property name="min_width">30</property>
                     <property name="title">Offset</property>
                     <property name="clickable">True</property>
@@ -285,18 +285,17 @@
                   </object>
                 </child>
                 <child>
-                  <object class="GtkTreeViewColumn" id="ContentListIndex">
+                  <object class="GtkTreeViewColumn" id="ContentListKey">
                     <property name="resizable">True</property>
                     <property name="sizing">fixed</property>
-                    <property name="fixed_width">100</property>
+                    <property name="fixed_width">120</property>
                     <property name="min_width">30</property>
-                    <property name="title">Index</property>
+                    <property name="title">Key</property>
                     <property name="clickable">True</property>
-                    <property name="alignment">1</property>
                     <property name="sort_column_id">3</property>
                     <child>
                       <object class="GtkCellRendererText" id="ContentListIndexRenderer">
-                        <property name="xalign">1</property>
+                        <property name="xalign">0</property>
                       </object>
                       <attributes>
                         <attribute name="text">3</attribute>

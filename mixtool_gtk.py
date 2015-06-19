@@ -11,7 +11,7 @@ import mixlib       as MixLib
 COLUMN_NAME   = 0
 COLUMN_SIZE   = 1
 COLUMN_OFFSET = 2
-COLUMN_INDEX  = 3
+COLUMN_KEY    = 3
 
 # Global vars
 windowlist = []
@@ -68,8 +68,10 @@ class GUIController:
 			raise
 		
 		self.filename = OS.path.basename(filename)
+		
+		mixtype = ("TD", "RA", "TS")[self.MixFile.get_type()]
 		self.set_titlebar(self.filename)
-		self.set_statusbar(self.filename + " contains " + str(len(self.MixFile.contents)) + " files.")
+		self.set_statusbar(" ".join((mixtype, "MIX contains", str(self.MixFile.numfiles), "files.")))
 		
 		self.update_contents()
 		
@@ -80,8 +82,8 @@ class GUIController:
 		index = 0
 		for content in self.MixFile.index:
 			treeiter = self.ContentStore.insert_with_valuesv(-1,
-				(COLUMN_NAME, COLUMN_SIZE, COLUMN_OFFSET, COLUMN_INDEX),
-				(hex(content["key"]) if content["name"] is None else content["name"], content["size"] , content["offset"], index))
+				(COLUMN_NAME, COLUMN_SIZE, COLUMN_OFFSET, COLUMN_KEY),
+				("(Unknown)" if content["name"] is None else content["name"], content["size"] , content["offset"], hex(content["key"])))
 			
 			self.contents.append(treeiter)
 			
@@ -132,6 +134,7 @@ class GUIController:
 	def settingsdialog(self, *args):
 		messagebox("Not implemented yet", "i", self.MainWindow)
 		
+	# Search current file for names
 	def searchdialog(self, *args):
 		self.SearchDialogEntry.grab_focus()
 		self.SearchDialogEntry.select_region(0, -1)
@@ -141,11 +144,11 @@ class GUIController:
 		
 		if response == Gtk.ResponseType.OK  and search != "":
 			name  = self.SearchDialogEntry.get_text()
-			key   = MixLib.get_key(name, self.MixFile.mixtype)
+			key = self.MixFile.get_key(name)
 			index = self.MixFile.get_index(key)
 			
 			if index is not None:
-				self.ContentStore[self.contents[index]][0] = name
+				self.ContentStore[self.contents[index]][0] = self.MixFile.index[index]["name"]
 				
 				path = self.ContentStore.get_path(self.contents[index])
 				self.ContentList.set_cursor(path)
