@@ -141,7 +141,7 @@ class GUIController:
 		
 		if response == Gtk.ResponseType.OK  and search != "":
 			name  = self.SearchDialogEntry.get_text()
-			key   = MixLib.genkey(name, MixLib.TYPE_TD)
+			key   = MixLib.get_key(name, self.MixFile.mixtype)
 			index = self.MixFile.get_index(key)
 			
 			if index is not None:

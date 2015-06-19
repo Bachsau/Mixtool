@@ -40,22 +40,26 @@ class MixFile:
 		self.Stream.seek(0, OS.SEEK_SET)
 		firstbytes = int.from_bytes(self.Stream.read(2), BYTEORDER)
 		if firstbytes == 0:
-			# It seems we have a TS MIX so decode the flags
-			self.type = TYPE_TS
-			self.flags = int.from_bytes(self.Stream.read(2), BYTEORDER)
-			self.has_checksum = self.flags & FLAG_CHECKSUM == FLAG_CHECKSUM
-			self.is_encrypted = self.flags & FLAG_ENCRYPTED == FLAG_ENCRYPTED
+			# It seems we have a RA/TS MIX so decode the flags
+			flags = int.from_bytes(self.Stream.read(2), BYTEORDER)
+			self.has_checksum = flags & FLAG_CHECKSUM == FLAG_CHECKSUM
+			self.is_encrypted = flags & FLAG_ENCRYPTED == FLAG_ENCRYPTED
+			
+			# Encrypted TS MIXes have a key.ini (1983676893) we can check for later,
+			# so at this point assume TYPE_TS only if unencrypted
+			self.mixtype = TYPE_RA if self.is_encrypted else TYPE_TS
 			
 			# Get header data for RA/TS
 			if self.is_encrypted:
 				# OK, we have to deal with this first
 				self.key_source = self.Stream.read(80)
 			else:
-				# Easy going
+				# RA/TS MIXes hold their filecount after the flags,
+				# whilst for TD MIXes their first two bytes are the filecount.
 				self.numfiles = int.from_bytes(self.Stream.read(2), BYTEORDER)
 		else:
-			# Maybe it's a TD or RA MIX
-			self.type = TYPE_TD
+			# Maybe it's a TD MIX
+			self.mixtype = TYPE_TD
 			self.flags = 0
 			self.has_checksum = False
 			self.is_encrypted = False
@@ -86,11 +90,9 @@ class MixFile:
 				self.index.append({"key": key, "offset": offset, "size": size, "name": None})
 				self.contents[key] = self.index[i]
 				
-				
-				
 				if minoffset is None or offset < minoffset: minoffset = offset
-				
 			self.indexfree = int(minoffset / 12)
+		
 		
 	# Get a file out of the MIX
 	def get_file(name, start=0, bytes=-1):
@@ -144,32 +146,21 @@ class MixError(Exception):
 
 # Create MIX-Identifier from filename
 # Thanks to Olaf van der Spek for providing these functions
-def genkey(name, type):
+def get_key(name, mixtype):
 	name   = name.upper()
 	name   = name.replace("/", "\\\\")
 	name   = name.encode("windows-1252", "replace")
 	length = len(name)
 	
-	if type == TYPE_TS:
+	if mixtype == TYPE_TS:
 		# Compute a key for TS MIXes
 		a = length & ~3
 		if length & 3:
-			name += (length - a).to_bytes(1, BYTEORDER)
-			name.append(3 - (length & 3), name[a]);
-		return BinASCII.crc32(name, len(name)) & 4294967295
-			
-#           #################################################
-#			const int l = name.length();
-#			int a = l & ~3;
-#			if (l & 3)
-#			{
-#				name += static_cast<char>(l - a);
-#				name.append(3 - (l & 3), name[a]);
-#			}
-#			return compute_crc(name.c_str(), name.length());
-#           #################################################
+			name += bytes((length - a,))
+			name += bytes((name[a],)) * (3 - (length & 3))
+		return BinASCII.crc32(name) & 4294967295
 	else:
-		# Compute a key for TD / RA MIXes
+		# Compute a key for TD/RA MIXes
 		i   = 0
 		key = 0
 		while i < length:
