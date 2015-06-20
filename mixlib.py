@@ -12,16 +12,15 @@ from mixtool_gtk  import messagebox
 FLAG_CHECKSUM  = 1
 FLAG_ENCRYPTED = 2
 
-TYPE_TD = 0
-TYPE_RA = 1
-TYPE_TS = 2
+TYPE_TD  = 0
+TYPE_RA  = 1
+TYPE_TS  = 2
 
-MIXDB_TD = 1422054725 # local mix database.dat
-MIXDB_TS = 913179935  # local mix database.dat
-KEYFILE  = 1983676893 # key.ini
+DBKEYS   = 1422054725,  913179935
+KEYFILE  = 1983676893
 
-BYTEORDER = "little"
-XCC_ID = b"XCC by Olaf van der Spek\x1a\x04\x17\x27\x10\x19\x80"
+ENCODING = "windows-1252"
+XCC_ID = b"XCC by Olaf van der Spek\x1a\x04\x17\x27\x10\x19\x80\x00"
 
 
 # Instance representing a single MIX file
@@ -41,10 +40,10 @@ class MixFile:
 		
 		# First two bytes are zero for RA/TS and the number of files for TD
 		self.Stream.seek(0, OS.SEEK_SET)
-		firstbytes = int.from_bytes(self.Stream.read(2), BYTEORDER)
+		firstbytes = int.from_bytes(self.Stream.read(2), "little")
 		if firstbytes == 0:
 			# It seems we have a RA/TS MIX so decode the flags
-			flags = int.from_bytes(self.Stream.read(2), BYTEORDER)
+			flags = int.from_bytes(self.Stream.read(2), "little")
 			self.has_checksum = flags & FLAG_CHECKSUM == FLAG_CHECKSUM
 			self.is_encrypted = flags & FLAG_ENCRYPTED == FLAG_ENCRYPTED
 			
@@ -59,7 +58,7 @@ class MixFile:
 			else:
 				# RA/TS MIXes hold their filecount after the flags,
 				# whilst for TD MIXes their first two bytes are the filecount.
-				self.numfiles = int.from_bytes(self.Stream.read(2), BYTEORDER)
+				self.filecount = int.from_bytes(self.Stream.read(2), "little")
 		else:
 			# Maybe it's a TD MIX
 			self.mixtype = TYPE_TD
@@ -68,13 +67,13 @@ class MixFile:
 			self.is_encrypted = False
 			
 			# Get header Data for TD
-			self.numfiles = firstbytes
+			self.filecount = firstbytes
 			
 		# From here it's the same for every unencrypted MIX
 		if not self.is_encrypted:
-			self.bodysize = int.from_bytes(self.Stream.read(4), BYTEORDER)
+			self.bodysize = int.from_bytes(self.Stream.read(4), "little")
 			self.indexstart = self.Stream.tell()
-			self.indexsize = self.numfiles * 12
+			self.indexsize = self.filecount * 12
 			self.bodystart = self.indexstart + self.indexsize
 			
 			# Check if data is sane
@@ -85,19 +84,58 @@ class MixFile:
 			minoffset = None
 			self.index = []
 			self.contents = {}
-			for i in range(0, self.numfiles):
-				key    = int.from_bytes(self.Stream.read(4), BYTEORDER)
-				offset = int.from_bytes(self.Stream.read(4), BYTEORDER)
-				size   = int.from_bytes(self.Stream.read(4), BYTEORDER)
+			for i in range(0, self.filecount):
+				key    = int.from_bytes(self.Stream.read(4), "little")
+				offset = int.from_bytes(self.Stream.read(4), "little")
+				size   = int.from_bytes(self.Stream.read(4), "little")
 				
 				self.index.append({"key": key, "offset": offset, "size": size, "name": None})
 				self.contents[key] = self.index[i]
 				
 				if minoffset is None or offset < minoffset: minoffset = offset
+			self.index.sort(key=lambda i: i["offset"])
 			self.indexfree = int(minoffset / 12)
 			
 			# Now read the Local MIX Database
 			self.names = {} # Pairs of "Name: Key"; Not referencing an index object!
+			
+			for dbkey in DBKEYS:
+				if dbkey in self.contents:
+					self.Stream.seek(self.contents[dbkey]["offset"] + self.bodystart, OS.SEEK_SET)
+					header  = self.Stream.read(32)
+					size    = int.from_bytes(self.Stream.read(4), "little") # Total filesize
+					xcctype = int.from_bytes(self.Stream.read(4), "little") # 0 for LMD, 2 for XIF
+					version = int.from_bytes(self.Stream.read(4), "little") # Always zero
+					mixtype = int.from_bytes(self.Stream.read(4), "little")
+					
+					if header != XCC_ID or size != self.contents[dbkey]["size"]:
+						raise MixError("Invalid database")
+					elif mixtype > 6:
+						raise MixError("Unsupported MIX type")
+					else:
+						if mixtype > TYPE_TS: mixtype = TYPE_TS
+						
+					namecount = int.from_bytes(self.Stream.read(4), "little")
+					mixdb     = self.Stream.read(self.contents[dbkey]["size"] - 52).split(b"\x00")
+					del(mixdb[-1])
+					
+					if len(mixdb) != namecount:
+						raise MixError("Invalid database")
+						
+					self.mixtype = mixtype
+					for name in mixdb:
+						name = name.decode(ENCODING, "replace")
+						key = genkey(name, self.mixtype)
+						if key in self.contents:
+							self.contents[key]["name"] = name
+							self.names[name] = key
+							
+					# Remove MIX Database from index after reading
+					self.index.remove(self.contents[dbkey])
+					del(self.contents[dbkey])
+					break
+				
+					
 		
 		
 	# Get a file out of the MIX
@@ -105,8 +143,8 @@ class MixFile:
 		# Negative start counts bytes from the end
 		pass
 		
-	# Get the index number of a file
-	def get_index(self, key):
+	# Get the index position of a file
+	def get_inode(self, key):
 		if isinstance(key, str):
 			key = self.get_key(key)
 			
@@ -119,59 +157,69 @@ class MixFile:
 		else:
 			key = genkey(name, self.mixtype)
 			
-			# Add name to index if file exists
-			if key in self.contents:
+			# Add name to index if file exists and does not collide
+			if key in self.contents and self.contents[key]["name"] is None:
 				self.contents[key]["name"] = name
 				self.names[name] = key
 				
 			return key
 			
-			
 	# Rename a file in the MIX
 	def rename(old, new):
-		index = self.get_index(old)
+		# This implicitly calls self.get_key()
+		inode = self.get_inode(old)
 		
-		if index is None:
+		if inode is None:
 			raise MixError("File not found")
 			
-		if isinstance(new, str):
-			newname = new
-			new = self.get_key(new)
-		else:
-			newname = None
+		self.set_name(inode, new)
+		
+		# Return the most useful information
+		return inode
 			
-		if new in self.contents:
-			raise MixError("File exists")
-			
-		del(self.contents[old])
-		self.index[index]["key"] = new
-		self.index[index]["name"] = newname
-		self.contents[new] = self.index[index]
-		
-		self.write_index()
-		return self.index[index]
-		
-		
 	# Set a new name for file at given index
-	def set_name(index, new):
+	def set_name(inode, new):
 		if isinstance(new, str):
 			newname = new
+			# If an unknown file "newname" already exists, this will result in the name being added
 			new = self.get_key(new)
 		else:
 			newname = None
 			
-		if new in self.contents:
-			raise MixError("File exists")
+		# Every key representing "local mix database.dat" is considered reserved
+		if new in DBKEYS: raise MixError("Invalid filename")
 			
-		old = self.index[index]["key"] if self.index[index]["name"] is None else self.index[index]["name"]
+		old     = self.index[inode]["key"]
+		oldname = self.index[inode]["name"]
+		namechange = True
+			
+		# If old and new keys differ, we need to check for collisions and update the key
+		if old != new:
+			if new in self.contents:
+				raise MixError("File exists")
+				
+			# As there was no collision, update the key
+			self.index[inode]["key"] = new
+			del(self.contents[old])
+			self.contents[new] = self.index[inode]
+			
+			# As key has changed we set a new name, even if it's None (user gave key as new)
+			self.index[inode]["name"] = newname
+		elif newname is not None and newname != oldname:
+			# If old and new keys are the same, set newname only if not None
+			self.index[inode]["name"] = newname
+		else:
+			# This means nothing has changed
+			namechange = False
+			
+		# Update names dict only if name has changed
+		if namechange:
+			if oldname in self.names: del(this.names[oldname])
+			self.names[newname] = new
 		
-		del(self.contents[self.index[index]["key"]])
-		self.index[index]["key"] = new
-		self.index[index]["name"] = newname
-		self.contents[new] = self.index[index]
+		# Return the most useful information
+		return oldname or old
 		
-		self.write_index()
-		return old
 		
 	# Write current index to MIX
 	def write_index():
@@ -232,10 +280,10 @@ class MixError(Exception):
 def genkey(name, mixtype):
 	name   = name.upper()
 	name   = name.replace("/", "\\\\")
-	name   = name.encode("windows-1252", "replace")
+	name   = name.encode(ENCODING, "replace")
 	length = len(name)
 	
-	if mixtype == TYPE_TS:
+	if mixtype >= TYPE_TS:
 		# Compute key for TS MIXes
 		a = length & ~3
 		if length & 3:

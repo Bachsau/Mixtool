@@ -69,9 +69,10 @@ class GUIController:
 		
 		self.filename = OS.path.basename(filename)
 		
-		mixtype = ("TD", "RA", "TS")[self.MixFile.get_type()]
+		games = "Tiberian Dawn", "Red Alert", "Tiberian Sun"
+		mixtype = games[self.MixFile.get_type()]
 		self.set_titlebar(self.filename)
-		self.set_statusbar(" ".join((mixtype, "MIX contains", str(self.MixFile.numfiles), "files.")))
+		self.set_statusbar(" ".join((mixtype, "MIX contains", str(self.MixFile.filecount), "files.")))
 		
 		self.update_contents()
 		
@@ -145,12 +146,12 @@ class GUIController:
 		if response == Gtk.ResponseType.OK  and search != "":
 			name  = self.SearchDialogEntry.get_text()
 			key = self.MixFile.get_key(name)
-			index = self.MixFile.get_index(key)
+			inode = self.MixFile.get_inode(key)
 			
-			if index is not None:
-				self.ContentStore[self.contents[index]][0] = self.MixFile.index[index]["name"]
+			if inode is not None:
+				self.ContentStore[self.contents[inode]][0] = self.MixFile.index[inode]["name"]
 				
-				path = self.ContentStore.get_path(self.contents[index])
+				path = self.ContentStore.get_path(self.contents[inode])
 				self.ContentList.set_cursor(path)
 			else:
 				messagebox(self.filename + " does not cotain a file with key " + hex(key), "i", self.MainWindow)
