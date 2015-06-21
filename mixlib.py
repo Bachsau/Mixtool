@@ -4,7 +4,7 @@
 import os         as OS
 import binascii   as BinASCII
 
-import abstractio as AbstractIO
+#import abstractio as AbstractIO
 from mixtool_gtk  import messagebox
 
 
@@ -16,34 +16,35 @@ TYPE_TD  = 0
 TYPE_RA  = 1
 TYPE_TS  = 2
 
-DBKEYS   = 1422054725,  913179935
+DBKEYS   = 1422054725, 913179935
 KEYFILE  = 1983676893
 
-ENCODING = "windows-1252"
-XCC_ID = b"XCC by Olaf van der Spek\x1a\x04\x17\x27\x10\x19\x80\x00"
+XCC_ID    = b"XCC by Olaf van der Spek\x1a\x04\x17\x27\x10\x19\x80\x00"
+ENCODING  = "windows-1252"
+BYTEORDER = "little"
 
 
 # Instance representing a single MIX file
 # Think of this like a file system driver
 class MixFile:
 	# Constructor opens MIX file
-	def __init__(self, Stream):
+	def __init__(self, Stream, brutemode=False):
 		# TODO: Test stream
 		self.Stream   = Stream
 		self.filesize = self.Stream.seek(0, OS.SEEK_END)
 		
 		if self.filesize < 4:
-			raise Exception("File too small")
+			raise MixError("File too small")
 		
 		# Generic initial values
 		self.compactwrite = True # True: Size optimized write; False: Speed optimized write
 		
 		# First two bytes are zero for RA/TS and the number of files for TD
 		self.Stream.seek(0, OS.SEEK_SET)
-		firstbytes = int.from_bytes(self.Stream.read(2), "little")
+		firstbytes = int.from_bytes(self.Stream.read(2), BYTEORDER)
 		if firstbytes == 0:
 			# It seems we have a RA/TS MIX so decode the flags
-			flags = int.from_bytes(self.Stream.read(2), "little")
+			flags = int.from_bytes(self.Stream.read(2), BYTEORDER)
 			self.has_checksum = flags & FLAG_CHECKSUM == FLAG_CHECKSUM
 			self.is_encrypted = flags & FLAG_ENCRYPTED == FLAG_ENCRYPTED
 			
@@ -58,7 +59,7 @@ class MixFile:
 			else:
 				# RA/TS MIXes hold their filecount after the flags,
 				# whilst for TD MIXes their first two bytes are the filecount.
-				self.filecount = int.from_bytes(self.Stream.read(2), "little")
+				self.filecount = int.from_bytes(self.Stream.read(2), BYTEORDER)
 		else:
 			# Maybe it's a TD MIX
 			self.mixtype = TYPE_TD
@@ -71,51 +72,55 @@ class MixFile:
 			
 		# From here it's the same for every unencrypted MIX
 		if not self.is_encrypted:
-			self.bodysize = int.from_bytes(self.Stream.read(4), "little")
+			self.bodysize = int.from_bytes(self.Stream.read(4), BYTEORDER)
 			self.indexstart = self.Stream.tell()
 			self.indexsize = self.filecount * 12
 			self.bodystart = self.indexstart + self.indexsize
 			
 			# Check if data is sane
 			if self.filesize - self.bodystart != self.bodysize:
-				raise Exception("Incorrect filesize or invalid header.")
+				raise MixError("Incorrect filesize or invalid header.")
 				
 			# OK, time to read the index
 			minoffset = None
 			self.index = []
 			self.contents = {}
 			for i in range(0, self.filecount):
-				key    = int.from_bytes(self.Stream.read(4), "little")
-				offset = int.from_bytes(self.Stream.read(4), "little")
-				size   = int.from_bytes(self.Stream.read(4), "little")
+				key    = int.from_bytes(self.Stream.read(4), BYTEORDER)
+				offset = int.from_bytes(self.Stream.read(4), BYTEORDER)
+				size   = int.from_bytes(self.Stream.read(4), BYTEORDER)
 				
 				self.index.append({"key": key, "offset": offset, "size": size, "name": None})
 				self.contents[key] = self.index[i]
 				
 				if minoffset is None or offset < minoffset: minoffset = offset
-			self.index.sort(key=lambda i: i["offset"])
-			self.indexfree = int(minoffset / 12)
-			
+				
+			if len(self.index) != len(self.contents):
+				raise MixError("Duplicate key")
+				
 			# Now read the Local MIX Database
-			self.names = {} # Pairs of "Name: Key"; Not referencing an index object!
+			self.names = {} # Pairs of "Name: Key"; Not referencing an index row!
 			
 			for dbkey in DBKEYS:
 				if dbkey in self.contents:
 					self.Stream.seek(self.contents[dbkey]["offset"] + self.bodystart, OS.SEEK_SET)
 					header  = self.Stream.read(32)
-					size    = int.from_bytes(self.Stream.read(4), "little") # Total filesize
-					xcctype = int.from_bytes(self.Stream.read(4), "little") # 0 for LMD, 2 for XIF
-					version = int.from_bytes(self.Stream.read(4), "little") # Always zero
-					mixtype = int.from_bytes(self.Stream.read(4), "little")
 					
-					if header != XCC_ID or size != self.contents[dbkey]["size"]:
+					if header != XCC_ID: continue
+					
+					size    = int.from_bytes(self.Stream.read(4), BYTEORDER) # Total filesize
+					xcctype = int.from_bytes(self.Stream.read(4), BYTEORDER) # 0 for LMD, 2 for XIF
+					version = int.from_bytes(self.Stream.read(4), BYTEORDER) # Always zero
+					mixtype = int.from_bytes(self.Stream.read(4), BYTEORDER)
+					
+					if size != self.contents[dbkey]["size"]:
 						raise MixError("Invalid database")
-					elif mixtype > 6:
+					elif mixtype > TYPE_TS + 3:
 						raise MixError("Unsupported MIX type")
-					else:
-						if mixtype > TYPE_TS: mixtype = TYPE_TS
+					elif mixtype > TYPE_TS:
+						mixtype = TYPE_TS
 						
-					namecount = int.from_bytes(self.Stream.read(4), "little")
+					namecount = int.from_bytes(self.Stream.read(4), BYTEORDER)
 					mixdb     = self.Stream.read(self.contents[dbkey]["size"] - 52).split(b"\x00")
 					del(mixdb[-1])
 					
@@ -133,11 +138,19 @@ class MixFile:
 					# Remove MIX Database from index after reading
 					self.index.remove(self.contents[dbkey])
 					del(self.contents[dbkey])
-					break
-				
 					
+					# XCC sometimes puts two Databases in a file by mistake,
+					# so if no names were found, give it another try
+					if len(self.names) != 0: break
+					
+			# Sort the index and determine free space after it
+			self.index.sort(key=lambda i: i["offset"])
+			self.indexgap = int(self.index[0]["offset"] / 12)
 		
-		
+	# Destructor writes index to file if not read only
+	def __del__(self):
+		if self.Stream.writable(): self.write_index()
+	
 	# Get a file out of the MIX
 	def get_file(name, start=0, bytes=-1):
 		# Negative start counts bytes from the end
@@ -151,6 +164,7 @@ class MixFile:
 		return self.index.index(self.contents[key]) if key in self.contents else None
 		
 	# Get the key for a filename
+	# Also used to add missing names to the index
 	def get_key(self, name):
 		if name in self.names:
 			return self.names[name]
@@ -191,7 +205,7 @@ class MixFile:
 			
 		old     = self.index[inode]["key"]
 		oldname = self.index[inode]["name"]
-		namechange = True
+		namechange = False
 			
 		# If old and new keys differ, we need to check for collisions and update the key
 		if old != new:
@@ -205,12 +219,11 @@ class MixFile:
 			
 			# As key has changed we set a new name, even if it's None (user gave key as new)
 			self.index[inode]["name"] = newname
+			namechange = True
 		elif newname is not None and newname != oldname:
 			# If old and new keys are the same, set newname only if not None
 			self.index[inode]["name"] = newname
-		else:
-			# This means nothing has changed
-			namechange = False
+			namechange = True
 			
 		# Update names dict only if name has changed
 		if namechange:
@@ -224,19 +237,12 @@ class MixFile:
 	# Write current index to MIX
 	def write_index():
 		if self.Stream.writable():
-			# Sort index and write
-			pass
-		else:
-			# Raise warning
-			pass
-		
-	# Returns a AbstractIO instance
-	def open(self, file):
-		if file:
 			pass
 			
-		# TODO: Check if valid
-		return AbstractIO.AbstractIO(self, self.contents["key"]["offset"], self.contents["key"]["size"])
+	# Opens a file inside the MIX using AbstractIO
+	def open(self, file):
+		# Should resemble the behavior of the build-in open function
+		pass
 		
 	# Moves content out of the way
 	def move_away(self, key):
@@ -248,13 +254,38 @@ class MixFile:
 		
 	# Return if MIX is TD, RA or TS
 	def get_type(self):
-		return self.mixtype
+		return ("TD", "RA", "TS")[self.mixtype]
 		
-	# Change MIX type only if every file has a name
-	def set_type(self):
-		if len(self.names) < len(self.index):
-			messagebox("Can't set type without knowledge of all names")
-			# TODO: raise a warning instead; show message in mixtool
+	# Change MIX type
+	def convert(self, newtype):
+		if newtype < TYPE_TD or newtype > TYPE_TS + 3:
+			raise MixError("Unsupported MIX type")
+		elif newtype > TYPE_TS:
+			newtype = TYPE_TS
+		
+		if (newtype >= TYPE_TS and self.mixtype < TYPE_TS) or (newtype < TYPE_TS and self.mixtype >= TYPE_TS):
+			# This means we have to convert all names
+			if len(self.names) < len(self.index):
+				raise MixError("Can't convert between TD/RA and TS when names are missing")
+				
+				newkeys = {}
+				for irow in self.index:
+					key = genkey(irow["name"], mixtype)
+					newkeys[key] = irow
+			
+				if len(newkeys) != len(self.index):
+					raise MixError("Key collision")
+				else:
+					for key, irow in newkeys:
+						irow["key"] = key
+					self.contents = newkeys
+					
+		# Checksum and Encryption is not supported in TD
+		if newtype < TYPE_RA:
+			self.has_checksum = False
+			self.is_encrypted = False
+			
+		self.mixtype = newtype
 		return self.mixtype
 		
 	def fstat(self):

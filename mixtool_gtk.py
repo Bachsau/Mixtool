@@ -69,10 +69,8 @@ class GUIController:
 		
 		self.filename = OS.path.basename(filename)
 		
-		games = "Tiberian Dawn", "Red Alert", "Tiberian Sun"
-		mixtype = games[self.MixFile.get_type()]
 		self.set_titlebar(self.filename)
-		self.set_statusbar(" ".join((mixtype, "MIX contains", str(self.MixFile.filecount), "files.")))
+		self.set_statusbar(" ".join((self.MixFile.get_type(), "MIX contains", str(self.MixFile.filecount), "files.")))
 		
 		self.update_contents()
 		

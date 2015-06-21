@@ -2,11 +2,12 @@
 # coding=utf8
 
 import os as OS
+import io as IO
 
 # Works on a MixFile instance to represent a single file inside it
-# Should implements the methods of IO.RawIOBase.
-class AbstractIO:
-	def __init__(self, parent, offset, size):
+# Should inherit from IO.IOBase and implement IO.IOBase.
+class AbstractIO(IO.BaseIO):
+	def __init__(self, parent, inode):
 		# References to MixFile instance and IO stream
 		self.MixFile = parent
 		self.Stream  = parent.Stream
