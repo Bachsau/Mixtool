@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 # coding=utf8
 
-import os         as OS
 import binascii   as BinASCII
+import os         as OS
 
 #import abstractio as AbstractIO
 from mixtool_gtk  import messagebox
@@ -156,8 +156,9 @@ class MixFile:
 		# Negative start counts bytes from the end
 		pass
 		
-	# Get the index position of a file
-	def get_inode(self, key):
+	# Get the index position (inode number) of a file
+	# Should rarely be used
+	def get_index(self, key):
 		if isinstance(key, str):
 			key = self.get_key(key)
 			
@@ -179,20 +180,13 @@ class MixFile:
 			return key
 			
 	# Rename a file in the MIX
-	def rename(old, new):
-		# This implicitly calls self.get_key()
-		inode = self.get_inode(old)
-		
-		if inode is None:
+	def rename(self, old, new):
+		if isinstance(old, str):
+			old = self.get_key(key)
+			
+		if old not in self.contents:
 			raise MixError("File not found")
 			
-		self.set_name(inode, new)
-		
-		# Return the most useful information
-		return inode
-			
-	# Set a new name for file at given index
-	def set_name(inode, new):
 		if isinstance(new, str):
 			newname = new
 			# If an unknown file "newname" already exists, this will result in the name being added
@@ -202,9 +196,9 @@ class MixFile:
 			
 		# Every key representing "local mix database.dat" is considered reserved
 		if new in DBKEYS: raise MixError("Invalid filename")
-			
-		old     = self.index[inode]["key"]
-		oldname = self.index[inode]["name"]
+		
+		inode   = self.contents[old]
+		oldname = self.contents[old]["name"]
 		namechange = False
 			
 		# If old and new keys differ, we need to check for collisions and update the key
@@ -213,26 +207,34 @@ class MixFile:
 				raise MixError("File exists")
 				
 			# As there was no collision, update the key
-			self.index[inode]["key"] = new
+			inode["key"] = new
 			del(self.contents[old])
-			self.contents[new] = self.index[inode]
+			self.contents[new] = inode
 			
-			# As key has changed we set a new name, even if it's None (user gave key as new)
-			self.index[inode]["name"] = newname
+			# Key has changed, so set a new name, even if it's None (user gave key as new)
+			inode["name"] = newname
 			namechange = True
+			
+		# If old and new keys are the same, set newname only if not None
 		elif newname is not None and newname != oldname:
-			# If old and new keys are the same, set newname only if not None
-			self.index[inode]["name"] = newname
+			inode["name"] = newname
 			namechange = True
 			
 		# Update names dict only if name has changed
 		if namechange:
-			if oldname in self.names: del(this.names[oldname])
+			if oldname in self.names: del(self.names[oldname])
 			self.names[newname] = new
 		
-		# Return the most useful information
-		return oldname or old
+		# Return new key. Maybe useful if name was given.
+		return new
 		
+	# Set new name for a given inode number
+	def set_name(self, nodenum, new):
+		old     = self.index[nodenum]["key"]
+		oldname = self.index[nodenum]["name"]
+		rename(old, new)
+		
+		return oldname or old
 		
 	# Write current index to MIX
 	def write_index():
@@ -240,9 +242,12 @@ class MixFile:
 			pass
 			
 	# Opens a file inside the MIX using AbstractIO
-	def open(self, file):
-		# Should resemble the behavior of the build-in open function
-		pass
+	# Should resemble the behavior of the build-in open function
+	# Use buildin open() with opener if possible
+	# Call abstractio.open()
+	def open(self, key, mode='r', buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None):
+		if isinstance(key, str):
+			key = self.get_key(key)
 		
 	# Moves content out of the way
 	def move_away(self, key):
@@ -269,15 +274,18 @@ class MixFile:
 				raise MixError("Can't convert between TD/RA and TS when names are missing")
 				
 				newkeys = {}
-				for irow in self.index:
-					key = genkey(irow["name"], mixtype)
-					newkeys[key] = irow
+				# Generate a new key for every name
+				for inode in self.index:
+					key = genkey(inode["name"], newtype)
+					newkeys[key] = inode
 			
 				if len(newkeys) != len(self.index):
 					raise MixError("Key collision")
 				else:
-					for key, irow in newkeys:
-						irow["key"] = key
+					# Update keys in index and names dict
+					for key, inode in newkeys:
+						inode["key"] = key
+						self.names[inode["name"]] = key
 					self.contents = newkeys
 					
 		# Checksum and Encryption is not supported in TD

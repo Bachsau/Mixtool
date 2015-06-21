@@ -1,27 +1,20 @@
 #!/usr/bin/python3
 # coding=utf8
 
-import os as OS
 import io as IO
+import os as OS
 
 # Works on a MixFile instance to represent a single file inside it
 # Should inherit from IO.IOBase and implement IO.IOBase.
 class AbstractIO(IO.BaseIO):
-	def __init__(self, parent, inode):
+	def __init__(self, parent, inode, mode):
 		# References to MixFile instance and IO stream
 		self.MixFile = parent
 		self.Stream  = parent.Stream
+		self.inode   = inode
 		
-		# File position relative to MIX file
-		self.offset  = offset
-		self.size    = size
-		self.end     = offset + size
-		self.closed  = False
-		
-		# User could use another MixIO instance in between operations,
-		# so this needs to be reset on every operation
-		self.position     = 0
-		self.realposition = offset
+		# Relative abstracted data
+		self.position = 0
 		
 	# Closing a file removes all references to the MixFile instance,
 	# so its destructor may be called
@@ -77,4 +70,9 @@ class AbstractIO(IO.BaseIO):
 	
 class AbstractIOError(Exception):
 	# Error Class
+	pass
+	
+# Implement OS.open()
+# http://docs.python.org/3/library/os.html#os.open
+def open(parent, inode, flags, mode=0o777):
 	pass
