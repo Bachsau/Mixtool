@@ -98,7 +98,7 @@ class MixFile:
 					
 				if minoffset is None or offset < minoffset: minoffset = offset
 				
-				self.index.append({"key": key, "offset": offset, "size": size, "name": None})
+				self.index.append({"offset": offset, "size": size, "key": key, "name": None})
 				self.contents[key] = self.index[i]
 				
 			if len(self.index) != len(self.contents):

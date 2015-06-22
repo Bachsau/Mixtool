@@ -122,7 +122,10 @@ class GUIController:
 			messagebox("Selected " + self.SaveDialog.get_filename())
 			
 	def extractdialog(self, *args):
-		messagebox("Not implemented yet", "i", self.MainWindow)
+		response = self.ExtractDialog.run()
+		self.ExtractDialog.hide()
+		if response == Gtk.ResponseType.OK:
+			messagebox("Selected " + self.ExtractDialog.get_filename())
 		
 	def propertiesdialog(self, *args):
 		messagebox("Not implemented yet", "i", self.MainWindow)
@@ -132,23 +135,24 @@ class GUIController:
 		
 	# Search current file for names
 	def searchdialog(self, *args):
-		self.SearchDialogEntry.grab_focus()
-		self.SearchDialogEntry.select_region(0, -1)
-		response = self.SearchDialog.run()
-		self.SearchDialog.hide()
-		search = self.SearchDialogEntry.get_text()
+		if self.MixFile is not None:
+			self.SearchDialogEntry.grab_focus()
+			self.SearchDialogEntry.select_region(0, -1)
+			response = self.SearchDialog.run()
+			self.SearchDialog.hide()
+			search = self.SearchDialogEntry.get_text()
 		
-		if response == Gtk.ResponseType.OK  and search != "":
-			name  = self.SearchDialogEntry.get_text()
-			key = self.MixFile.get_key(name)
+			if response == Gtk.ResponseType.OK  and search != "":
+				name  = self.SearchDialogEntry.get_text()
+				key = self.MixFile.get_key(name)
 			
-			if key in self.contents:
-				self.ContentStore[self.contents[key]][0] = self.MixFile.contents[key]["name"]
+				if key in self.contents:
+					self.ContentStore[self.contents[key]][0] = self.MixFile.contents[key]["name"]
 				
-				path = self.ContentStore.get_path(self.contents[key])
-				self.ContentList.set_cursor(path)
-			else:
-				messagebox(self.filename + " does not cotain a file with key " + hex(key), "i", self.MainWindow)
+					path = self.ContentStore.get_path(self.contents[key])
+					self.ContentList.set_cursor(path)
+				else:
+					messagebox(self.filename + " does not cotain a file with key " + hex(key), "i", self.MainWindow)
 				
 				
 	# Add content dialog
@@ -159,7 +163,7 @@ class GUIController:
 		self.StatusBar.set_text(str(text))
 		
 	def set_titlebar(self, text):
-		self.MainWindow.set_title(text + " – Mixtool")
+		self.MainWindow.set_title(text + " – Mixtool (Alpha)")
 		
 	# Close window / Exit program
 	def close(self, *args):
