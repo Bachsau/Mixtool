@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 # coding=utf8
+open = None
 
+import io           as IO
 import os           as OS
 import configparser as ConfigParser
 
@@ -62,7 +64,7 @@ class GUIController:
 		
 		# TODO: Input sanitising, test for existence
 		try:
-			self.MixFile = MixLib.MixFile(open(filename, "rb"))
+			self.MixFile = MixLib.MixFile(IO.open(filename, "rb"))
 		except Exception as error:
 			messagebox(error ,"e")
 			raise
@@ -76,18 +78,13 @@ class GUIController:
 		
 	# List MIX content in Window
 	def update_contents(self, *args):
-		self.contents = []
+		self.contents = {}
 		self.ContentStore.clear()
-		index = 0
 		for content in self.MixFile.index:
-			treeiter = self.ContentStore.insert_with_valuesv(-1,
+			self.contents[content["key"]] = self.ContentStore.insert_with_valuesv(-1,
 				(COLUMN_NAME, COLUMN_SIZE, COLUMN_OFFSET, COLUMN_KEY),
 				("(Unknown)" if content["name"] is None else content["name"], content["size"] , content["offset"], hex(content["key"])))
-			
-			self.contents.append(treeiter)
-			
-			index += 1
-			
+
 			
 	def newfile(self, *args):
 		if self.unsaved:
@@ -144,12 +141,11 @@ class GUIController:
 		if response == Gtk.ResponseType.OK  and search != "":
 			name  = self.SearchDialogEntry.get_text()
 			key = self.MixFile.get_key(name)
-			inode = self.MixFile.get_inode(key)
 			
-			if inode is not None:
-				self.ContentStore[self.contents[inode]][0] = self.MixFile.index[inode]["name"]
+			if key in self.contents:
+				self.ContentStore[self.contents[key]][0] = self.MixFile.contents[key]["name"]
 				
-				path = self.ContentStore.get_path(self.contents[inode])
+				path = self.ContentStore.get_path(self.contents[key])
 				self.ContentList.set_cursor(path)
 			else:
 				messagebox(self.filename + " does not cotain a file with key " + hex(key), "i", self.MainWindow)

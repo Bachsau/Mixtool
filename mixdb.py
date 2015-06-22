@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 # coding=utf8
+open = None
 
 import mixlib as MixLib
 

@@ -1,12 +1,19 @@
 #!/usr/bin/python3
 # coding=utf8
+open = None
+
+# AbstractIO expands the standard IO module with Classes to work on
+# abstract file-in-file objects with infinite recursion.
+#
+# Designed to work with the MixLib it should work with every other class
+# that resembles its interface.
 
 import io as IO
 import os as OS
 
 # Works on a MixFile instance to represent a single file inside it
-# Should inherit from IO.IOBase and implement IO.IOBase.
-class AbstractIO(IO.BaseIO):
+# inherits from IO.IOBase and implements IO.RawIOBase.
+class AbstractIO(IO.IOBase):
 	def __init__(self, parent, inode, mode):
 		# References to MixFile instance and IO stream
 		self.MixFile = parent
@@ -72,7 +79,11 @@ class AbstractIOError(Exception):
 	# Error Class
 	pass
 	
-# Implement OS.open()
-# http://docs.python.org/3/library/os.html#os.open
-def open(parent, inode, flags, mode=0o777):
-	pass
+# Implements the build-in open function.
+# Uses MixLib.open (or other file-in-files open function) as the opener
+# Return a corresponding AbstractIO-derived instance
+def open(filename, backend, mode="r", buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None):
+	if opener is None:
+		opener == backend._opener()
+		
+		

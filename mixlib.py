@@ -1,12 +1,16 @@
 #!/usr/bin/python3
 # coding=utf8
+open = None
 
 import binascii   as BinASCII
 import os         as OS
 
-#import abstractio as AbstractIO
+import abstractio as AbstractIO
 from mixtool_gtk  import messagebox
 
+# MixLib implements a file-in-file type class that can be used by AbstractIO.
+# To AbstractIO it is what the standard OS module is to standard IO.
+# MixLib and AbstractIO work together to build an in-python-file-system and stream API.
 
 # Constants
 FLAG_CHECKSUM  = 1
@@ -25,19 +29,19 @@ BYTEORDER = "little"
 
 
 # Instance representing a single MIX file
-# Think of this like a file system driver
+# Think of this as a file system driver
 class MixFile:
 	# Constructor opens MIX file
-	def __init__(self, Stream, brutemode=False):
+	def __init__(self, stream, new=False, mixtype=None):
 		# TODO: Test stream
-		self.Stream   = Stream
+		self.Stream = stream
 		self.filesize = self.Stream.seek(0, OS.SEEK_END)
 		
 		if self.filesize < 4:
 			raise MixError("File too small")
 		
 		# Generic initial values
-		self.compactwrite = True # True: Size optimized write; False: Speed optimized write
+		self.files_open = []
 		
 		# First two bytes are zero for RA/TS and the number of files for TD
 		self.Stream.seek(0, OS.SEEK_SET)
@@ -63,7 +67,6 @@ class MixFile:
 		else:
 			# Maybe it's a TD MIX
 			self.mixtype = TYPE_TD
-			self.flags = 0
 			self.has_checksum = False
 			self.is_encrypted = False
 			
@@ -72,14 +75,14 @@ class MixFile:
 			
 		# From here it's the same for every unencrypted MIX
 		if not self.is_encrypted:
-			self.bodysize = int.from_bytes(self.Stream.read(4), BYTEORDER)
-			self.indexstart = self.Stream.tell()
-			self.indexsize = self.filecount * 12
-			self.bodystart = self.indexstart + self.indexsize
+			self.contentsize  = int.from_bytes(self.Stream.read(4), BYTEORDER)
+			self.indexstart   = self.Stream.tell()
+			self.indexsize    = self.filecount * 12
+			self.contentstart = self.indexstart + self.indexsize
 			
 			# Check if data is sane
-			if self.filesize - self.bodystart != self.bodysize:
-				raise MixError("Incorrect filesize or invalid header.")
+			if self.filesize - self.contentstart != self.contentsize:
+				raise MixError("Incorrect filesize or invalid header")
 				
 			# OK, time to read the index
 			minoffset = None
@@ -87,13 +90,16 @@ class MixFile:
 			self.contents = {}
 			for i in range(0, self.filecount):
 				key    = int.from_bytes(self.Stream.read(4), BYTEORDER)
-				offset = int.from_bytes(self.Stream.read(4), BYTEORDER)
+				offset = int.from_bytes(self.Stream.read(4), BYTEORDER) + self.contentstart
 				size   = int.from_bytes(self.Stream.read(4), BYTEORDER)
+				
+				if offset + size > self.filesize:
+					raise MixError("Content " + hex(key) + " out of range")
+					
+				if minoffset is None or offset < minoffset: minoffset = offset
 				
 				self.index.append({"key": key, "offset": offset, "size": size, "name": None})
 				self.contents[key] = self.index[i]
-				
-				if minoffset is None or offset < minoffset: minoffset = offset
 				
 			if len(self.index) != len(self.contents):
 				raise MixError("Duplicate key")
@@ -103,7 +109,7 @@ class MixFile:
 			
 			for dbkey in DBKEYS:
 				if dbkey in self.contents:
-					self.Stream.seek(self.contents[dbkey]["offset"] + self.bodystart, OS.SEEK_SET)
+					self.Stream.seek(self.contents[dbkey]["offset"], OS.SEEK_SET)
 					header  = self.Stream.read(32)
 					
 					if header != XCC_ID: continue
@@ -121,8 +127,8 @@ class MixFile:
 						mixtype = TYPE_TS
 						
 					namecount = int.from_bytes(self.Stream.read(4), BYTEORDER)
-					mixdb     = self.Stream.read(self.contents[dbkey]["size"] - 52).split(b"\x00")
-					del(mixdb[-1])
+					bodysize  = self.contents[dbkey]["size"] - 53
+					mixdb     = self.Stream.read(bodysize).split(b"\x00") if bodysize > 0 else []
 					
 					if len(mixdb) != namecount:
 						raise MixError("Invalid database")
@@ -131,25 +137,25 @@ class MixFile:
 					for name in mixdb:
 						name = name.decode(ENCODING, "replace")
 						key = genkey(name, self.mixtype)
-						if key in self.contents:
+						if key in self.contents and key != dbkey:
 							self.contents[key]["name"] = name
 							self.names[name] = key
 							
 					# Remove MIX Database from index after reading
 					self.index.remove(self.contents[dbkey])
 					del(self.contents[dbkey])
+					self.filecount -= 1
 					
 					# XCC sometimes puts two Databases in a file by mistake,
 					# so if no names were found, give it another try
 					if len(self.names) != 0: break
 					
-			# Sort the index and determine free space after it
+			# Sort the index by offset
 			self.index.sort(key=lambda i: i["offset"])
-			self.indexgap = int(self.index[0]["offset"] / 12)
 		
 	# Destructor writes index to file if not read only
 	def __del__(self):
-		if self.Stream.writable(): self.write_index()
+		if self.Stream.writable(): self.write_header()
 	
 	# Get a file out of the MIX
 	def get_file(name, start=0, bytes=-1):
@@ -157,11 +163,10 @@ class MixFile:
 		pass
 		
 	# Get the index position (inode number) of a file
-	# Should rarely be used
+	# Deprecated; May be removed in the future
 	def get_index(self, key):
 		if isinstance(key, str):
 			key = self.get_key(key)
-			
 		return self.index.index(self.contents[key]) if key in self.contents else None
 		
 	# Get the key for a filename
@@ -194,7 +199,7 @@ class MixFile:
 		else:
 			newname = None
 			
-		# Every key representing "local mix database.dat" is considered reserved
+		# Every key representing a Local MIX Database is considered reserved
 		if new in DBKEYS: raise MixError("Invalid filename")
 		
 		inode   = self.contents[old]
@@ -236,18 +241,31 @@ class MixFile:
 		
 		return oldname or old
 		
-	# Write current index to MIX
-	def write_index():
+	# Write current header (Flags, Keysource, Index, Database) to MIX
+	def write_header():
 		if self.Stream.writable():
 			pass
 			
 	# Opens a file inside the MIX using AbstractIO
-	# Should resemble the behavior of the build-in open function
-	# Use buildin open() with opener if possible
-	# Call abstractio.open()
-	def open(self, key, mode='r', buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None):
+	# by calling AbstractIO.open much like IO.open
+	# This is a public high-level method, not the "opener",
+	# It does not implement a standard libs function.
+	def open(self, name, mode="r", buffering=4194304, encoding=None, errors=None):
+		return AbstractIO.open(name, self, mode, buffering, encoding, errors, None, True, self._opener)
+		
+	# Implements OS.open() with "OS" being this MIX
+	# http://docs.python.org/3/library/os.html#os.open
+	# Serves as the opener to AbstractIO.open
+	def _opener(self, key, flags, mode=0o777):
 		if isinstance(key, str):
 			key = self.get_key(key)
+			
+		if key in self.contents:
+			fd = len(self.files_open)
+			self.files_open.append(self.contents[key])
+			return fd
+		else:
+			raise MixError("File not found")
 		
 	# Moves content out of the way
 	def move_away(self, key):
@@ -283,7 +301,7 @@ class MixFile:
 					raise MixError("Key collision")
 				else:
 					# Update keys in index and names dict
-					for key, inode in newkeys:
+					for key, inode in items(newkeys):
 						inode["key"] = key
 						self.names[inode["name"]] = key
 					self.contents = newkeys
@@ -296,17 +314,9 @@ class MixFile:
 		self.mixtype = newtype
 		return self.mixtype
 		
-	def fstat(self):
-		# Returns information on a file contained
-		pass
-		
 	# Compact mix function // Works like defragmentation
 	# Reorganizing orders contents by size with the smallest at that beginning
 	def compact(self, reorganize=False):
-		pass
-		
-	# Return current Local Mix Database file
-	def get_mixdb(self):
 		pass
 		
 
