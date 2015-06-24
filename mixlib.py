@@ -59,7 +59,7 @@ class MixFile:
 			# Get header data for RA/TS
 			if self.is_encrypted:
 				# OK, we have to deal with this first
-				self.key_source = self.Stream.read(80)
+				raise MixError("MIX is encrypted. Decrypting MIX headers will be added later.")
 			else:
 				# RA/TS MIXes hold their filecount after the flags,
 				# whilst for TD MIXes their first two bytes are the filecount.

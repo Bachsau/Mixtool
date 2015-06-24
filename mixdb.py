@@ -2,9 +2,9 @@
 # coding=utf8
 open = None
 
-import mixlib as MixLib
+from mixlib import genkey
 
-# A complex Global MIX Database
+# A *really* global MIX Database interface
 class MixDB:
-	def __init__(self, online=True):
+	def __init__(self):
 		pass
