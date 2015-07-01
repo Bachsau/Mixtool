@@ -24,7 +24,7 @@ DBKEYS   = 1422054725, 913179935
 KEYFILE  = 1983676893
 
 XCC_ID    = b"XCC by Olaf van der Spek\x1a\x04\x17\x27\x10\x19\x80\x00"
-ENCODING  = "windows-1252"
+ENCODING  = "cp1252"
 BYTEORDER = "little"
 
 

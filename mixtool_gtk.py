@@ -22,7 +22,7 @@ settings   = {}
 # Handles all GUI commands
 class GUIController:
 	# Read GUI from file and retrieve objects from GtkBuilder
-	def __init__(self, filename):
+	def __init__(self, filename, db):
 		try:
 			GtkBuilder = Gtk.Builder.new_from_file("gui.glade")
 			GtkBuilder.connect_signals(self)
@@ -188,9 +188,9 @@ def messagebox(text, type="i", parent=None):
 	return response
 	
 # Initiliaze GtkBuilder and GUI controller
-def open_window(filename=None):
+def open_window(filename=None, db=None):
 	global windowlist
-	windowlist.append(GUIController(filename))
+	windowlist.append(GUIController(filename, db))
 	
 # Main application
 def main():
