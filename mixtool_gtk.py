@@ -36,6 +36,7 @@ class GUIController:
 		self.ExtractDialog     = GtkBuilder.get_object("ExtractDialog")
 		self.SearchDialog      = GtkBuilder.get_object("SearchDialog")
 		self.SearchDialogEntry = GtkBuilder.get_object("SearchDialogEntry")
+		self.AboutDialog       = GtkBuilder.get_object("AboutDialog")
 		self.ContentList       = GtkBuilder.get_object("ContentList")
 		self.ContentStore      = GtkBuilder.get_object("ContentStore")
 		self.StatusBar         = GtkBuilder.get_object("StatusBar")
@@ -132,6 +133,10 @@ class GUIController:
 		
 	def settingsdialog(self, *args):
 		messagebox("Not implemented yet", "i", self.MainWindow)
+		
+	def aboutdialog(self, *args):
+		self.AboutDialog.run()
+		self.AboutDialog.hide()
 		
 	# Search current file for names
 	def searchdialog(self, *args):
