@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 # coding=utf8
-open = None
 
 import binascii   as BinASCII
 import os         as OS
@@ -40,7 +39,7 @@ class MixFile:
 		if self.filesize < 4:
 			raise MixError("File too small")
 		
-		# Generic initial values
+		# A list to handle descriptors of files opened inside the MIX
 		self.files_open = []
 		
 		# First two bytes are zero for RA/TS and the number of files for TD
@@ -98,7 +97,7 @@ class MixFile:
 					
 				if minoffset is None or offset < minoffset: minoffset = offset
 				
-				self.index.append({"offset": offset, "size": size, "key": key, "name": None})
+				self.index.append({"offset": offset, "size": size, "alloc": size, "key": key, "name": None})
 				self.contents[key] = self.index[i]
 				
 			if len(self.index) != len(self.contents):
@@ -110,7 +109,7 @@ class MixFile:
 			for dbkey in DBKEYS:
 				if dbkey in self.contents:
 					self.Stream.seek(self.contents[dbkey]["offset"], OS.SEEK_SET)
-					header  = self.Stream.read(32)
+					header = self.Stream.read(32)
 					
 					if header != XCC_ID: continue
 					
@@ -121,7 +120,8 @@ class MixFile:
 					
 					if size != self.contents[dbkey]["size"]:
 						raise MixError("Invalid database")
-					elif mixtype > TYPE_TS + 3:
+					
+					if mixtype > TYPE_TS + 3:
 						raise MixError("Unsupported MIX type")
 					elif mixtype > TYPE_TS:
 						mixtype = TYPE_TS
@@ -152,20 +152,25 @@ class MixFile:
 					
 			# Sort the index by offset
 			self.index.sort(key=lambda i: i["offset"])
+			
+			# Calculate alloc values
+			# This is the size up to wich a file may grow without needing a move
+			for i in range(0, len(self.index) - 1):
+				self.index[i]["alloc"] = self.index[i+1]["offset"] - self.index[i]["offset"]				
+			
 		
 	# Destructor writes index to file if not read only
 	def __del__(self):
 		if self.Stream.writable(): self.write_header()
 	
 	# Get a file out of the MIX
-	def get_file(name, start=0, bytes=-1):
-		# Negative start counts bytes from the end
+	def get_file(key):
 		pass
 		
 	# Get the index position (inode number) of a file
 	# Deprecated; May be removed in the future
 	def get_index(self, key):
-		if isinstance(key, str):
+		if not isinstance(key, int):
 			key = self.get_key(key)
 		return self.index.index(self.contents[key]) if key in self.contents else None
 		
@@ -186,13 +191,13 @@ class MixFile:
 			
 	# Rename a file in the MIX
 	def rename(self, old, new):
-		if isinstance(old, str):
+		if not isinstance(old, int):
 			old = self.get_key(key)
 			
 		if old not in self.contents:
 			raise MixError("File not found")
 			
-		if isinstance(new, str):
+		if not isinstance(new, int):
 			newname = new
 			# If an unknown file "newname" already exists, this will result in the name being added
 			new = self.get_key(new)
@@ -253,11 +258,11 @@ class MixFile:
 	def open(self, name, mode="r", buffering=4194304, encoding=None, errors=None):
 		return AbstractIO.open(name, self, mode, buffering, encoding, errors, None, True, self._opener)
 		
-	# Implements OS.open() with "OS" being this MIX
+	# Implements OS.open() with "OS" being _this_ MIX
 	# http://docs.python.org/3/library/os.html#os.open
 	# Serves as the opener to AbstractIO.open
 	def _opener(self, key, flags, mode=0o777):
-		if isinstance(key, str):
+		if not isinstance(key, int):
 			key = self.get_key(key)
 			
 		if key in self.contents:
