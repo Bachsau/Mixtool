@@ -9,7 +9,7 @@ from gi.repository  import GObject, Gdk, Gtk
 import mixlib       as MixLib
 
 # Constants
-COLUMN_KEY      = 0
+COLUMN_ROWID    = 0
 COLUMN_NAME     = 1
 COLUMN_OFFSET   = 2
 COLUMN_SIZE     = 3
@@ -68,7 +68,7 @@ class GUIController:
 		try:
 			self.MixFile = MixLib.MixFile(open(filename, "rb"))
 		except Exception as error:
-			messagebox("Problem" ,"e")
+			messagebox("Error loading MIX file" ,"e")
 			raise
 		
 		self.filename = OS.path.basename(filename)
@@ -76,10 +76,11 @@ class GUIController:
 		self.set_titlebar(self.filename)
 		self.set_statusbar(" ".join((self.MixFile.get_type(), "MIX contains", str(self.MixFile.filecount), "files.")))
 		
+		rowid = 0
 		for content in self.MixFile.index:
-			self.contents[content["key"]] = self.ContentStore.append((
-				content["key"],
-				content["name"] or hex(content["key"]),
+			self.contents[rowid] = self.ContentStore.append((
+				rowid,
+				content["name"],
 				content["offset"],
 				content["size"],
 				content["alloc"] - content["size"]
@@ -174,7 +175,7 @@ class GUIController:
 					path = self.ContentStore.get_path(self.contents[key])
 					self.ContentList.set_cursor(path)
 				else:
-					messagebox(self.filename + " does not cotain a file with key " + hex(key), "i", self.MainWindow)
+					messagebox(hex(key) + "not found in current mix", "i", self.MainWindow)
 		else:
 			messagebox("Search needs an open file", "e", self.MainWindow)
 				

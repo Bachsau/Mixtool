@@ -84,9 +84,7 @@ class MixFile:
 				raise MixError("Incorrect filesize or invalid header")
 				
 			# OK, time to read the index
-			minoffset = None
-			self.index = []
-			self.contents = {}
+			rawindex = {}
 			for i in range(0, self.filecount):
 				key    = int.from_bytes(self.Stream.read(4), BYTEORDER)
 				offset = int.from_bytes(self.Stream.read(4), BYTEORDER) + self.contentstart
@@ -94,21 +92,17 @@ class MixFile:
 				
 				if offset + size > self.filesize:
 					raise MixError("Content " + hex(key) + " out of range")
-					
-				if minoffset is None or offset < minoffset: minoffset = offset
 				
-				self.index.append({"offset": offset, "size": size, "alloc": size, "key": key, "name": None})
-				self.contents[key] = self.index[i]
+				rawindex[key] = (offset, size)
 				
-			if len(self.index) != len(self.contents):
+			if len(rawindex) != self.filecount:
 				raise MixError("Duplicate key")
 				
-			# Now read the Local MIX Database
-			self.names = {} # Pairs of "Name: Key"; Not referencing an index row!
-			
+			# Now read the names
+			names = {}
 			for dbkey in DBKEYS:
-				if dbkey in self.contents:
-					self.Stream.seek(self.contents[dbkey]["offset"], OS.SEEK_SET)
+				if dbkey in rawindex:
+					self.Stream.seek(rawindex[dbkey][0], OS.SEEK_SET)
 					header = self.Stream.read(32)
 					
 					if header != XCC_ID: continue
@@ -116,9 +110,9 @@ class MixFile:
 					size    = int.from_bytes(self.Stream.read(4), BYTEORDER) # Total filesize
 					xcctype = int.from_bytes(self.Stream.read(4), BYTEORDER) # 0 for LMD, 2 for XIF
 					version = int.from_bytes(self.Stream.read(4), BYTEORDER) # Always zero
-					mixtype = int.from_bytes(self.Stream.read(4), BYTEORDER)
+					mixtype = int.from_bytes(self.Stream.read(4), BYTEORDER) # XCC Game ID
 					
-					if size != self.contents[dbkey]["size"]:
+					if size != rawindex[dbkey][1]:
 						raise MixError("Invalid database")
 					
 					if mixtype > TYPE_TS + 3:
@@ -126,29 +120,38 @@ class MixFile:
 					elif mixtype > TYPE_TS:
 						mixtype = TYPE_TS
 						
+					self.mixtype = mixtype
+						
 					namecount = int.from_bytes(self.Stream.read(4), BYTEORDER)
-					bodysize  = self.contents[dbkey]["size"] - 53
+					bodysize  = rawindex[dbkey][1] - 53 # Size - header - last byte
 					mixdb     = self.Stream.read(bodysize).split(b"\x00") if bodysize > 0 else []
 					
 					if len(mixdb) != namecount:
 						raise MixError("Invalid database")
 						
-					self.mixtype = mixtype
+					# Remove MIX Database from index
+					del rawindex[dbkey]
+					self.filecount -= 1
+					
 					for name in mixdb:
 						name = name.decode(ENCODING, "replace")
 						key = genkey(name, self.mixtype)
-						if key in self.contents and key != dbkey:
-							self.contents[key]["name"] = name
-							self.names[name] = key
-							
-					# Remove MIX Database from index after reading
-					self.index.remove(self.contents[dbkey])
-					del(self.contents[dbkey])
-					self.filecount -= 1
-					
+						if key in rawindex:
+							names[key] = name
+										
 					# XCC sometimes puts two Databases in a file by mistake,
 					# so if no names were found, give it another try
-					if len(self.names) != 0: break
+					if len(names) != 0: break
+					
+			# Generate final index
+			self.contents = {}
+			self.index = []
+			for key, values in rawindex.items():
+				name   = names.setdefault(key, hex(key))
+				offset = values[0]
+				size   = values[1]
+				self.contents[name] = {"name": name, "offset": offset, "size": size, "alloc": size}
+				self.index.append(self.contents[name])
 					
 			# Sort the index by offset
 			self.index.sort(key=lambda i: i["offset"])
