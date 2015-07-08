@@ -1,23 +1,24 @@
 #!/usr/bin/python3
 # coding=utf8
-open = None
 
-import io           as IO
 import os           as OS
+import locale       as Locale
 import configparser as ConfigParser
 
 from gi.repository  import GObject, Gdk, Gtk
 import mixlib       as MixLib
 
 # Constants
-COLUMN_NAME   = 0
-COLUMN_SIZE   = 1
-COLUMN_OFFSET = 2
-COLUMN_KEY    = 3
+COLUMN_KEY      = 0
+COLUMN_NAME     = 1
+COLUMN_OFFSET   = 2
+COLUMN_SIZE     = 3
+COLUMN_OVERHEAD = 4
+
 
 # Global vars
 windowlist = []
-settings   = {}
+#settings   = {}
 
 # Handles all GUI commands
 class GUIController:
@@ -39,6 +40,7 @@ class GUIController:
 		self.AboutDialog       = GtkBuilder.get_object("AboutDialog")
 		self.ContentList       = GtkBuilder.get_object("ContentList")
 		self.ContentStore      = GtkBuilder.get_object("ContentStore")
+		self.ContentSelector   = GtkBuilder.get_object("ContentSelector")
 		self.StatusBar         = GtkBuilder.get_object("StatusBar")
 		
 		# Initially sort by Offset
@@ -51,23 +53,22 @@ class GUIController:
 	
 	# Reset GUI and close file
 	def reset(self, *args):
-		self.MixFile  = None
-		self.unsaved  = False
-		self.filename = "Untitled"
-		self.contents = []
+		self.MixFile   = None
+		self.filename  = "Untitled"
+		self.contents  = {}
 		self.ContentStore.clear()
 		self.set_titlebar(self.filename)
 		self.set_statusbar("This is alpha software. Use at your own risk!")
 		
 	# Load file
 	def loadfile(self, filename):
-		self.newfile()
+		self.reset()
 		
 		# TODO: Input sanitising, test for existence
 		try:
-			self.MixFile = MixLib.MixFile(IO.open(filename, "rb"))
+			self.MixFile = MixLib.MixFile(open(filename, "rb"))
 		except Exception as error:
-			messagebox(error ,"e")
+			messagebox("Problem" ,"e")
 			raise
 		
 		self.filename = OS.path.basename(filename)
@@ -75,38 +76,26 @@ class GUIController:
 		self.set_titlebar(self.filename)
 		self.set_statusbar(" ".join((self.MixFile.get_type(), "MIX contains", str(self.MixFile.filecount), "files.")))
 		
-		self.update_contents()
-		
-	# List MIX content in Window
-	def update_contents(self, *args):
-		self.contents = {}
-		self.ContentStore.clear()
 		for content in self.MixFile.index:
-			self.contents[content["key"]] = self.ContentStore.insert_with_valuesv(-1,
-				(COLUMN_NAME, COLUMN_SIZE, COLUMN_OFFSET, COLUMN_KEY),
-				("(Unknown)" if content["name"] is None else content["name"], content["size"] , content["offset"], hex(content["key"])))
+			self.contents[content["key"]] = self.ContentStore.append((
+				content["key"],
+				content["name"] or hex(content["key"]),
+				content["offset"],
+				content["size"],
+				content["alloc"] - content["size"]
+			))
 
 			
 	def newfile(self, *args):
-		if self.unsaved:
-			# TODO: Ask user for saving
-			if True: # User says yes
-				# self.savedialog()
-				# If user cancels saving: return
-				pass
-			elif False: # User cancels question
-				return
-			
-		# File was saved or user choose not to save
 		self.reset()
 			
 	
 	# Add file to mix
-	def addfile(self, *args):
+	def add_file(self, *args):
 		pass
 		
 	# Remove content from mix
-	def removeselected(self, *args):
+	def remove_selected(self, *args):
 		pass
 	
 	# Dialog functions
@@ -123,10 +112,41 @@ class GUIController:
 			messagebox("Selected " + self.SaveDialog.get_filename())
 			
 	def extractdialog(self, *args):
-		response = self.ExtractDialog.run()
-		self.ExtractDialog.hide()
-		if response == Gtk.ResponseType.OK:
-			messagebox("Selected " + self.ExtractDialog.get_filename())
+		selected = self.get_selected()
+		filecount = len(selected)
+		
+		if filecount == 0:
+			messagebox("Nothing selected", "e", self.MainWindow)
+		else:
+			if filecount > 1:
+				self.ExtractDialog.set_action(Gtk.FileChooserAction.CREATE_FOLDER)
+				self.ExtractDialog.set_current_name(self.filename.replace(".", "_"))
+			else:
+				self.ExtractDialog.set_action(Gtk.FileChooserAction.SAVE)
+				self.ExtractDialog.set_current_name(self.MixFile.contents[selected[0]]["name"])
+				
+			response = self.ExtractDialog.run()
+			self.ExtractDialog.hide()
+			
+			if response == Gtk.ResponseType.OK:
+				filename = self.ExtractDialog.get_filename()
+				
+				if filecount > 1:
+					for key in selected:
+						with open(filename + "/" + self.MixFile.contents[key]["name"], "xb") as OutFile:
+							OutFile.write(self.MixFile.get_file(key))
+				else:
+					with open(filename, "wb") as OutFile:
+						OutFile.write(self.MixFile.get_file(selected[0]))
+			
+	def get_selected(self, *args):
+		keylist = []
+		rowlist = self.ContentSelector.get_selected_rows()
+		for row in rowlist[1]:
+			treeiter = self.ContentStore.get_iter(row)
+			keylist.append(self.ContentStore[treeiter][COLUMN_KEY])
+		return keylist
+		
 		
 	def propertiesdialog(self, *args):
 		messagebox("Not implemented yet", "i", self.MainWindow)
@@ -152,12 +172,14 @@ class GUIController:
 				key = self.MixFile.get_key(name)
 			
 				if key in self.contents:
-					self.ContentStore[self.contents[key]][0] = self.MixFile.contents[key]["name"]
+					self.ContentStore[self.contents[key]][COLUMN_NAME] = self.MixFile.contents[key]["name"]
 				
 					path = self.ContentStore.get_path(self.contents[key])
 					self.ContentList.set_cursor(path)
 				else:
 					messagebox(self.filename + " does not cotain a file with key " + hex(key), "i", self.MainWindow)
+		else:
+			messagebox("Search needs an open file", "e", self.MainWindow)
 				
 				
 	# Add content dialog
@@ -171,7 +193,7 @@ class GUIController:
 		self.MainWindow.set_title(text + " – Mixtool (Alpha)")
 		
 	# Close window / Exit program
-	def close(self, *args):
+	def quit(self, *args):
 		global windowlist
 		self.reset()
 		self.MainWindow.destroy()
@@ -179,17 +201,17 @@ class GUIController:
 		if len(windowlist) < 1: Gtk.main_quit()
 
 # A simple, instance-independant messagebox
-def messagebox(text, type="i", parent=None):
-	if type == "e":
-		MessageType = Gtk.MessageType.ERROR
-		ButtonsType = Gtk.ButtonsType.OK
+def messagebox(text, type_="i", parent=None):
+	if type_ == "e":
+		message_type = Gtk.MessageType.ERROR
+		buttons_type = Gtk.ButtonsType.OK
 	else:
-		MessageType = Gtk.MessageType.INFO
-		ButtonsType = Gtk.ButtonsType.OK
+		message_type = Gtk.MessageType.INFO
+		buttons_type = Gtk.ButtonsType.OK
 	
-	dialogwidget = Gtk.MessageDialog(parent, Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT, MessageType, ButtonsType, str(text))
-	response = dialogwidget.run()
-	dialogwidget.destroy()
+	Dialog = Gtk.MessageDialog(parent, Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT, message_type, buttons_type, str(text))
+	response = Dialog.run()
+	Dialog.destroy()
 	return response
 	
 # Initiliaze GtkBuilder and GUI controller
@@ -199,6 +221,9 @@ def open_window(filename=None, db=None):
 	
 # Main application
 def main():
+	# Keep GTK+ from mixing languages
+	Locale.setlocale(Locale.LC_ALL, "C")
+	
 	# Open first window
 	open_window()
 		

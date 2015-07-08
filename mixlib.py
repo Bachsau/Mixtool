@@ -164,15 +164,15 @@ class MixFile:
 		if self.Stream.writable(): self.write_header()
 	
 	# Get a file out of the MIX
-	def get_file(key):
-		pass
-		
-	# Get the index position (inode number) of a file
-	# Deprecated; May be removed in the future
-	def get_index(self, key):
+	def get_file(self, key):
 		if not isinstance(key, int):
 			key = self.get_key(key)
-		return self.index.index(self.contents[key]) if key in self.contents else None
+		
+		if key in self.contents:
+			self.Stream.seek(self.contents[key]["offset"], OS.SEEK_SET)
+			return self.Stream.read(self.contents[key]["size"])
+		else:
+			raise MixError("File not found")
 		
 	# Get the key for a filename
 	# Also used to add missing names to the index

@@ -4,14 +4,16 @@
   <requires lib="gtk+" version="3.10"/>
   <object class="GtkListStore" id="ContentStore">
     <columns>
-      <!-- column-name Name -->
-      <column type="gchararray"/>
-      <!-- column-name Size -->
+      <!-- column-name key -->
       <column type="guint"/>
-      <!-- column-name Offset -->
-      <column type="guint"/>
-      <!-- column-name Key -->
+      <!-- column-name name -->
       <column type="gchararray"/>
+      <!-- column-name offset -->
+      <column type="guint"/>
+      <!-- column-name size -->
+      <column type="guint"/>
+      <!-- column-name overhead -->
+      <column type="guint"/>
     </columns>
   </object>
   <object class="GtkApplicationWindow" id="MainWindow">
@@ -24,7 +26,7 @@
     <property name="default_height">500</property>
     <property name="icon">icon.png</property>
     <property name="show_menubar">False</property>
-    <signal name="delete-event" handler="close" swapped="no"/>
+    <signal name="delete-event" handler="quit" swapped="no"/>
     <child>
       <object class="GtkBox" id="MainBox">
         <property name="visible">True</property>
@@ -108,7 +110,7 @@
                 <property name="can_focus">False</property>
                 <property name="label">Remove</property>
                 <property name="stock_id">gtk-remove</property>
-                <signal name="clicked" handler="removeselected" swapped="no"/>
+                <signal name="clicked" handler="remove_selected" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -193,12 +195,12 @@
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="ToolbarClose">
+              <object class="GtkToolButton" id="ToolbarQuit">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label">Quit</property>
                 <property name="stock_id">gtk-quit</property>
-                <signal name="clicked" handler="close" swapped="no"/>
+                <signal name="clicked" handler="quit" swapped="no"/>
                 <accelerator key="q" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
@@ -232,7 +234,7 @@
                 <property name="rubber_banding">True</property>
                 <property name="enable_grid_lines">vertical</property>
                 <child internal-child="selection">
-                  <object class="GtkTreeSelection" id="ContentListSelection">
+                  <object class="GtkTreeSelection" id="ContentSelector">
                     <property name="mode">multiple</property>
                   </object>
                 </child>
@@ -244,30 +246,10 @@
                     <property name="min_width">30</property>
                     <property name="title">Name</property>
                     <property name="clickable">True</property>
-                    <property name="sort_column_id">0</property>
+                    <property name="sort_column_id">1</property>
                     <child>
                       <object class="GtkCellRendererText" id="ContentListNameRenderer">
                         <property name="xalign">0</property>
-                      </object>
-                      <attributes>
-                        <attribute name="text">0</attribute>
-                      </attributes>
-                    </child>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkTreeViewColumn" id="ContentListSize">
-                    <property name="resizable">True</property>
-                    <property name="sizing">fixed</property>
-                    <property name="fixed_width">200</property>
-                    <property name="min_width">30</property>
-                    <property name="title">Size</property>
-                    <property name="clickable">True</property>
-                    <property name="alignment">1</property>
-                    <property name="sort_column_id">1</property>
-                    <child>
-                      <object class="GtkCellRendererText" id="ContentListSizeRenderer">
-                        <property name="xalign">1</property>
                       </object>
                       <attributes>
                         <attribute name="text">1</attribute>
@@ -296,20 +278,41 @@
                   </object>
                 </child>
                 <child>
-                  <object class="GtkTreeViewColumn" id="ContentListKey">
+                  <object class="GtkTreeViewColumn" id="ContentListSize">
                     <property name="resizable">True</property>
                     <property name="sizing">fixed</property>
-                    <property name="fixed_width">120</property>
+                    <property name="fixed_width">200</property>
                     <property name="min_width">30</property>
-                    <property name="title">Key</property>
+                    <property name="title">Size</property>
                     <property name="clickable">True</property>
+                    <property name="alignment">1</property>
                     <property name="sort_column_id">3</property>
                     <child>
-                      <object class="GtkCellRendererText" id="ContentListIndexRenderer">
-                        <property name="xalign">0</property>
+                      <object class="GtkCellRendererText" id="ContentListSizeRenderer">
+                        <property name="xalign">1</property>
                       </object>
                       <attributes>
                         <attribute name="text">3</attribute>
+                      </attributes>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkTreeViewColumn" id="ContentListOverhead">
+                    <property name="resizable">True</property>
+                    <property name="sizing">fixed</property>
+                    <property name="fixed_width">200</property>
+                    <property name="min_width">30</property>
+                    <property name="title" translatable="yes">Overhead</property>
+                    <property name="clickable">True</property>
+                    <property name="alignment">1</property>
+                    <property name="sort_column_id">4</property>
+                    <child>
+                      <object class="GtkCellRendererText" id="ContentListOverheadRenderer">
+                        <property name="xalign">1</property>
+                      </object>
+                      <attributes>
+                        <attribute name="text">4</attribute>
                       </attributes>
                     </child>
                   </object>
