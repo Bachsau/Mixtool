@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 # coding=utf8
-open = None
 
 from array import array
 from mixtool_gtk import messagebox
@@ -27,8 +26,8 @@ CHAR2NUM = (-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 # struct bignum
 class bignum(array):
 	initbytes = bytes(2048)
-	def __new__(self):
-		return array.__new__(bignum, "L", bignum.initbytes)
+	def __new__(cls):
+		return array.__new__(cls, "L", self.initbytes)
 
 # static struct 
 # {

@@ -3,8 +3,8 @@
 
 import binascii   as BinASCII
 import os         as OS
+import io         as IO
 
-import abstractio as AbstractIO
 from mixtool_gtk  import messagebox
 
 # MixLib implements a file-in-file type class that can be used by AbstractIO.
@@ -31,8 +31,8 @@ BYTEORDER = "little"
 # Think of this as a file system driver
 class MixFile:
 	# Constructor opens MIX file
+	# Must work on a BufferedIO stream
 	def __init__(self, stream, new=False, mixtype=None):
-		# TODO: Test stream
 		self.Stream = stream
 		self.filesize = self.Stream.seek(0, OS.SEEK_END)
 		
@@ -58,7 +58,7 @@ class MixFile:
 			# Get header data for RA/TS
 			if self.is_encrypted:
 				# OK, we have to deal with this first
-				raise MixError("MIX is encrypted. Decrypting MIX headers will be added later.")
+				raise MixError("MIX is encrypted. Decrypting MIX headers ist not yet supported.")
 			else:
 				# RA/TS MIXes hold their filecount after the flags,
 				# whilst for TD MIXes their first two bytes are the filecount.
@@ -157,7 +157,6 @@ class MixFile:
 			# This is the size up to wich a file may grow without needing a move
 			for i in range(0, len(self.index) - 1):
 				self.index[i]["alloc"] = self.index[i+1]["offset"] - self.index[i]["offset"]				
-			
 		
 	# Destructor writes index to file if not read only
 	def __del__(self):
@@ -168,11 +167,8 @@ class MixFile:
 		if not isinstance(key, int):
 			key = self.get_key(key)
 		
-		if key in self.contents:
-			self.Stream.seek(self.contents[key]["offset"], OS.SEEK_SET)
-			return self.Stream.read(self.contents[key]["size"])
-		else:
-			raise MixError("File not found")
+		self.Stream.seek(self.contents[key]["offset"], OS.SEEK_SET)
+		return self.Stream.read(self.contents[key]["size"])
 		
 	# Get the key for a filename
 	# Also used to add missing names to the index
@@ -189,13 +185,19 @@ class MixFile:
 				
 			return key
 			
+	# Extract a file to the local filesystem
+	def extract(self, key, dest):
+		if not isinstance(key, int):
+			key = self.get_key(key)
+			
+		with open(dest, "wb") as OutFile:
+			# TODO: Do not place whole file in memory
+			OutFile.write(self.get_file(key))
+			
 	# Rename a file in the MIX
 	def rename(self, old, new):
 		if not isinstance(old, int):
 			old = self.get_key(key)
-			
-		if old not in self.contents:
-			raise MixError("File not found")
 			
 		if not isinstance(new, int):
 			newname = new
@@ -246,10 +248,10 @@ class MixFile:
 		
 		return oldname or old
 		
-	# Write current header (Flags, Keysource, Index, Database) to MIX
+	# Write current header (Flags, Keysource, Index, Database, Checksum) to MIX
+	# TODO: Implement context manager
 	def write_header():
-		if self.Stream.writable():
-			pass
+		pass
 			
 	# Opens a file inside the MIX using AbstractIO
 	# by calling AbstractIO.open much like IO.open
@@ -265,12 +267,9 @@ class MixFile:
 		if not isinstance(key, int):
 			key = self.get_key(key)
 			
-		if key in self.contents:
-			fd = len(self.files_open)
-			self.files_open.append(self.contents[key])
-			return fd
-		else:
-			raise MixError("File not found")
+		fd = len(self.files_open)
+		self.files_open.append(self.contents[key])
+		return fd
 		
 	# Moves content out of the way
 	def move_away(self, key):
@@ -323,6 +322,10 @@ class MixFile:
 	# Reorganizing orders contents by size with the smallest at that beginning
 	def compact(self, reorganize=False):
 		pass
+		
+# MixIO instaces are used to work with contained files as if they were real
+class MixIO(IO.BufferedIOBase):
+	pass
 		
 
 class MixError(Exception):

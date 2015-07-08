@@ -84,15 +84,6 @@ class GUIController:
 				content["size"],
 				content["alloc"] - content["size"]
 			))
-
-			
-	def newfile(self, *args):
-		self.reset()
-			
-	
-	# Add file to mix
-	def add_file(self, *args):
-		pass
 		
 	# Remove content from mix
 	def remove_selected(self, *args):
@@ -122,8 +113,9 @@ class GUIController:
 				self.ExtractDialog.set_action(Gtk.FileChooserAction.CREATE_FOLDER)
 				self.ExtractDialog.set_current_name(self.filename.replace(".", "_"))
 			else:
+				key = selected[0]
 				self.ExtractDialog.set_action(Gtk.FileChooserAction.SAVE)
-				self.ExtractDialog.set_current_name(self.MixFile.contents[selected[0]]["name"])
+				self.ExtractDialog.set_current_name(self.MixFile.contents[key]["name"] or hex(key))
 				
 			response = self.ExtractDialog.run()
 			self.ExtractDialog.hide()
@@ -132,12 +124,17 @@ class GUIController:
 				filename = self.ExtractDialog.get_filename()
 				
 				if filecount > 1:
+					# Mitigate FileChoserDialog's incosistent behavior
+					if OS.listdir(filename):
+						filename += "/" + self.ExtractDialog.get_current_name()
+						messagebox(filename)
+						OS.mkdir(filename)
+						
+					# Save every file with its original name
 					for key in selected:
-						with open(filename + "/" + self.MixFile.contents[key]["name"], "xb") as OutFile:
-							OutFile.write(self.MixFile.get_file(key))
+						self.MixFile.extract(key, filename + "/" + (self.MixFile.contents[key]["name"] or hex(key)))
 				else:
-					with open(filename, "wb") as OutFile:
-						OutFile.write(self.MixFile.get_file(selected[0]))
+					self.MixFile.extract(selected[0], filename)
 			
 	def get_selected(self, *args):
 		keylist = []
