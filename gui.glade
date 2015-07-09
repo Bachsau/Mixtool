@@ -5,7 +5,7 @@
   <object class="GtkListStore" id="ContentStore">
     <columns>
       <!-- column-name rowid -->
-      <column type="guint"/>
+      <column type="gulong"/>
       <!-- column-name name -->
       <column type="gchararray"/>
       <!-- column-name offset -->
@@ -110,7 +110,7 @@
                 <property name="can_focus">False</property>
                 <property name="label">Remove</property>
                 <property name="stock_id">gtk-remove</property>
-                <signal name="clicked" handler="remove_selected" swapped="no"/>
+                <signal name="clicked" handler="delete_selected" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>

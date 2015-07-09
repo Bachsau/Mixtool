@@ -76,18 +76,19 @@ class GUIController:
 		self.set_titlebar(self.filename)
 		self.set_statusbar(" ".join((self.MixFile.get_type(), "MIX contains", str(self.MixFile.filecount), "files.")))
 		
-		rowid = 0
-		for content in self.MixFile.index:
-			self.contents[rowid] = self.ContentStore.append((
+		for inode in self.MixFile.index:
+			rowid = id(inode)
+			treeiter = self.ContentStore.append((
 				rowid,
-				content["name"],
-				content["offset"],
-				content["size"],
-				content["alloc"] - content["size"]
+				inode["name"],
+				inode["offset"],
+				inode["size"],
+				inode["alloc"] - inode["size"]
 			))
+			self.contents[rowid] = (treeiter, inode)
 		
-	# Remove content from mix
-	def remove_selected(self, *args):
+	# Delete file(s) from mix
+	def delete_selected(self, *args):
 		pass
 	
 	# Dialog functions
