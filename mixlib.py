@@ -129,7 +129,7 @@ class MixFile:
 					if len(mixdb) != namecount:
 						raise MixError("Invalid database")
 						
-					# Remove MIX Database from index
+					# Remove Database from index
 					del rawindex[dbkey]
 					self.filecount -= 1
 					
@@ -144,14 +144,13 @@ class MixFile:
 					if len(names) != 0: break
 					
 			# Generate final index
-			self.contents = {}
 			self.index = []
+			self.contents = {}
 			for key, values in rawindex.items():
-				name   = names.setdefault(key, hex(key))
-				offset = values[0]
-				size   = values[1]
-				self.contents[name] = {"name": name, "offset": offset, "size": size, "alloc": size}
-				self.index.append(self.contents[name])
+				name = names.get(key, hex(key))
+				inode = {"name": name, "offset": values[0], "size": values[1], "alloc": values[1]}
+				self.index.append(inode)
+				self.contents[name] = inode
 					
 			# Sort the index by offset
 			self.index.sort(key=lambda i: i["offset"])
@@ -164,38 +163,38 @@ class MixFile:
 	# Destructor writes index to file if not read only
 	def __del__(self):
 		if self.Stream.writable(): self.write_header()
+		
+	# Central file-finding method
+	# Also used to add missing names to the index
+	def get_inode(self, name):
+		inode = self.contents.get(name)
+		
+		if inode is None:
+			key = genkey(name, self.mixtype)
+			inode = self.contents.get(hex(key))
+			
+			# Change name in index if file exists
+			if inode is not None:
+				del self.contents[inode["name"]]
+				inode["name"] == name
+				self.contents[name] = inode
+				
+		return inode
 	
 	# Get a file out of the MIX
-	def get_file(self, key):
-		if not isinstance(key, int):
-			key = self.get_key(key)
+	def get_file(self, name):
+		inode = self.get_inode(name)
 		
-		self.Stream.seek(self.contents[key]["offset"], OS.SEEK_SET)
-		return self.Stream.read(self.contents[key]["size"])
-		
-	# Get the key for a filename
-	# Also used to add missing names to the index
-	def get_key(self, name):
-		if name in self.names:
-			return self.names[name]
-		else:
-			key = genkey(name, self.mixtype)
-			
-			# Add name to index if file exists and does not collide
-			if key in self.contents and self.contents[key]["name"] is None:
-				self.contents[key]["name"] = name
-				self.names[name] = key
-				
-			return key
+		self.Stream.seek(inode["offset"], OS.SEEK_SET)
+		return self.Stream.read(inode["size"])
 			
 	# Extract a file to the local filesystem
-	def extract(self, key, dest):
-		if not isinstance(key, int):
-			key = self.get_key(key)
+	def extract(self, name, dest):
+		inode = self.get_inode(name)
 			
 		with open(dest, "wb") as OutFile:
 			# TODO: Do not place whole file in memory
-			OutFile.write(self.get_file(key))
+			OutFile.write(self.get_file(name))
 			
 	# Rename a file in the MIX
 	def rename(self, old, new):
