@@ -183,7 +183,7 @@ class MixFile:
 			# Add name to index if file exists
 			if inode is not None:
 				del self.contents[inode["name"]]
-				inode["name"] == lname
+				inode["name"] = lname
 				self.contents[lname] = inode
 
 		return inode
@@ -236,7 +236,7 @@ class MixFile:
 			
 		# Now rename the file
 		del self.contents[inode["name"]]
-		inode["name"] == lnew
+		inode["name"] = lnew
 		self.contents[lnew] = inode
 		
 		return inode

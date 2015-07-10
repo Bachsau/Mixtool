@@ -105,46 +105,44 @@ class GUIController:
 			messagebox("Selected " + self.SaveDialog.get_filename())
 			
 	def extractdialog(self, *args):
-		selected = self.get_selected()
-		filecount = len(selected)
+		names = self.get_selected_names()
+		count = len(names)
 		
-		if filecount == 0:
+		if count == 0:
 			messagebox("Nothing selected", "e", self.MainWindow)
 		else:
-			if filecount > 1:
+			if count > 1:
 				self.ExtractDialog.set_action(Gtk.FileChooserAction.CREATE_FOLDER)
 				self.ExtractDialog.set_current_name(self.filename.replace(".", "_"))
 			else:
-				key = selected[0]
+				filename = names[0]
 				self.ExtractDialog.set_action(Gtk.FileChooserAction.SAVE)
-				self.ExtractDialog.set_current_name(self.MixFile.contents[key]["name"] or hex(key))
+				self.ExtractDialog.set_current_name(filename)
 				
 			response = self.ExtractDialog.run()
 			self.ExtractDialog.hide()
 			
 			if response == Gtk.ResponseType.OK:
-				filename = self.ExtractDialog.get_filename()
+				outpath = self.ExtractDialog.get_filename()
 				
-				if filecount > 1:
+				if count > 1:
 					# Mitigate FileChoserDialog's incosistent behavior
-					if OS.listdir(filename):
-						filename += "/" + self.ExtractDialog.get_current_name()
-						messagebox(filename)
-						OS.mkdir(filename)
+					if OS.listdir(outpath):
+						outpath += "/" + self.ExtractDialog.get_current_name()
+						OS.mkdir(outpath)
 						
 					# Save every file with its original name
-					for key in selected:
-						self.MixFile.extract(key, filename + "/" + (self.MixFile.contents[key]["name"] or hex(key)))
+					for filename in names:
+						self.MixFile.extract(filename, outpath + "/" + filename)
 				else:
-					self.MixFile.extract(selected[0], filename)
+					self.MixFile.extract(filename, outpath)
 			
-	def get_selected(self, *args):
-		keylist = []
-		rowlist = self.ContentSelector.get_selected_rows()
-		for row in rowlist[1]:
+	def get_selected_names(self):
+		names = []
+		for row in self.ContentSelector.get_selected_rows()[1]:
 			treeiter = self.ContentStore.get_iter(row)
-			keylist.append(self.ContentStore[treeiter][COLUMN_KEY])
-		return keylist
+			names.append(self.ContentStore[treeiter][COLUMN_NAME])
+		return names
 		
 		
 	def propertiesdialog(self, *args):
@@ -158,6 +156,7 @@ class GUIController:
 		self.AboutDialog.hide()
 		
 	# Search current file for names
+	# TODO: Implement wildcard searching
 	def searchdialog(self, *args):
 		if self.MixFile is not None:
 			self.SearchDialogEntry.grab_focus()
@@ -168,17 +167,18 @@ class GUIController:
 		
 			if response == Gtk.ResponseType.OK  and search != "":
 				name  = self.SearchDialogEntry.get_text()
-				key = self.MixFile.get_key(name)
+				inode = self.MixFile.get_inode(name)
 			
-				if key in self.contents:
-					self.ContentStore[self.contents[key]][COLUMN_NAME] = self.MixFile.contents[key]["name"]
+				if inode is not None:
+					treeiter = self.contents[id(inode)][0]
+					self.ContentStore[treeiter][COLUMN_NAME] = inode["name"]
 				
-					path = self.ContentStore.get_path(self.contents[key])
+					path = self.ContentStore.get_path(treeiter)
 					self.ContentList.set_cursor(path)
 				else:
-					messagebox(hex(key) + "not found in current mix", "i", self.MainWindow)
+					messagebox("Found no file matching \"" + name + "\" in current mix", "i", self.MainWindow)
 		else:
-			messagebox("Search needs an open file", "e", self.MainWindow)
+			messagebox("Search needs an open MIX file", "e", self.MainWindow)
 				
 				
 	# Add content dialog
