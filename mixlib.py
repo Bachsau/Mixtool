@@ -35,8 +35,9 @@ TYPE_TD  = 0
 TYPE_RA  = 1
 TYPE_TS  = 2
 
-DBKEYS   = 1422054725, 913179935
-KEYFILE  = 1983676893
+DBKEYS    = 1422054725, 913179935
+KEYFILE   = 1983676893
+BLOCKSIZE = 4194304
 
 XCC_ID    = b"XCC by Olaf van der Spek\x1a\x04\x17\x27\x10\x19\x80\x00"
 ENCODING  = "cp1252"
@@ -217,11 +218,22 @@ class MixFile:
 		
 		if inode is None:
 			raise MixError("File not found")
-
+		
+		block = BLOCKSIZE
+		size  = inode["size"]
+		full  = int(size / block)
+		rest  = size % block
+		
 		assert not OS.path.isfile(dest)
+		
+		self.Stream.seek(inode["offset"], OS.SEEK_SET)
 		with open(dest, "wb") as OutFile:
-			# TODO: Do not place whole file in memory
-			OutFile.write(self.get_file(name))
+			for i in range(0, full):
+				buffer = self.Stream.read(block)
+				OutFile.write(buffer)
+			if rest:
+				buffer = self.Stream.read(rest)
+				OutFile.write(buffer)
 			
 	# Insert a file from local filesystem
 	def insert(self, name, source):
