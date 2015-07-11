@@ -19,7 +19,6 @@
   <object class="GtkApplicationWindow" id="MainWindow">
     <property name="width_request">320</property>
     <property name="height_request">200</property>
-    <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="title">Mixtool</property>
     <property name="window_position">center</property>
@@ -90,13 +89,13 @@
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="ToolbarAdd">
+              <object class="GtkToolButton" id="ToolbarInsert">
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="label">Add</property>
+                <property name="label">Insert</property>
                 <property name="stock_id">gtk-add</property>
-                <signal name="clicked" handler="adddialog" swapped="no"/>
+                <signal name="clicked" handler="insertdialog" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -104,11 +103,11 @@
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="ToolbarRemove">
+              <object class="GtkToolButton" id="ToolbarDelete">
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="label">Remove</property>
+                <property name="label">Delete</property>
                 <property name="stock_id">gtk-remove</property>
                 <signal name="clicked" handler="delete_selected" swapped="no"/>
               </object>
@@ -225,14 +224,17 @@
               <object class="GtkTreeView" id="ContentList">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
+                <property name="has_focus">True</property>
+                <property name="is_focus">True</property>
                 <property name="hscroll_policy">natural</property>
                 <property name="vscroll_policy">natural</property>
                 <property name="model">ContentStore</property>
-                <property name="search_column">0</property>
+                <property name="search_column">1</property>
                 <property name="fixed_height_mode">True</property>
                 <property name="show_expanders">False</property>
                 <property name="rubber_banding">True</property>
                 <property name="enable_grid_lines">vertical</property>
+                <signal name="row-activated" handler="extractdialog" swapped="no"/>
                 <child internal-child="selection">
                   <object class="GtkTreeSelection" id="ContentSelector">
                     <property name="mode">multiple</property>
@@ -395,6 +397,73 @@
       </object>
     </child>
   </object>
+  <object class="GtkFileChooserDialog" id="ExtractDialog">
+    <property name="can_focus">False</property>
+    <property name="title">Extract from MIX</property>
+    <property name="modal">True</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="icon">icon.png</property>
+    <property name="type_hint">dialog</property>
+    <property name="skip_taskbar_hint">True</property>
+    <property name="transient_for">MainWindow</property>
+    <property name="action">save</property>
+    <property name="do_overwrite_confirmation">True</property>
+    <property name="preview_widget_active">False</property>
+    <property name="use_preview_label">False</property>
+    <child internal-child="vbox">
+      <object class="GtkBox" id="ExtractDialogBox">
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="ExtractDialogButtons">
+            <property name="can_focus">False</property>
+            <property name="layout_style">end</property>
+            <child>
+              <object class="GtkButton" id="ExtractDialogCancel">
+                <property name="label">gtk-cancel</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="can_default">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_stock">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="ExtractDialogOK">
+                <property name="label">Extract</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="can_default">True</property>
+                <property name="has_default">True</property>
+                <property name="receives_default">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="pack_type">end</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+    <action-widgets>
+      <action-widget response="-6">ExtractDialogCancel</action-widget>
+      <action-widget response="-5">ExtractDialogOK</action-widget>
+    </action-widgets>
+  </object>
   <object class="GtkDialog" id="SearchDialog">
     <property name="can_focus">False</property>
     <property name="title">Search filename</property>
@@ -514,74 +583,6 @@
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="stock">gtk-revert-to-saved</property>
-  </object>
-  <object class="GtkFileChooserDialog" id="ExtractDialog">
-    <property name="can_focus">False</property>
-    <property name="title">Extract from MIX</property>
-    <property name="modal">True</property>
-    <property name="destroy_with_parent">True</property>
-    <property name="icon">icon.png</property>
-    <property name="type_hint">dialog</property>
-    <property name="skip_taskbar_hint">True</property>
-    <property name="transient_for">MainWindow</property>
-    <property name="action">save</property>
-    <property name="do_overwrite_confirmation">True</property>
-    <property name="preview_widget_active">False</property>
-    <property name="use_preview_label">False</property>
-    <child internal-child="vbox">
-      <object class="GtkBox" id="ExtractDialogBox">
-        <property name="can_focus">False</property>
-        <property name="orientation">vertical</property>
-        <property name="spacing">2</property>
-        <child internal-child="action_area">
-          <object class="GtkButtonBox" id="ExtractDialogButtons">
-            <property name="can_focus">False</property>
-            <property name="layout_style">end</property>
-            <child>
-              <object class="GtkButton" id="ExtractDialogCancel">
-                <property name="label">gtk-cancel</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="can_default">True</property>
-                <property name="receives_default">True</property>
-                <property name="use_stock">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="ExtractDialogOK">
-                <property name="label">Extract</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="can_default">True</property>
-                <property name="has_default">True</property>
-                <property name="receives_default">True</property>
-                <property name="image">ExtractImage</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="pack_type">end</property>
-            <property name="position">0</property>
-          </packing>
-        </child>
-      </object>
-    </child>
-    <action-widgets>
-      <action-widget response="-6">ExtractDialogCancel</action-widget>
-      <action-widget response="-5">ExtractDialogOK</action-widget>
-    </action-widgets>
   </object>
   <object class="GtkFileFilter" id="MixFilter">
     <patterns>

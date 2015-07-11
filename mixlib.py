@@ -162,84 +162,83 @@ class MixFile:
 			self.index[i]["alloc"] = self.index[i+1]["offset"] - self.index[i]["offset"]
 
 
-	# Central file-finding method
+	# Central file-finding method (like stat)
 	# Also used to add missing names to the index
 	def get_inode(self, name):
-		lname = name.lower()
-		inode = self.contents.get(lname)
+		name = name.lower()
+		inode = self.contents.get(name)
 		
 		# Nothing found, so try a key
-		if inode is None:
-			# First, trust the user knows what he's looking for
-			key = genkey(name, self.mixtype)
-			inode = self.contents.get(hex(key))
-			
-			# OK, some moron may have saved non-ascii capitals to the mix,
-			# which genkey() can't upper, so test even that
-			if inode is None:
-				key = genkey(lname, self.mixtype)
+		if inode is None and name[0:2] != "0x":
+			try:
+				key = genkey(name, self.mixtype)
+			except ValueError:
+				pass
+			else:
 				inode = self.contents.get(hex(key))
 				
-			# Add name to index if file exists
-			if inode is not None:
-				del self.contents[inode["name"]]
-				inode["name"] = lname
-				self.contents[lname] = inode
+				# Reset name if file exists
+				if inode is not None:
+					del self.contents[inode["name"]]
+					inode["name"] = name
+					self.contents[name] = inode
 
 		return inode
 
 	# Get a file out of the MIX
 	def get_file(self, name):
 		inode = self.get_inode(name)
+		
+		if inode is None:
+			raise MixError("File not found")
 
 		self.Stream.seek(inode["offset"], OS.SEEK_SET)
 		return self.Stream.read(inode["size"])
 
-	# Extract a file to the local filesystem
+	# Extract a file to local filesystem
 	def extract(self, name, dest):
 		inode = self.get_inode(name)
+		
+		if inode is None:
+			raise MixError("File not found")
 
 		assert not OS.path.isfile(dest)
 		with open(dest, "wb") as OutFile:
 			# TODO: Do not place whole file in memory
 			OutFile.write(self.get_file(name))
+			
+	# Insert a file from local filesystem
+	def insert(self, name, source):
+		pass
 
 	# Rename a file in the MIX
 	def rename(self, old, new):
 		inode = self.get_inode(old)
-		lnew = new.lower()
+		
+		if inode is None:
+			raise MixError("File not found")
+			
+		if not check_name(new, self.mixtype):
+			raise MixError("Invalid filename")
+			
+		new = new.lower()
 		
 		# First check for collisions
 		if self.get_inode(new) is not None:
-			if inode["name"] == lnew:
+			if inode["name"] == new:
 				# This either means "old" and "new" were equal or "new" matched the key
 				# of previously un-named old, which caused get_inode() to reset its name
-				return inode
+				return new
 			else:
 				# In this case a different file by name "new" already exists
 				raise MixError("File exists")
 			
-		# Check new name
-		if lnew[0:2] == "0x":
-			try:
-				nkey = int(lnew, 16)
-			except ValueError:
-				raise MixError("Invalid filename")
-		else:
-			if len(lnew) < 4 or len(lnew) > 255:
-				raise MixError("Invalid filename")
-			nkey = genkey(lnew, self.mixtype)
-			
-		# Every key representing a Local MIX Database is considered reserved
-		if nkey in DBKEYS:
-			raise MixError("Invalid filename")
-			
 		# Now rename the file
 		del self.contents[inode["name"]]
-		inode["name"] = lnew
-		self.contents[lnew] = inode
+		inode["name"] = new
+		self.contents[new] = inode
 		
-		return inode
+		return new
 
 	# Write current header (Flags, Keysource, Index, Database, Checksum) to MIX
 	# TODO: Implement context manager
@@ -300,11 +299,33 @@ class MixIO(IO.BufferedIOBase):
 class MixError(Exception):
 	# TODO: Create real error class
 	pass
+	
+# Check if something is a valid name
+def check_name(name, mixtype):
+	if len(name) == 0 or len(name) > 255:
+		return False
+		
+	name = name.lower()
+	
+	try:
+		if name[0:2] == "0x":
+			key = int(name, 16)
+		else:
+			key = genkey(lnew, mixtype)
+			
+	except (TypeError, ValueError):
+		return False
+		
+	else:
+		if key in DBKEYS:
+			return False
+			
+	return True
 
 # Create MIX-Identifier from filename
 # Thanks to Olaf van der Spek for providing these functions
 def genkey(name, mixtype):
-	name = name.encode(ENCODING, "backslashreplace")
+	name = name.encode(ENCODING, "strict")
 	name = name.upper()
 	len_ = len(name)
 
