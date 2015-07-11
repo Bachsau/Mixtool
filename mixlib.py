@@ -101,7 +101,7 @@ class MixFile(object):
 				raise MixError("Incorrect filesize or invalid header")
 
 			# OK, time to read the index
-			rawindex = {}
+			index = {}
 			for i in range(0, self.filecount):
 				key    = int.from_bytes(self.Stream.read(4), BYTEORDER)
 				offset = int.from_bytes(self.Stream.read(4), BYTEORDER) + self.contentstart
@@ -110,16 +110,15 @@ class MixFile(object):
 				if offset + size > self.filesize:
 					raise MixError("Content " + hex(key) + " out of range")
 
-				rawindex[key] = (offset, size)
+				index[key] = {"offset": offset, "size": size, "alloc": size, "name": hex(key)}
 
-			if len(rawindex) != self.filecount:
+			if len(index) != self.filecount:
 				raise MixError("Duplicate key")
 
 		# Now read the names
-		names = {}
 		for dbkey in DBKEYS:
-			if dbkey in rawindex:
-				self.Stream.seek(rawindex[dbkey][0], OS.SEEK_SET)
+			if dbkey in index:
+				self.Stream.seek(index[dbkey]["offset"], OS.SEEK_SET)
 				header = self.Stream.read(32)
 
 				if header != XCC_ID: continue
@@ -129,7 +128,7 @@ class MixFile(object):
 				version = int.from_bytes(self.Stream.read(4), BYTEORDER) # Always zero
 				mixtype = int.from_bytes(self.Stream.read(4), BYTEORDER) # XCC Game ID
 
-				if dbsize != rawindex[dbkey][1]:
+				if dbsize != index[dbkey]["size"]:
 					raise MixError("Invalid database")
 
 				if mixtype > TYPE_TS + 3:
@@ -147,28 +146,24 @@ class MixFile(object):
 					raise MixError("Invalid database")
 
 				# Remove Database from index
-				del rawindex[dbkey]
+				del index[dbkey]
 				self.filecount -= 1
 				
 				# Populate names dict
+				names = 0
 				for name in namelist:
 					name = name.decode(ENCODING, "ignore")
 					key = genkey(name, self.mixtype)
-					if key in rawindex:
-						names[key] = name
+					if key in index:
+						index[key]["name"] = name
+						names += 1
 
 				# XCC sometimes puts two Databases in a file by mistake,
 				# so if no names were found, give it another try
-				if len(names) != 0: break
+				if names != 0: break
 
-		# Create a dict and list of all contents
-		index = {}
-		contents = []
-		for key, values in rawindex.items():
-			name = names.get(key, hex(key))
-			inode = {"name": name, "offset": values[0], "size": values[1], "alloc": values[1]}
-			index[name] = inode
-			contents.append(inode)
+		# Create a list of all contents
+		contents = list(index.values())
 
 		# Calculate alloc values
 		# This is the size up to wich a file may grow without needing a move
@@ -184,23 +179,23 @@ class MixFile(object):
 	# Central file-finding method (like stat)
 	# Also used to add missing names to the index
 	def get_inode(self, name):
-		inode = self.index.get(name)
-		
-		# Nothing found, so try a key
-		if inode is None and name[0:2] not in ("0x", "0X"):
+		if name[0:2] == "0x":
+			try:
+				key = int(name, 16)
+			except ValueError:
+				return None
+			else:
+				inode = self.index.get(key)
+		else:
 			try:
 				key = genkey(name, self.mixtype)
 			except ValueError:
-				pass
+				return None
 			else:
-				inode = self.index.get(hex(key))
+				inode = self.index.get(key)
 				
-				# Reset name if file exists
 				if inode is not None:
-					del self.index[inode["name"]]
 					inode["name"] = name
-					self.index[name] = inode
-
 		return inode
 
 	# Get a file out of the MIX
@@ -263,7 +258,7 @@ class MixFile(object):
 				buffer = InFile.read(block)
 				self.Stream.write(buffer)
 			
-		inode = {"name": name.lower(), "offset": offset, "size": size, "alloc": size}
+		inode = {"name": name, "offset": offset, "size": size, "alloc": size}
 		self.index[name] = inode
 		self.contents.append(inode)
 				
@@ -279,7 +274,6 @@ class MixFile(object):
 		if not checkname(new, self.mixtype):
 			raise MixError("Invalid filename")
 			
-		new = new.lower()
 		newnode = self.get_inode(new)
 		
 		if newnode is not None:
