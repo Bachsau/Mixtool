@@ -91,7 +91,7 @@ class Mixtool(Gtk.Application):
 			self.set_titlebar(self.filename)
 			self.set_statusbar(" ".join((self.MixFile.get_type(), "MIX contains", str(self.MixFile.filecount), "files.")))
 
-			for inode in self.MixFile.index:
+			for inode in self.MixFile.contents:
 				rowid = id(inode)
 				treeiter = self.ContentStore.append((
 					rowid,
@@ -179,7 +179,7 @@ class Mixtool(Gtk.Application):
 				self.SearchDialog.hide()
 				search = self.SearchDialogEntry.get_text()
 
-				if response == Gtk.ResponseType.OK  and search != "":
+				if response == Gtk.ResponseType.OK  and search:
 					name  = self.SearchDialogEntry.get_text()
 					inode = self.MixFile.get_inode(name)
 
@@ -240,7 +240,7 @@ def messagebox(text, type_="i", parent=None):
 # Starter
 def main():
 	# Keep GTK+ from mixing languages
-	Locale.setlocale(Locale.LC_ALL, "C")
+	Locale.setlocale(Locale.LC_MESSAGES, "C")
 
 	# Initialize GTK Application // One window per process while in alpha state
 	Application = Mixtool("com.bachsau.mixtool", Gio.ApplicationFlags.NON_UNIQUE)

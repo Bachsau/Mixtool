@@ -46,7 +46,7 @@ BYTEORDER = "little"
 
 # Instance representing a single MIX file
 # Think of this as a file system driver
-class MixFile:
+class MixFile(object):
 	# Constructor opens MIX file
 	# Must work on a BufferedIO stream
 	def __init__(self, stream, new=False, mixtype=None):
@@ -62,7 +62,7 @@ class MixFile:
 		# First two bytes are zero for RA/TS and the number of files for TD
 		self.Stream.seek(0, OS.SEEK_SET)
 		firstbytes = int.from_bytes(self.Stream.read(2), BYTEORDER)
-		if firstbytes == 0:
+		if not firstbytes:
 			# It seems we have a RA/TS MIX so decode the flags
 			flags = int.from_bytes(self.Stream.read(2), BYTEORDER)
 			self.has_checksum = flags & FLAG_CHECKSUM == FLAG_CHECKSUM
@@ -124,12 +124,12 @@ class MixFile:
 
 				if header != XCC_ID: continue
 
-				size    = int.from_bytes(self.Stream.read(4), BYTEORDER) # Total filesize
+				dbsize  = int.from_bytes(self.Stream.read(4), BYTEORDER) # Total filesize
 				xcctype = int.from_bytes(self.Stream.read(4), BYTEORDER) # 0 for LMD, 2 for XIF
 				version = int.from_bytes(self.Stream.read(4), BYTEORDER) # Always zero
 				mixtype = int.from_bytes(self.Stream.read(4), BYTEORDER) # XCC Game ID
 
-				if size != rawindex[dbkey][1]:
+				if dbsize != rawindex[dbkey][1]:
 					raise MixError("Invalid database")
 
 				if mixtype > TYPE_TS + 3:
@@ -140,10 +140,10 @@ class MixFile:
 				self.mixtype = mixtype
 
 				namecount = int.from_bytes(self.Stream.read(4), BYTEORDER)
-				bodysize  = rawindex[dbkey][1] - 53 # Size - header - last byte
-				mixdb     = self.Stream.read(bodysize).split(b"\x00") if bodysize > 0 else []
+				bodysize  = dbsize - 53 # Size - header - last byte
+				namelist  = self.Stream.read(bodysize).split(b"\x00") if bodysize > 0 else []
 
-				if len(mixdb) != namecount:
+				if len(namelist) != namecount:
 					raise MixError("Invalid database")
 
 				# Remove Database from index
@@ -151,54 +151,55 @@ class MixFile:
 				self.filecount -= 1
 				
 				# Populate names dict
-				for name in mixdb:
+				for name in namelist:
 					name = name.decode(ENCODING, "ignore")
 					key = genkey(name, self.mixtype)
 					if key in rawindex:
-						names[key] = name.lower()
+						names[key] = name
 
 				# XCC sometimes puts two Databases in a file by mistake,
 				# so if no names were found, give it another try
 				if len(names) != 0: break
 
-		# Generate final index
-		self.index = []
-		self.contents = {}
+		# Create a dict and list of all contents
+		index = {}
+		contents = []
 		for key, values in rawindex.items():
 			name = names.get(key, hex(key))
 			inode = {"name": name, "offset": values[0], "size": values[1], "alloc": values[1]}
-			self.index.append(inode)
-			self.contents[name] = inode
-
-		# Sort the index by offset
-		self.index.sort(key=lambda i: i["offset"])
+			index[name] = inode
+			contents.append(inode)
 
 		# Calculate alloc values
 		# This is the size up to wich a file may grow without needing a move
-		for i in range(0, len(self.index) - 1):
-			self.index[i]["alloc"] = self.index[i+1]["offset"] - self.index[i]["offset"]
+		contents.sort(key=lambda i: i["offset"])
+		for i in range(0, len(contents) - 1):
+			contents[i]["alloc"] = contents[i+1]["offset"] - contents[i]["offset"]
+			
+		# Export the final index
+		self.index = index
+		self.contents = contents
 
 
 	# Central file-finding method (like stat)
 	# Also used to add missing names to the index
 	def get_inode(self, name):
-		name = name.lower()
-		inode = self.contents.get(name)
+		inode = self.index.get(name)
 		
 		# Nothing found, so try a key
-		if inode is None and name[0:2] != "0x":
+		if inode is None and name[0:2] not in ("0x", "0X"):
 			try:
 				key = genkey(name, self.mixtype)
 			except ValueError:
 				pass
 			else:
-				inode = self.contents.get(hex(key))
+				inode = self.index.get(hex(key))
 				
 				# Reset name if file exists
 				if inode is not None:
-					del self.contents[inode["name"]]
+					del self.index[inode["name"]]
 					inode["name"] = name
-					self.contents[name] = inode
+					self.index[name] = inode
 
 		return inode
 
@@ -250,10 +251,10 @@ class MixFile:
 			raise MixError("Invalid filename")
 			
 		new = new.lower()
+		newnode = self.get_inode(new)
 		
-		# First check for collisions
-		if self.get_inode(new) is not None:
-			if inode["name"] == new:
+		if newnode is not None:
+			if inode is newnode:
 				# This either means "old" and "new" were equal or "new" matched the key
 				# of previously un-named old, which caused get_inode() to reset its name
 				return new
@@ -262,9 +263,9 @@ class MixFile:
 				raise MixError("File exists")
 			
 		# Now rename the file
-		del self.contents[inode["name"]]
+		del self.index[inode["name"]]
 		inode["name"] = new
-		self.contents[new] = inode
+		self.index[new] = inode
 		
 		return new
 
@@ -303,7 +304,7 @@ class MixFile:
 		if (newtype >= TYPE_TS and self.mixtype < TYPE_TS) or (newtype < TYPE_TS and self.mixtype >= TYPE_TS):
 			# This means we have to convert all names
 			for inode in self.index:
-				if inode["name"][0:2] == "0x":
+				if inode["name"][0:2] in ("0x", "0X"):
 					raise MixError("Can't convert between TD/RA and TS when names are missing")
 
 		# Checksum and Encryption is not supported in TD
@@ -333,17 +334,13 @@ def check_name(name, mixtype):
 	if len(name) == 0 or len(name) > 255:
 		return False
 		
-	name = name.lower()
+	if name[0:2] in ("0x", "0X"):
+		return False
 	
 	try:
-		if name[0:2] == "0x":
-			key = int(name, 16)
-		else:
-			key = genkey(lnew, mixtype)
-			
+		key = genkey(lnew, mixtype)
 	except (TypeError, ValueError):
 		return False
-		
 	else:
 		if key in DBKEYS:
 			return False
