@@ -44,19 +44,20 @@ class Mixtool(Gtk.Application):
 				messagebox("Error reading GUI file", "e")
 				raise
 
-			self.GtkBuilder        = GtkBuilder
-			self.MainWindow        = GtkBuilder.get_object("MainWindow")
-			self.OpenDialog        = GtkBuilder.get_object("OpenDialog")
-			self.SaveDialog        = GtkBuilder.get_object("SaveDialog")
-			self.ExtractDialog     = GtkBuilder.get_object("ExtractDialog")
-			self.InsertDialog      = GtkBuilder.get_object("InsertDialog")
-			self.SearchDialog      = GtkBuilder.get_object("SearchDialog")
-			self.SearchDialogEntry = GtkBuilder.get_object("SearchDialogEntry")
-			self.AboutDialog       = GtkBuilder.get_object("AboutDialog")
-			self.ContentList       = GtkBuilder.get_object("ContentList")
-			self.ContentStore      = GtkBuilder.get_object("ContentStore")
-			self.ContentSelector   = GtkBuilder.get_object("ContentSelector")
-			self.StatusBar         = GtkBuilder.get_object("StatusBar")
+			self.GtkBuilder          = GtkBuilder
+			self.MainWindow          = GtkBuilder.get_object("MainWindow")
+			self.OpenDialog          = GtkBuilder.get_object("OpenDialog")
+			self.SaveDialog          = GtkBuilder.get_object("SaveDialog")
+			self.ExtractSingleDialog = GtkBuilder.get_object("ExtractSingleDialog")
+			self.ExtractMultiDialog  = GtkBuilder.get_object("ExtractMultiDialog")
+			self.InsertDialog        = GtkBuilder.get_object("InsertDialog")
+			self.SearchDialog        = GtkBuilder.get_object("SearchDialog")
+			self.SearchDialogEntry   = GtkBuilder.get_object("SearchDialogEntry")
+			self.AboutDialog         = GtkBuilder.get_object("AboutDialog")
+			self.ContentList         = GtkBuilder.get_object("ContentList")
+			self.ContentStore        = GtkBuilder.get_object("ContentStore")
+			self.ContentSelector     = GtkBuilder.get_object("ContentSelector")
+			self.StatusBar           = GtkBuilder.get_object("StatusBar")
 
 			# Initially sort by Offset
 			self.ContentStore.set_sort_column_id(COLUMN_OFFSET, Gtk.SortType.ASCENDING)
@@ -75,6 +76,9 @@ class Mixtool(Gtk.Application):
 			self.ContentStore.clear()
 			self.set_titlebar(self.filename)
 			self.set_statusbar("This is alpha software. Use at your own risk!")
+			
+		def write_index(self, *args):
+			self.MixFile.write_index()
 
 		# Load file
 		def loadfile(self, filename):
@@ -90,7 +94,7 @@ class Mixtool(Gtk.Application):
 			self.filename = OS.path.basename(filename)
 
 			self.set_titlebar(self.filename)
-			self.set_statusbar(" ".join((self.MixFile.get_type(), "MIX contains", str(self.MixFile.filecount), "files.")))
+			self.set_statusbar(" ".join((self.MixFile.get_type(), "MIX contains", str(len(self.MixFile.contents)), "files.")))
 
 			for inode in self.MixFile.contents:
 				rowid = id(inode)
@@ -150,23 +154,23 @@ class Mixtool(Gtk.Application):
 				messagebox("Nothing selected", "e", self.MainWindow)
 			else:
 				if count > 1:
-					self.ExtractDialog.set_action(Gtk.FileChooserAction.CREATE_FOLDER)
-					self.ExtractDialog.set_current_name(self.filename.replace(".", "_"))
+					Dialog = self.ExtractMultiDialog
+					Dialog.set_current_name(self.filename.replace(".", "_"))
 				else:
 					filename = rows[0][COLUMN_NAME]
-					self.ExtractDialog.set_action(Gtk.FileChooserAction.SAVE)
-					self.ExtractDialog.set_current_name(filename)
+					Dialog = self.ExtractSingleDialog
+					Dialog.set_current_name(filename)
 
-				response = self.ExtractDialog.run()
-				self.ExtractDialog.hide()
+				response = Dialog.run()
+				Dialog.hide()
 
 				if response == Gtk.ResponseType.OK:
-					outpath = self.ExtractDialog.get_filename()
+					outpath = Dialog.get_filename()
 
 					if count > 1:
 						# Mitigate FileChoserDialog's inconsistent behavior
 						if OS.listdir(outpath):
-							outpath += "/" + self.ExtractDialog.get_current_name()
+							outpath += "/" + Dialog.get_current_name()
 							OS.mkdir(outpath)
 
 						# Save every file with its original name
