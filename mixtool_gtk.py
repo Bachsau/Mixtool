@@ -49,6 +49,7 @@ class Mixtool(Gtk.Application):
 			self.OpenDialog        = GtkBuilder.get_object("OpenDialog")
 			self.SaveDialog        = GtkBuilder.get_object("SaveDialog")
 			self.ExtractDialog     = GtkBuilder.get_object("ExtractDialog")
+			self.InsertDialog      = GtkBuilder.get_object("InsertDialog")
 			self.SearchDialog      = GtkBuilder.get_object("SearchDialog")
 			self.SearchDialogEntry = GtkBuilder.get_object("SearchDialogEntry")
 			self.AboutDialog       = GtkBuilder.get_object("AboutDialog")
@@ -81,7 +82,7 @@ class Mixtool(Gtk.Application):
 
 			# TODO: Input sanitising, test for existence
 			try:
-				self.MixFile = MixLib.MixFile(open(filename, "rb"))
+				self.MixFile = MixLib.MixFile(open(filename, "r+b"))
 			except Exception as error:
 				messagebox("Error loading MIX file" ,"e")
 				raise
@@ -118,6 +119,28 @@ class Mixtool(Gtk.Application):
 			self.SaveDialog.hide()
 			if response == Gtk.ResponseType.OK:
 				messagebox("Selected " + self.SaveDialog.get_filename())
+				
+		# Insert dialog
+		def insertdialog(self, *args):
+			if self.MixFile is not None:
+				response = self.InsertDialog.run()
+				self.InsertDialog.hide()
+				
+				if response == Gtk.ResponseType.OK:
+					inpath = self.InsertDialog.get_filename()
+					filename = OS.path.basename(inpath)
+					inode = self.MixFile.insert(filename, inpath)
+					
+					rowid = id(inode)
+					treeiter = self.ContentStore.append((
+						rowid,
+						inode["name"],
+						inode["offset"],
+						inode["size"],
+						inode["alloc"] - inode["size"]
+					))
+					self.contents[rowid] = (treeiter, inode)
+
 
 		def extractdialog(self, *args):
 			rows = self.get_selected_rows()
@@ -193,10 +216,6 @@ class Mixtool(Gtk.Application):
 						messagebox("Found no file matching \"" + name + "\" in current mix", "i", self.MainWindow)
 			else:
 				messagebox("Search needs an open MIX file", "e", self.MainWindow)
-
-		# Add content dialog
-		def insertdialog(self, *args):
-			pass
 
 		def set_statusbar(self, text):
 			self.StatusBar.set_text(str(text))

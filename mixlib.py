@@ -238,7 +238,36 @@ class MixFile(object):
 			
 	# Insert a file from local filesystem
 	def insert(self, name, source):
-		pass
+		if not checkname(name, self.mixtype):
+			raise MixError("Invalid Filename")
+			
+		if self.get_inode(name):
+			raise MixError("File exists")
+			
+		# TODO: Add for loop to find better position
+		
+		self.contents.sort(key=lambda i: i["offset"])
+		offset = self.contents[-1]["offset"] + self.contents[-1]["size"]
+		size = OS.stat(source).st_size
+		
+		block = BLOCKSIZE
+		full  = int(size / block)
+		rest  = size % block
+		
+		self.Stream.seek(offset, OS.SEEK_SET)
+		with open(source, "rb") as InFile:
+			for i in range(0, full):
+				buffer = InFile.read(block)
+				self.Stream.write(buffer)
+			if rest:
+				buffer = InFile.read(block)
+				self.Stream.write(buffer)
+			
+		inode = {"name": name.lower(), "offset": offset, "size": size, "alloc": size}
+		self.index[name] = inode
+		self.contents.append(inode)
+				
+		return inode
 
 	# Rename a file in the MIX
 	def rename(self, old, new):
@@ -247,7 +276,7 @@ class MixFile(object):
 		if inode is None:
 			raise MixError("File not found")
 			
-		if not check_name(new, self.mixtype):
+		if not checkname(new, self.mixtype):
 			raise MixError("Invalid filename")
 			
 		new = new.lower()
@@ -303,7 +332,7 @@ class MixFile(object):
 
 		if (newtype >= TYPE_TS and self.mixtype < TYPE_TS) or (newtype < TYPE_TS and self.mixtype >= TYPE_TS):
 			# This means we have to convert all names
-			for inode in self.index:
+			for inode in self.contents:
 				if inode["name"][0:2] in ("0x", "0X"):
 					raise MixError("Can't convert between TD/RA and TS when names are missing")
 
@@ -330,7 +359,7 @@ class MixError(Exception):
 	pass
 	
 # Check if something is a valid name
-def check_name(name, mixtype):
+def checkname(name, mixtype):
 	if len(name) == 0 or len(name) > 255:
 		return False
 		
@@ -338,7 +367,7 @@ def check_name(name, mixtype):
 		return False
 	
 	try:
-		key = genkey(lnew, mixtype)
+		key = genkey(name, mixtype)
 	except (TypeError, ValueError):
 		return False
 	else:
