@@ -69,6 +69,7 @@
               <object class="GtkToolButton" id="ToolbarSave">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text">Press this button to damage everything!</property>
                 <property name="label">Write Index</property>
                 <property name="stock_id">gtk-dialog-warning</property>
                 <signal name="clicked" handler="write_index" swapped="no"/>
@@ -304,7 +305,7 @@
                     <property name="sizing">fixed</property>
                     <property name="fixed_width">200</property>
                     <property name="min_width">30</property>
-                    <property name="title" translatable="yes">Overhead</property>
+                    <property name="title">Overhead</property>
                     <property name="clickable">True</property>
                     <property name="alignment">1</property>
                     <property name="sort_column_id">4</property>
@@ -360,7 +361,7 @@
   </object>
   <object class="GtkAboutDialog" id="AboutDialog">
     <property name="can_focus">False</property>
-    <property name="title" translatable="yes">About Mixtool</property>
+    <property name="title">About Mixtool</property>
     <property name="resizable">False</property>
     <property name="modal">True</property>
     <property name="destroy_with_parent">True</property>

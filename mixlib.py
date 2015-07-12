@@ -34,6 +34,7 @@ FLAG_ENCRYPTED = 2
 TYPE_TD  = 0
 TYPE_RA  = 1
 TYPE_TS  = 2
+TYPE_RG  = 3
 
 DBKEYS    = 1422054725, 913179935
 KEYFILE   = 1983676893
@@ -175,18 +176,15 @@ class MixFile(object):
 		self.contents = contents
 		
 	# Write index on close if writable
-#	def __del__(self):
-#		if self.Stream.writable():
-#			self.write_index()
+	def __del__(self):
+		return # Disabled in Alpha
+		if self.Stream.writable():
+			self.write_index()
 
 	# Central file-finding method (like stat)
 	# Also used to add missing names to the index
 	def get_inode(self, name):
 		key = self.get_key(name)
-		
-		if key is None:
-			return None
-			
 		inode = self.index.get(key)
 		
 		if inode is not None and inode["name"][0:2] in ("0x, 0X"):
@@ -196,30 +194,34 @@ class MixFile(object):
 		
 	# Get key for any _valid_ name
 	def get_key(self, name):
-		if not len(name):
-			return None
+		if not name:
+			raise MixNameError("Must not be empty")
 			
 		try:
 			if name[0:2] in ("0x", "0X"):
 				key = int(name, 16)
 			else:
 				key = genkey(name, self.mixtype)
-		except (TypeError, ValueError):
-			return None
+		except ValueError:
+			raise MixNameError("Invalid filename")
 			
 		return key
 
 	# Rename a file in the MIX
 	def rename(self, old, new):
-		inode = self.get_inode(old)
+		oldkey = self.get_key(old)
+		inode = self.index.get(old)
 		
 		if inode is None:
 			raise MixError("File not found")
-			
+		
+		if inode["name"][0:2] in ("0x, 0X"):
+				inode["name"] = old
+		
 		newkey = self.get_key(new)
 		
-		if newkey is None or newkey in DBKEYS:
-			raise MixError("Invalid filename")
+		if newkey in DBKEYS:
+			raise MixNameError("Invalid filename")
 			
 		existing = self.index.get(newkey)
 				
@@ -234,8 +236,7 @@ class MixFile(object):
 				raise MixError("File exists")
 			
 		# Now rename the file
-		oldkey = self.get_key(old)
-		del self.index[key]
+		del self.index[oldkey]
 		inode["name"] = new
 		self.index[newkey] = inode
 		
@@ -255,12 +256,12 @@ class MixFile(object):
 				if inode["name"][0:2] in ("0x", "0X"):
 					raise MixError("Can't convert between TD/RA and TS when names are missing")
 					
-				newkey = genkey(inode["name"])
+				newkey = genkey(inode["name"], self.mixtype)
 				newindex[newkey] = inode
 			self.index = newindex
 
 		# Checksum and Encryption is not supported in TD
-		if newtype < TYPE_RA:
+		if newtype == TYPE_TD:
 			self.has_checksum = False
 			self.is_encrypted = False
 
@@ -275,51 +276,50 @@ class MixFile(object):
 	# Write current header (Flags, Keysource, Index, Database, Checksum) to MIX
 	# TODO: Implement context manager
 	def write_index(self):
-		if self.Stream.writable():
-			assert len(self.contents) == len(self.index)
-			mixtype     = self.mixtype
-			filecount   = len(self.contents) + 1
-			indexoffset = 6 if mixtype == TYPE_TD else 8
-			indexsize   = filecount * 12
-			bodyoffset  = indexoffset + indexsize
-			flags       = self.has_checksum | self.is_encrypted
+		assert len(self.contents) == len(self.index)
+		filecount   = len(self.contents) + 1
+		indexoffset = 6 if self.mixtype == TYPE_TD else 8
+		indexsize   = filecount * 12
+		bodyoffset  = indexoffset + indexsize
+		flags       = self.has_checksum | self.is_encrypted
+		dbkey       = DBKEYS[1] if self.mixtype == TYPE_TS else DBKEYS[0]
+		
+		self.Stream.seek(0, OS.SEEK_SET)
+		if self.mixtype != TYPE_TD:
+			self.Stream.write(b"\x00")
+			self.Stream.write(flags.to_bytes(2, BYTEORDER))
 			
-			self.Stream.seek(0, OS.SEEK_SET)
-			if mixtype != TYPE_TD:
-				self.Stream.write(b"\x00")
-				self.Stream.write(flags.to_bytes(2, BYTEORDER))
-				
-			self.Stream.write(filecount.to_bytes(2, BYTEORDER))
-						
-			# TODO: Test if there's enough space for the index
-			
-			filelist = []
-			namelist = []
-			bodysize = 0
-			for key, inode in self.index.items():
-				bodysize += inode["alloc"]
-				filelist.append((key, inode["offset"], inode["size"]))
-				namelist.append(inode["name"])
-			filelist.sort(key=lambda i: i[1])
-			namelist.append("local mix database.dat")
-			namelist.sort()
-			
-			dboffset = filelist[-1][1] + filelist[-1][2]
-			dbsize   = 0
-			
-			self.Stream.seek(dboffset, OS.SEEK_SET)
-			for name in namelist:
-				dbsize += self.Stream.write(name.encode(ENCODING, "strict") + b"\x00")
-			
-			filelist.append((genkey("local mix database.dat", mixtype), filelist[-1][1] + filelist[-1][2], dbsize))
-			
-			self.Stream.seek(indexoffset - 4, OS.SEEK_SET)
-			self.Stream.write((bodysize + dbsize).to_bytes(4, BYTEORDER))
-			for file in filelist:
-				messagebox(bodyoffset)
-				self.Stream.write(file[0].to_bytes(4, BYTEORDER))
-				self.Stream.write((file[1] - bodyoffset).to_bytes(4, BYTEORDER))
-				self.Stream.write(file[2].to_bytes(4, BYTEORDER))
+		self.Stream.write(filecount.to_bytes(2, BYTEORDER))
+					
+		# TODO: Test if there's enough space for the index
+		
+		filelist = []
+		namelist = []
+		bodysize = 0
+		for key, inode in self.index.items():
+			bodysize += inode["alloc"]
+			filelist.append((key, inode["offset"], inode["size"]))
+			namelist.append(inode["name"])
+		filelist.sort(key=lambda i: i[1])
+		namelist.append("local mix database.dat")
+		namelist.sort()
+		
+		dboffset = filelist[-1][1] + filelist[-1][2]
+		dbsize   = 0
+		
+		self.Stream.seek(dboffset, OS.SEEK_SET)
+		for name in namelist:
+			dbsize += self.Stream.write(name.encode(ENCODING, "strict") + b"\x00")
+		
+		filelist.append(dbkey, filelist[-1][1] + filelist[-1][2], dbsize)
+		
+		self.Stream.seek(indexoffset - 4, OS.SEEK_SET)
+		self.Stream.write((bodysize + dbsize).to_bytes(4, BYTEORDER))
+		for file in filelist:
+			messagebox(bodyoffset)
+			self.Stream.write(file[0].to_bytes(4, BYTEORDER))
+			self.Stream.write((file[1] - bodyoffset).to_bytes(4, BYTEORDER))
+			self.Stream.write(file[2].to_bytes(4, BYTEORDER))
 				
 				
 			
@@ -362,17 +362,23 @@ class MixFile(object):
 			
 	# Insert a file from local filesystem
 	def insert(self, name, source):
-		if not self.get_key(name):
-			raise MixError("Invalid Filename")
-			
-		if self.get_inode(name):
+		key = self.get_key(name)
+		inode = self.index.get(key)
+		
+		if inode is not None:
+			if inode["name"][0:2] in ("0x, 0X"):
+				inode["name"] = name
 			raise MixError("File exists")
 			
-		# TODO: Add for loop to find better position
+		# TODO: Add code to find better position
 		
 		self.contents.sort(key=lambda inode: inode["offset"])
-		offset = self.contents[-1]["offset"] + self.contents[-1]["size"]
+		offset = self.contents[-1]["offset"] + self.contents[-1]["alloc"]
 		size = OS.stat(source).st_size
+		
+		inode = {"name": name, "offset": offset, "size": size, "alloc": size}
+		self.index[key] = inode
+		self.contents.append(inode)
 		
 		block = BLOCKSIZE
 		full  = int(size / block)
@@ -386,10 +392,6 @@ class MixFile(object):
 			if rest:
 				buffer = InFile.read(block)
 				self.Stream.write(buffer)
-			
-		inode = {"name": name, "offset": offset, "size": size, "alloc": size}
-		self.index[name] = inode
-		self.contents.append(inode)
 				
 		return inode
 
