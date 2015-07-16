@@ -1,3 +1,10 @@
+# Backup files
 *~
+
+# Compiled Python code
 __pycache__/
 *.py[cod]
+
+# Desktop control files
+.DS_Store
+desktop.ini
