@@ -99,6 +99,8 @@ class MixFile(object):
 
 			# Check if data is sane
 			if filesize - bodyoffset != bodysize:
+				messagebox(filesize - bodyoffset)
+				messagebox(bodysize)
 				raise MixError("Incorrect filesize or invalid header")
 
 			# OK, time to read the index
@@ -187,7 +189,7 @@ class MixFile(object):
 		key = self.get_key(name)
 		inode = self.index.get(key)
 		
-		if inode is not None and inode["name"][0:2] in ("0x, 0X"):
+		if inode is not None and inode["name"][:2] in ("0x, 0X"):
 				inode["name"] = name
 				
 		return inode
@@ -198,7 +200,7 @@ class MixFile(object):
 			raise MixNameError("Must not be empty")
 			
 		try:
-			if name[0:2] in ("0x", "0X"):
+			if name[:2] in ("0x", "0X"):
 				key = int(name, 16)
 			else:
 				key = genkey(name, self.mixtype)
@@ -215,7 +217,7 @@ class MixFile(object):
 		if inode is None:
 			raise MixError("File not found")
 		
-		if inode["name"][0:2] in ("0x, 0X"):
+		if inode["name"][:2] in ("0x, 0X"):
 				inode["name"] = old
 		
 		newkey = self.get_key(new)
@@ -228,7 +230,7 @@ class MixFile(object):
 		if existing:
 			if existing is inode:
 				# This  means "old" and "new" matched the same key.
-				if new[0:2] not in ("0x", "0X"):
+				if new[:2] not in ("0x", "0X"):
 					inode["name"] = new
 				return inode["name"]
 			else:
@@ -253,7 +255,7 @@ class MixFile(object):
 			# This means we have to generate new keys for all names
 			newindex = {}
 			for inode in self.contents:
-				if inode["name"][0:2] in ("0x", "0X"):
+				if inode["name"][:2] in ("0x", "0X"):
 					raise MixError("Can't convert between TD/RA and TS when names are missing")
 					
 				newkey = genkey(inode["name"], self.mixtype)
@@ -278,49 +280,98 @@ class MixFile(object):
 	def write_index(self):
 		assert len(self.contents) == len(self.index)
 		filecount   = len(self.contents) + 1
-		indexoffset = 6 if self.mixtype == TYPE_TD else 8
+		indexoffset = 6 if self.mixtype == TYPE_TD else 10
 		indexsize   = filecount * 12
 		bodyoffset  = indexoffset + indexsize
-		flags       = self.has_checksum | self.is_encrypted
-		dbkey       = DBKEYS[1] if self.mixtype == TYPE_TS else DBKEYS[0]
+		flags       = 0 #self.has_checksum | self.is_encrypted
 		
-		self.Stream.seek(0, OS.SEEK_SET)
-		if self.mixtype != TYPE_TD:
-			self.Stream.write(b"\x00")
-			self.Stream.write(flags.to_bytes(2, BYTEORDER))
+		files = list(self.index.items())
+		files.sort(key=lambda i: i[1]["offset"])
+		firstfile = files[0][1]
+		lastfile = files[-1][1]
+		
+		# First, anything occupying index space must be moved
+		i = 0
+		block = BLOCKSIZE
+		while firstfile["offset"] < bodyoffset:
+			size  = firstfile["size"]
+			full  = int(size / block)
+			rest  = size % block
 			
-		self.Stream.write(filecount.to_bytes(2, BYTEORDER))
-					
-		# TODO: Test if there's enough space for the index
-		
-		filelist = []
-		namelist = []
-		bodysize = 0
-		for key, inode in self.index.items():
-			bodysize += inode["alloc"]
-			filelist.append((key, inode["offset"], inode["size"]))
-			namelist.append(inode["name"])
-		filelist.sort(key=lambda i: i[1])
-		namelist.append("local mix database.dat")
-		namelist.sort()
-		
-		dboffset = filelist[-1][1] + filelist[-1][2]
-		dbsize   = 0
+			rpos = firstfile["offset"]
+			wpos = lastfile["offset"] + lastfile["alloc"]
+			
+			firstfile["offset"] = wpos
+			firstfile["alloc"] = size
+			
+			if full:
+				buffer = bytearray(block)
+				for j in range(0, full):
+					self.Stream.seek(rpos, OS.SEEK_SET)
+					rpos += self.Stream.readinto(buffer)
+					self.Stream.seek(wpos, OS.SEEK_SET)
+					wpos += self.Stream.write(buffer)
+				
+			if rest:
+				self.Stream.seek(rpos, OS.SEEK_SET)
+				buffer = self.Stream.read(rest)
+				self.Stream.seek(wpos, OS.SEEK_SET)
+				self.Stream.write(buffer)
+				
+			del buffer
+				
+			i += 1
+			lastfile = firstfile
+			firstfile = files[i][1]
+		if i:
+			files.sort(key=lambda i: i[1]["offset"])
+			
+		# Write names
+		dbsize = 52
+		namecount = 1
+		dboffset = lastfile["offset"] + lastfile["alloc"]
 		
 		self.Stream.seek(dboffset, OS.SEEK_SET)
-		for name in namelist:
-			dbsize += self.Stream.write(name.encode(ENCODING, "strict") + b"\x00")
+		self.Stream.write(bytes(dbsize))
+		for key, inode in files:
+			if inode["name"][:2] not in ("0x, 0X"):
+				dbsize += self.Stream.write(inode["name"].encode(ENCODING, "strict"))
+				dbsize += self.Stream.write(bytes(1))
+				namecount += 1
+		self.Stream.write(b"local mix database.dat\x00")
+		self.Stream.truncate()
 		
-		filelist.append(dbkey, filelist[-1][1] + filelist[-1][2], dbsize)
+		# Write database header
+		self.Stream.seek(dboffset, OS.SEEK_SET)
+		messagebox(dboffset)
+		messagebox(self.Stream.tell())
+		self.Stream.write(XCC_ID)
+		self.Stream.write(dbsize.to_bytes(4, BYTEORDER))
+		self.Stream.write(bytes(8))
+		self.Stream.write(self.mixtype.to_bytes(4, BYTEORDER))
+		self.Stream.write(namecount.to_bytes(4, BYTEORDER))
+			
+		# Write index
+		bodysize = 0
+		dbkey = DBKEYS[1] if self.mixtype == TYPE_TS else DBKEYS[0]
 		
-		self.Stream.seek(indexoffset - 4, OS.SEEK_SET)
-		self.Stream.write((bodysize + dbsize).to_bytes(4, BYTEORDER))
-		for file in filelist:
-			messagebox(bodyoffset)
-			self.Stream.write(file[0].to_bytes(4, BYTEORDER))
-			self.Stream.write((file[1] - bodyoffset).to_bytes(4, BYTEORDER))
-			self.Stream.write(file[2].to_bytes(4, BYTEORDER))
-				
+		self.Stream.seek(bodyoffset, OS.SEEK_SET)
+		for key, inode in files:
+			self.Stream.write(key.to_bytes(4, BYTEORDER))
+			self.Stream.write((inode["offset"] - bodyoffset).to_bytes(4, BYTEORDER))
+			self.Stream.write(inode["size"].to_bytes(4, BYTEORDER))
+			bodysize += inode["alloc"]
+		self.Stream.write(dbkey.to_bytes(4, BYTEORDER))
+		self.Stream.write((dboffset - bodyoffset).to_bytes(4, BYTEORDER))
+		self.Stream.write(dbsize.to_bytes(4, BYTEORDER))
+		
+		# Write MIX header
+		self.Stream.seek(0, OS.SEEK_SET)
+		if self.mixtype != TYPE_TD:
+			self.Stream.write(bytes(2))
+			self.Stream.write(flags.to_bytes(2, BYTEORDER))
+		self.Stream.write(filecount.to_bytes(2, BYTEORDER))
+		self.Stream.write(bodysize.to_bytes(4, BYTEORDER))
 				
 			
 	# Return if MIX is TD, RA or TS
@@ -366,7 +417,7 @@ class MixFile(object):
 		inode = self.index.get(key)
 		
 		if inode is not None:
-			if inode["name"][0:2] in ("0x, 0X"):
+			if inode["name"][:2] in ("0x, 0X"):
 				inode["name"] = name
 			raise MixError("File exists")
 			
@@ -423,7 +474,7 @@ def genkey(name, mixtype):
 	name = name.upper()
 	len_ = len(name)
 
-	if mixtype >= TYPE_TS:
+	if mixtype == TYPE_TS:
 		# Compute key for TS MIXes
 		a = len_ & ~3
 		if len_ & 3:
