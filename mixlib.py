@@ -99,8 +99,8 @@ class MixFile(object):
 
 			# Check if data is sane
 			if filesize - bodyoffset != bodysize:
-				messagebox(filesize - bodyoffset)
 				messagebox(bodysize)
+				messagebox(filesize - bodyoffset)
 				raise MixError("Incorrect filesize or invalid header")
 
 			# OK, time to read the index
@@ -327,12 +327,12 @@ class MixFile(object):
 			files.sort(key=lambda i: i[1]["offset"])
 			
 		# Write names
-		dbsize = 52
+		dbsize = 75
 		namecount = 1
 		dboffset = lastfile["offset"] + lastfile["alloc"]
 		
 		self.Stream.seek(dboffset, OS.SEEK_SET)
-		self.Stream.write(bytes(dbsize))
+		self.Stream.write(bytes(52))
 		for key, inode in files:
 			if inode["name"][:2] not in ("0x, 0X"):
 				dbsize += self.Stream.write(inode["name"].encode(ENCODING, "strict"))
@@ -343,8 +343,6 @@ class MixFile(object):
 		
 		# Write database header
 		self.Stream.seek(dboffset, OS.SEEK_SET)
-		messagebox(dboffset)
-		messagebox(self.Stream.tell())
 		self.Stream.write(XCC_ID)
 		self.Stream.write(dbsize.to_bytes(4, BYTEORDER))
 		self.Stream.write(bytes(8))
@@ -352,15 +350,16 @@ class MixFile(object):
 		self.Stream.write(namecount.to_bytes(4, BYTEORDER))
 			
 		# Write index
-		bodysize = 0
+		bodysize = firstfile["offset"] - bodyoffset + dbsize
 		dbkey = DBKEYS[1] if self.mixtype == TYPE_TS else DBKEYS[0]
 		
-		self.Stream.seek(bodyoffset, OS.SEEK_SET)
+		self.Stream.seek(indexoffset, OS.SEEK_SET)
 		for key, inode in files:
 			self.Stream.write(key.to_bytes(4, BYTEORDER))
 			self.Stream.write((inode["offset"] - bodyoffset).to_bytes(4, BYTEORDER))
 			self.Stream.write(inode["size"].to_bytes(4, BYTEORDER))
 			bodysize += inode["alloc"]
+			
 		self.Stream.write(dbkey.to_bytes(4, BYTEORDER))
 		self.Stream.write((dboffset - bodyoffset).to_bytes(4, BYTEORDER))
 		self.Stream.write(dbsize.to_bytes(4, BYTEORDER))
@@ -372,6 +371,8 @@ class MixFile(object):
 			self.Stream.write(flags.to_bytes(2, BYTEORDER))
 		self.Stream.write(filecount.to_bytes(2, BYTEORDER))
 		self.Stream.write(bodysize.to_bytes(4, BYTEORDER))
+		
+		self.Stream.flush()
 				
 			
 	# Return if MIX is TD, RA or TS
