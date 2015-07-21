@@ -17,9 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+import sys          as Sys
 import os           as OS
 import locale       as Locale
 import configparser as ConfigParser
+
+# Fix Glib segfaults
+OS.putenv("G_SLICE", "always-malloc")
 
 from gi.repository  import GObject, Gio, Gdk, Gtk
 import mixlib       as MixLib
@@ -32,76 +36,123 @@ COLUMN_SIZE     = 3
 COLUMN_OVERHEAD = 4
 
 class Mixtool(Gtk.Application):
-	class Window(object):
-		def __init__(self, application):
-			self.Application = application
+	# Main initialization routine
+	def __init__(self, application_id, flags):
+		Gtk.Application.__init__(self, application_id=application_id, flags=flags)
 
-			# Read GUI from file and retrieve objects from GtkBuilder
-			try:
-				GtkBuilder = Gtk.Builder.new_from_file("gui.glade")
-				GtkBuilder.connect_signals(self)
-			except GObject.GError:
-				messagebox("Error reading GUI file", "e")
-				raise
+	def do_activate(self, *args):
+		MixWindow(self)
+		
+class MixWindow(object):
+	def __init__(self, application):
+		self.Application = application
 
-			self.GtkBuilder          = GtkBuilder
-			self.MainWindow          = GtkBuilder.get_object("MainWindow")
-			self.OpenDialog          = GtkBuilder.get_object("OpenDialog")
-			self.SaveDialog          = GtkBuilder.get_object("SaveDialog")
-			self.ExtractSingleDialog = GtkBuilder.get_object("ExtractSingleDialog")
-			self.ExtractMultiDialog  = GtkBuilder.get_object("ExtractMultiDialog")
-			self.InsertDialog        = GtkBuilder.get_object("InsertDialog")
-			self.SearchDialog        = GtkBuilder.get_object("SearchDialog")
-			self.SearchDialogEntry   = GtkBuilder.get_object("SearchDialogEntry")
-			self.AboutDialog         = GtkBuilder.get_object("AboutDialog")
-			self.ContentList         = GtkBuilder.get_object("ContentList")
-			self.ContentStore        = GtkBuilder.get_object("ContentStore")
-			self.ContentSelector     = GtkBuilder.get_object("ContentSelector")
-			self.StatusBar           = GtkBuilder.get_object("StatusBar")
+		# Read GUI from file and retrieve objects from GtkBuilder
+		try:
+			GtkBuilder = Gtk.Builder()
+			GtkBuilder.add_from_file("gui.glade")
+		except GObject.GError:
+			messagebox("Error reading GUI file", "e")
+			raise
+		else:
+			GtkBuilder.connect_signals(self)
 
-			# Initially sort by Offset
-			self.ContentStore.set_sort_column_id(COLUMN_OFFSET, Gtk.SortType.ASCENDING)
+		self.GtkBuilder          = GtkBuilder
+		self.MainWindow          = GtkBuilder.get_object("MainWindow")
+		self.OpenDialog          = GtkBuilder.get_object("OpenDialog")
+		self.SaveDialog          = GtkBuilder.get_object("SaveDialog")
+		self.ExtractSingleDialog = GtkBuilder.get_object("ExtractSingleDialog")
+		self.ExtractMultiDialog  = GtkBuilder.get_object("ExtractMultiDialog")
+		self.InsertDialog        = GtkBuilder.get_object("InsertDialog")
+		self.SearchDialog        = GtkBuilder.get_object("SearchDialog")
+		self.SearchDialogEntry   = GtkBuilder.get_object("SearchDialogEntry")
+		self.AboutDialog         = GtkBuilder.get_object("AboutDialog")
+		self.ContentList         = GtkBuilder.get_object("ContentList")
+		self.ContentStore        = GtkBuilder.get_object("ContentStore")
+		self.ContentSelector     = GtkBuilder.get_object("ContentSelector")
+		self.StatusBar           = GtkBuilder.get_object("StatusBar")
 
-			# Fire up the main window
-			self.MainWindow.set_application(application)
-			self.MainWindow.show()
+		# Initially sort by Offset
+		self.ContentStore.set_sort_column_id(COLUMN_OFFSET, Gtk.SortType.ASCENDING)
 
-			self.reset()
+		# Fire up the main window
+		self.MainWindow.set_application(application)
+		self.MainWindow.show()
 
-		# Reset GUI and close file
-		def reset(self, *args):
-			self.MixFile   = None
-			self.filename  = "Untitled"
-			self.contents  = {}
-			self.ContentStore.clear()
-			self.set_titlebar(self.filename)
-			self.set_statusbar("This is alpha software. Use at your own risk!")
+		self.reset()
+
+	# Reset GUI and close file
+	def reset(self, *args):
+		self.MixFile   = None
+		self.filename  = "Untitled"
+		self.contents  = {}
+		self.ContentStore.clear()
+		self.set_titlebar(self.filename)
+		self.set_statusbar("This is alpha software. Use at your own risk!")
+		
+	def write_index(self, *args):
+		self.MixFile.write_index()
+		self.refresh()
+
+	# Load file
+	def loadfile(self, filename):
+		# TODO: Input sanitising, test for existence
+		try:
+			self.MixFile = MixLib.MixFile(open(filename, "r+b"))
+		except Exception as error:
+			messagebox("Error loading MIX file" ,"e")
+			raise
+
+		self.filename = OS.path.basename(filename)
+
+		self.set_titlebar(self.filename)
+		self.set_statusbar(" ".join((self.MixFile.get_type(), "MIX contains", str(len(self.MixFile.contents)), "files.")))
+
+		self.refresh()
 			
-		def write_index(self, *args):
-			self.MixFile.write_index()
-			self.reload()
+	def refresh(self):
+		self.contents  = {}
+		self.ContentStore.clear()
+		
+		for inode in self.MixFile.contents:
+			rowid = id(inode)
+			treeiter = self.ContentStore.append((
+				rowid,
+				inode["name"],
+				inode["offset"],
+				inode["size"],
+				inode["alloc"] - inode["size"]
+			))
+			self.contents[rowid] = (treeiter, inode)
 
-		# Load file
-		def loadfile(self, filename):
-			# TODO: Input sanitising, test for existence
-			try:
-				self.MixFile = MixLib.MixFile(open(filename, "r+b"))
-			except Exception as error:
-				messagebox("Error loading MIX file" ,"e")
-				raise
+	# Delete file(s) from mix
+	def delete_selected(self, *args):
+		pass
 
-			self.filename = OS.path.basename(filename)
+	# Dialog functions
+	def opendialog(self, *args):
+		response = self.OpenDialog.run()
+		self.OpenDialog.hide()
+		if response == Gtk.ResponseType.OK:
+			self.loadfile(self.OpenDialog.get_filename())
 
-			self.set_titlebar(self.filename)
-			self.set_statusbar(" ".join((self.MixFile.get_type(), "MIX contains", str(len(self.MixFile.contents)), "files.")))
-
-			self.reload()
+	def savedialog(self, *args):
+		response = self.SaveDialog.run()
+		self.SaveDialog.hide()
+		if response == Gtk.ResponseType.OK:
+			messagebox("Selected " + self.SaveDialog.get_filename())
+			
+	# Insert dialog
+	def insertdialog(self, *args):
+		if self.MixFile is not None:
+			response = self.InsertDialog.run()
+			self.InsertDialog.hide()
+			
+			if response == Gtk.ResponseType.OK:
+				inpath = self.InsertDialog.get_filename()
+				filename = OS.path.basename(inpath)
+				inode = self.MixFile.insert(filename, inpath)
 				
-		def reload(self):
-			self.contents  = {}
-			self.ContentStore.clear()
-			
-			for inode in self.MixFile.contents:
 				rowid = id(inode)
 				treeiter = self.ContentStore.append((
 					rowid,
@@ -112,142 +163,110 @@ class Mixtool(Gtk.Application):
 				))
 				self.contents[rowid] = (treeiter, inode)
 
-		# Delete file(s) from mix
-		def delete_selected(self, *args):
-			pass
 
-		# Dialog functions
-		def opendialog(self, *args):
-			response = self.OpenDialog.run()
-			self.OpenDialog.hide()
-			if response == Gtk.ResponseType.OK:
-				self.loadfile(self.OpenDialog.get_filename())
+	def extractdialog(self, *args):
+		rows = self.get_selected_rows()
+		count = len(rows)
 
-		def savedialog(self, *args):
-			response = self.SaveDialog.run()
-			self.SaveDialog.hide()
-			if response == Gtk.ResponseType.OK:
-				messagebox("Selected " + self.SaveDialog.get_filename())
-				
-		# Insert dialog
-		def insertdialog(self, *args):
-			if self.MixFile is not None:
-				response = self.InsertDialog.run()
-				self.InsertDialog.hide()
-				
-				if response == Gtk.ResponseType.OK:
-					inpath = self.InsertDialog.get_filename()
-					filename = OS.path.basename(inpath)
-					inode = self.MixFile.insert(filename, inpath)
-					
-					rowid = id(inode)
-					treeiter = self.ContentStore.append((
-						rowid,
-						inode["name"],
-						inode["offset"],
-						inode["size"],
-						inode["alloc"] - inode["size"]
-					))
-					self.contents[rowid] = (treeiter, inode)
-
-
-		def extractdialog(self, *args):
-			rows = self.get_selected_rows()
-			count = len(rows)
-
-			if count == 0:
-				messagebox("Nothing selected", "e", self.MainWindow)
+		if count == 0:
+			messagebox("Nothing selected", "e", self.MainWindow)
+		else:
+			if count > 1:
+				Dialog = self.ExtractMultiDialog
+				Dialog.set_current_name(self.filename.replace(".", "_"))
 			else:
+				filename = rows[0][COLUMN_NAME]
+				Dialog = self.ExtractSingleDialog
+				Dialog.set_current_name(filename)
+
+			response = Dialog.run()
+			Dialog.hide()
+
+			if response == Gtk.ResponseType.OK:
+				outpath = Dialog.get_filename()
+
 				if count > 1:
-					Dialog = self.ExtractMultiDialog
-					Dialog.set_current_name(self.filename.replace(".", "_"))
+					# Mitigate FileChoserDialog's inconsistent behavior
+					# to protect user's files
+					if OS.listdir(outpath):
+						outpath = OS.path.join(outpath, Dialog.get_current_name())
+						OS.mkdir(outpath)
+
+					# Save every file with its original name
+					for row in rows:
+						filename = row[COLUMN_NAME]
+						self.MixFile.extract(filename, OS.path.join(outpath, filename))
 				else:
-					filename = rows[0][COLUMN_NAME]
-					Dialog = self.ExtractSingleDialog
-					Dialog.set_current_name(filename)
+					self.MixFile.extract(filename, outpath)
 
-				response = Dialog.run()
-				Dialog.hide()
+	def get_selected_rows(self):
+		rows = []
+		for path in self.ContentSelector.get_selected_rows()[1]:
+			rows.append(self.ContentStore[path])
+		return rows
 
-				if response == Gtk.ResponseType.OK:
-					outpath = Dialog.get_filename()
+	def propertiesdialog(self, *args):
+		messagebox("Not implemented yet", "i", self.MainWindow)
 
-					if count > 1:
-						# Mitigate FileChoserDialog's inconsistent behavior
-						if OS.listdir(outpath):
-							outpath += "/" + Dialog.get_current_name()
-							OS.mkdir(outpath)
+	def settingsdialog(self, *args):
+		messagebox("Not implemented yet", "i", self.MainWindow)
 
-						# Save every file with its original name
-						for row in rows:
-							filename = row[COLUMN_NAME]
-							self.MixFile.extract(filename, outpath + "/" + filename)
-					else:
-						self.MixFile.extract(filename, outpath)
+	def aboutdialog(self, *args):
+		self.AboutDialog.run()
+		self.AboutDialog.hide()
 
-		def get_selected_rows(self):
-			rows = []
-			for path in self.ContentSelector.get_selected_rows()[1]:
-				rows.append(self.ContentStore[path])
-			return rows
+	# Search current file for names
+	# TODO: Implement wildcard searching
+	def searchdialog(self, *args):
+		if self.MixFile is not None:
+			self.SearchDialogEntry.grab_focus()
+			self.SearchDialogEntry.select_region(0, -1)
+			response = self.SearchDialog.run()
+			self.SearchDialog.hide()
+			search = self.SearchDialogEntry.get_text()
 
-		def propertiesdialog(self, *args):
-			messagebox("Not implemented yet", "i", self.MainWindow)
+			if response == Gtk.ResponseType.OK  and search:
+				name  = self.SearchDialogEntry.get_text()
+				inode = self.MixFile.get_inode(name)
 
-		def settingsdialog(self, *args):
-			messagebox("Not implemented yet", "i", self.MainWindow)
+				if inode is not None:
+					treeiter = self.contents[id(inode)][0]
+					self.ContentStore[treeiter][COLUMN_NAME] = inode["name"]
 
-		def aboutdialog(self, *args):
-			self.AboutDialog.run()
-			self.AboutDialog.hide()
+					path = self.ContentStore.get_path(treeiter)
+					self.ContentList.set_cursor(path)
+				else:
+					messagebox("Found no file matching \"" + name + "\" in current mix", "i", self.MainWindow)
+		else:
+			messagebox("Search needs an open MIX file", "e", self.MainWindow)
 
-		# Search current file for names
-		# TODO: Implement wildcard searching
-		def searchdialog(self, *args):
-			if self.MixFile is not None:
-				self.SearchDialogEntry.grab_focus()
-				self.SearchDialogEntry.select_region(0, -1)
-				response = self.SearchDialog.run()
-				self.SearchDialog.hide()
-				search = self.SearchDialogEntry.get_text()
+	def set_statusbar(self, text):
+		self.StatusBar.set_text(str(text))
 
-				if response == Gtk.ResponseType.OK  and search:
-					name  = self.SearchDialogEntry.get_text()
-					inode = self.MixFile.get_inode(name)
+	def set_titlebar(self, text):
+		self.MainWindow.set_title(text + " – Mixtool (Alpha)")
 
-					if inode is not None:
-						treeiter = self.contents[id(inode)][0]
-						self.ContentStore[treeiter][COLUMN_NAME] = inode["name"]
+	# Close window
+	# Gtk.Application quits if this was the last one
+	def close(self, *args):
+		# Cleanup GtkBuilder
+		for object_ in self.GtkBuilder.get_objects():
+			try: object_.destroy()
+			except AttributeError: pass
+			
+# Starter
+def main():
+	# Keep GTK+ from mixing languages
+	Locale.setlocale(Locale.LC_MESSAGES, "C")
 
-						path = self.ContentStore.get_path(treeiter)
-						self.ContentList.set_cursor(path)
-					else:
-						messagebox("Found no file matching \"" + name + "\" in current mix", "i", self.MainWindow)
-			else:
-				messagebox("Search needs an open MIX file", "e", self.MainWindow)
+	# Initialize GTK Application // One window per process while in alpha state
+	Application = Mixtool("com.bachsau.mixtool", Gio.ApplicationFlags.NON_UNIQUE)
 
-		def set_statusbar(self, text):
-			self.StatusBar.set_text(str(text))
-
-		def set_titlebar(self, text):
-			self.MainWindow.set_title(text + " – Mixtool (Alpha)")
-
-		# Close window
-		# Gtk.Application quits if this was the last one
-		def close(self, *args):
-			# Cleanup GtkBuilder
-			for object_ in self.GtkBuilder.get_objects():
-				try: object_.destroy()
-				except AttributeError: pass
-
-
-	# Main initialization routine
-	def __init__(self, application_id, flags):
-		Gtk.Application.__init__(self, application_id=application_id, flags=flags)
-
-	def do_activate(self, *args):
-		self.Window(self)
-
+	# Start GUI
+	status = Application.run()
+	print("GTK returned")
+	
+	Sys.exit(status)
 
 # A simple, instance-independant messagebox
 def messagebox(text, type_="i", parent=None):
@@ -262,19 +281,5 @@ def messagebox(text, type_="i", parent=None):
 	response = Dialog.run()
 	Dialog.destroy()
 	return response
-
-
-# Starter
-def main():
-	# Keep GTK+ from mixing languages
-	Locale.setlocale(Locale.LC_MESSAGES, "C")
-
-	# Initialize GTK Application // One window per process while in alpha state
-	Application = Mixtool("com.bachsau.mixtool", Gio.ApplicationFlags.NON_UNIQUE)
-
-	# Start GUI
-	Application.run()
-
-	print("GTK returned")
 
 if __name__ == "__main__": main()

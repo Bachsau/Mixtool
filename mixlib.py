@@ -23,10 +23,6 @@ import binascii   as BinASCII
 
 from mixtool_gtk  import messagebox
 
-# MixLib implements a file-in-file type class that can be used by AbstractIO.
-# To AbstractIO it is what the standard OS module is to standard IO.
-# MixLib and AbstractIO work together to build an in-python-file-system and stream API.
-
 # Constants
 FLAG_CHECKSUM  = 1
 FLAG_ENCRYPTED = 2
@@ -34,7 +30,6 @@ FLAG_ENCRYPTED = 2
 TYPE_TD  = 0
 TYPE_RA  = 1
 TYPE_TS  = 2
-TYPE_RG  = 3
 
 DBKEYS    = 1422054725, 913179935
 KEYFILE   = 1983676893
@@ -46,17 +41,30 @@ XCC_ID = b"XCC by Olaf van der Spek\x1a\x04\x17\x27\x10\x19\x80\x00"
 # Instance representing a single MIX file
 # Think of this as a file system driver
 class MixFile(object):
+	__slots__ = "Stream", "files_open", "index", "contents", "mixtype", "has_checksum", "is_encrypted"
+	
 	# Constructor opens MIX file
 	# Must work on a BufferedIO stream
-	def __init__(self, stream, new=False, mixtype=None):
+	def __init__(self, stream, new=False):
 		self.Stream = stream
+		
+		# A list to keep track of files opened inside the MIX
+		self.files_open = []
+		
+		# For new files, initialize empty and return
+		if new:
+			if new < TYPE_TD or new > TYPE_TS:
+				raise MixError("Unsupported MIX type")
+			self.mixtype = new
+			self.index = {}
+			self.contents = []
+			self.has_checksum = False
+			self.is_encrypted = False
+			return
+		
 		filesize = self.Stream.seek(0, OS.SEEK_END)
-
 		if filesize < 4:
 			raise MixError("File too small")
-
-		# A list to handle descriptors of files opened inside the MIX
-		self.files_open = []
 
 		# First two bytes are zero for RA/TS and the number of files for TD
 		self.Stream.seek(0, OS.SEEK_SET)
@@ -149,7 +157,7 @@ class MixFile(object):
 				# Remove Database from index
 				del index[dbkey]
 				
-				# Populate names dict
+				# Add names to index
 				namecount = 0
 				for name in namelist:
 					name = name.decode("cp1252", "ignore")
@@ -243,7 +251,8 @@ class MixFile(object):
 		elif newtype > TYPE_TS:
 			newtype = TYPE_TS
 
-		if (newtype >= TYPE_TS and self.mixtype < TYPE_TS) or (newtype < TYPE_TS and self.mixtype >= TYPE_TS):
+		if (newtype >= TYPE_TS and self.mixtype < TYPE_TS)\
+		or (newtype < TYPE_TS and self.mixtype >= TYPE_TS):
 			# This means we have to generate new keys for all names
 			newindex = {}
 			for inode in self.contents:
@@ -252,6 +261,10 @@ class MixFile(object):
 					
 				newkey = genkey(inode["name"], self.mixtype)
 				newindex[newkey] = inode
+				
+			if len(newindex) != len(self.contents):
+				raise MixError("Key collision")
+				
 			self.index = newindex
 
 		# Checksum and Encryption is not supported in TD
@@ -270,7 +283,7 @@ class MixFile(object):
 		indexoffset = 6 if self.mixtype == TYPE_TD else 10
 		indexsize   = filecount * 12
 		bodyoffset  = indexoffset + indexsize
-		flags       = 0 #self.has_checksum | self.is_encrypted
+		flags       = 0
 		files       = list(self.index.items())
 		block       = BLOCKSIZE
 
@@ -309,7 +322,9 @@ class MixFile(object):
 			i += 1
 			lastfile = firstfile
 			firstfile = files[i][1]
-		if i:
+			
+		# Concatenate files if optimize was requested
+		if optimize:
 			files.sort(key=lambda i: i[1]["offset"])
 			
 		# Write names
@@ -322,7 +337,7 @@ class MixFile(object):
 		for key, inode in files:
 			if inode["name"][:2] not in ("0x, 0X"):
 				dbsize += self.Stream.write(inode["name"].encode("cp1252", "strict"))
-				dbsize += self.Stream.write(bytes(1))
+				dbsize += self.Stream.write(b"\x00")
 				namecount += 1
 		self.Stream.write(b"local mix database.dat\x00")
 		self.Stream.truncate()

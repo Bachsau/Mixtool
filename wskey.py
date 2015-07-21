@@ -25,6 +25,7 @@ CHAR2NUM = (-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 
 # struct bignum
 class bignum(array):
+	__slots__ = ()
 	initbytes = bytes(2048)
 	def __new__(cls):
 		return array.__new__(cls, "L", self.initbytes)
