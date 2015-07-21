@@ -79,11 +79,10 @@ class Mixtool(Gtk.Application):
 			
 		def write_index(self, *args):
 			self.MixFile.write_index()
+			self.reload()
 
 		# Load file
 		def loadfile(self, filename):
-			self.reset()
-
 			# TODO: Input sanitising, test for existence
 			try:
 				self.MixFile = MixLib.MixFile(open(filename, "r+b"))
@@ -96,6 +95,12 @@ class Mixtool(Gtk.Application):
 			self.set_titlebar(self.filename)
 			self.set_statusbar(" ".join((self.MixFile.get_type(), "MIX contains", str(len(self.MixFile.contents)), "files.")))
 
+			self.reload()
+				
+		def reload(self):
+			self.contents  = {}
+			self.ContentStore.clear()
+			
 			for inode in self.MixFile.contents:
 				rowid = id(inode)
 				treeiter = self.ContentStore.append((
@@ -239,9 +244,8 @@ class Mixtool(Gtk.Application):
 	# Main initialization routine
 	def __init__(self, application_id, flags):
 		Gtk.Application.__init__(self, application_id=application_id, flags=flags)
-		self.connect("activate", self.new_window)
 
-	def new_window(self, *args):
+	def do_activate(self, *args):
 		self.Window(self)
 
 

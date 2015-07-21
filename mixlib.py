@@ -38,11 +38,9 @@ TYPE_RG  = 3
 
 DBKEYS    = 1422054725, 913179935
 KEYFILE   = 1983676893
-BLOCKSIZE = 4194304
+BLOCKSIZE = 2097152
 
-XCC_ID    = b"XCC by Olaf van der Spek\x1a\x04\x17\x27\x10\x19\x80\x00"
-ENCODING  = "cp1252"
-BYTEORDER = "little"
+XCC_ID = b"XCC by Olaf van der Spek\x1a\x04\x17\x27\x10\x19\x80\x00"
 
 
 # Instance representing a single MIX file
@@ -62,10 +60,10 @@ class MixFile(object):
 
 		# First two bytes are zero for RA/TS and the number of files for TD
 		self.Stream.seek(0, OS.SEEK_SET)
-		firstbytes = int.from_bytes(self.Stream.read(2), BYTEORDER)
+		firstbytes = int.from_bytes(self.Stream.read(2), "little")
 		if not firstbytes:
 			# It seems we have a RA/TS MIX so decode the flags
-			flags = int.from_bytes(self.Stream.read(2), BYTEORDER)
+			flags = int.from_bytes(self.Stream.read(2), "little")
 			self.has_checksum = flags & FLAG_CHECKSUM == FLAG_CHECKSUM
 			self.is_encrypted = flags & FLAG_ENCRYPTED == FLAG_ENCRYPTED
 
@@ -80,7 +78,7 @@ class MixFile(object):
 			else:
 				# RA/TS MIXes hold their filecount after the flags,
 				# whilst for TD MIXes their first two bytes are the filecount.
-				filecount = int.from_bytes(self.Stream.read(2), BYTEORDER)
+				filecount = int.from_bytes(self.Stream.read(2), "little")
 		else:
 			# Maybe it's a TD MIX
 			self.mixtype = TYPE_TD
@@ -92,7 +90,7 @@ class MixFile(object):
 
 		# From here it's the same for every unencrypted MIX
 		if not self.is_encrypted:
-			bodysize    = int.from_bytes(self.Stream.read(4), BYTEORDER)
+			bodysize    = int.from_bytes(self.Stream.read(4), "little")
 			indexoffset = self.Stream.tell()
 			indexsize   = filecount * 12
 			bodyoffset  = indexoffset + indexsize
@@ -106,9 +104,9 @@ class MixFile(object):
 			# OK, time to read the index
 			index = {}
 			for i in range(0, filecount):
-				key    = int.from_bytes(self.Stream.read(4), BYTEORDER)
-				offset = int.from_bytes(self.Stream.read(4), BYTEORDER) + bodyoffset
-				size   = int.from_bytes(self.Stream.read(4), BYTEORDER)
+				key    = int.from_bytes(self.Stream.read(4), "little")
+				offset = int.from_bytes(self.Stream.read(4), "little") + bodyoffset
+				size   = int.from_bytes(self.Stream.read(4), "little")
 
 				if offset + size > filesize:
 					raise MixError("Content " + hex(key) + " out of range")
@@ -126,10 +124,10 @@ class MixFile(object):
 
 				if header != XCC_ID: continue
 
-				dbsize  = int.from_bytes(self.Stream.read(4), BYTEORDER) # Total filesize
-				xcctype = int.from_bytes(self.Stream.read(4), BYTEORDER) # 0 for LMD, 2 for XIF
-				version = int.from_bytes(self.Stream.read(4), BYTEORDER) # Always zero
-				mixtype = int.from_bytes(self.Stream.read(4), BYTEORDER) # XCC Game ID
+				dbsize  = int.from_bytes(self.Stream.read(4), "little") # Total filesize
+				xcctype = int.from_bytes(self.Stream.read(4), "little") # 0 for LMD, 2 for XIF
+				version = int.from_bytes(self.Stream.read(4), "little") # Always zero
+				mixtype = int.from_bytes(self.Stream.read(4), "little") # XCC Game ID
 
 				if dbsize != index[dbkey]["size"]:
 					raise MixError("Invalid database")
@@ -141,7 +139,7 @@ class MixFile(object):
 
 				self.mixtype = mixtype
 
-				namecount = int.from_bytes(self.Stream.read(4), BYTEORDER)
+				namecount = int.from_bytes(self.Stream.read(4), "little")
 				bodysize  = dbsize - 53 # Size - header - last byte
 				namelist  = self.Stream.read(bodysize).split(b"\x00") if bodysize > 0 else []
 
@@ -154,7 +152,7 @@ class MixFile(object):
 				# Populate names dict
 				namecount = 0
 				for name in namelist:
-					name = name.decode(ENCODING, "ignore")
+					name = name.decode("cp1252", "ignore")
 					key = genkey(name, self.mixtype)
 					if key in index:
 						index[key]["name"] = name
@@ -176,12 +174,6 @@ class MixFile(object):
 		# Export the final index
 		self.index = index
 		self.contents = contents
-		
-	# Write index on close if writable
-	def __del__(self):
-		return # Disabled in Alpha
-		if self.Stream.writable():
-			self.write_index()
 
 	# Central file-finding method (like stat)
 	# Also used to add missing names to the index
@@ -270,29 +262,23 @@ class MixFile(object):
 		self.mixtype = newtype
 		return newtype
 
-	# Optimize mix function // Works like defragmentation
-	# Reorganizing sorts contents by size with the smallest at that beginning
-	def optimize(self, reorganize=False):
-		pass
-
 	# Write current header (Flags, Keysource, Index, Database, Checksum) to MIX
 	# TODO: Implement context manager
-	def write_index(self):
+	def write_index(self, optimize=False):
 		assert len(self.contents) == len(self.index)
 		filecount   = len(self.contents) + 1
 		indexoffset = 6 if self.mixtype == TYPE_TD else 10
 		indexsize   = filecount * 12
 		bodyoffset  = indexoffset + indexsize
 		flags       = 0 #self.has_checksum | self.is_encrypted
-		
-		files = list(self.index.items())
+		files       = list(self.index.items())
+		block       = BLOCKSIZE
+
+		# First, anything occupying index space must be moved
 		files.sort(key=lambda i: i[1]["offset"])
 		firstfile = files[0][1]
 		lastfile = files[-1][1]
-		
-		# First, anything occupying index space must be moved
 		i = 0
-		block = BLOCKSIZE
 		while firstfile["offset"] < bodyoffset:
 			size  = firstfile["size"]
 			full  = int(size / block)
@@ -335,7 +321,7 @@ class MixFile(object):
 		self.Stream.write(bytes(52))
 		for key, inode in files:
 			if inode["name"][:2] not in ("0x, 0X"):
-				dbsize += self.Stream.write(inode["name"].encode(ENCODING, "strict"))
+				dbsize += self.Stream.write(inode["name"].encode("cp1252", "strict"))
 				dbsize += self.Stream.write(bytes(1))
 				namecount += 1
 		self.Stream.write(b"local mix database.dat\x00")
@@ -344,10 +330,10 @@ class MixFile(object):
 		# Write database header
 		self.Stream.seek(dboffset, OS.SEEK_SET)
 		self.Stream.write(XCC_ID)
-		self.Stream.write(dbsize.to_bytes(4, BYTEORDER))
+		self.Stream.write(dbsize.to_bytes(4, "little"))
 		self.Stream.write(bytes(8))
-		self.Stream.write(self.mixtype.to_bytes(4, BYTEORDER))
-		self.Stream.write(namecount.to_bytes(4, BYTEORDER))
+		self.Stream.write(self.mixtype.to_bytes(4, "little"))
+		self.Stream.write(namecount.to_bytes(4, "little"))
 			
 		# Write index
 		bodysize = firstfile["offset"] - bodyoffset + dbsize
@@ -355,22 +341,22 @@ class MixFile(object):
 		
 		self.Stream.seek(indexoffset, OS.SEEK_SET)
 		for key, inode in files:
-			self.Stream.write(key.to_bytes(4, BYTEORDER))
-			self.Stream.write((inode["offset"] - bodyoffset).to_bytes(4, BYTEORDER))
-			self.Stream.write(inode["size"].to_bytes(4, BYTEORDER))
+			self.Stream.write(key.to_bytes(4, "little"))
+			self.Stream.write((inode["offset"] - bodyoffset).to_bytes(4, "little"))
+			self.Stream.write(inode["size"].to_bytes(4, "little"))
 			bodysize += inode["alloc"]
 			
-		self.Stream.write(dbkey.to_bytes(4, BYTEORDER))
-		self.Stream.write((dboffset - bodyoffset).to_bytes(4, BYTEORDER))
-		self.Stream.write(dbsize.to_bytes(4, BYTEORDER))
+		self.Stream.write(dbkey.to_bytes(4, "little"))
+		self.Stream.write((dboffset - bodyoffset).to_bytes(4, "little"))
+		self.Stream.write(dbsize.to_bytes(4, "little"))
 		
 		# Write MIX header
 		self.Stream.seek(0, OS.SEEK_SET)
 		if self.mixtype != TYPE_TD:
 			self.Stream.write(bytes(2))
-			self.Stream.write(flags.to_bytes(2, BYTEORDER))
-		self.Stream.write(filecount.to_bytes(2, BYTEORDER))
-		self.Stream.write(bodysize.to_bytes(4, BYTEORDER))
+			self.Stream.write(flags.to_bytes(2, "little"))
+		self.Stream.write(filecount.to_bytes(2, "little"))
+		self.Stream.write(bodysize.to_bytes(4, "little"))
 		
 		self.Stream.flush()
 				
@@ -471,7 +457,7 @@ class MixNameError(ValueError):
 # Create MIX-Identifier from filename
 # Thanks to Olaf van der Spek for providing these functions
 def genkey(name, mixtype):
-	name = name.encode(ENCODING, "strict")
+	name = name.encode("cp1252", "strict")
 	name = name.upper()
 	len_ = len(name)
 
