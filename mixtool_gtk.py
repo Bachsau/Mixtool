@@ -22,9 +22,6 @@ import os           as OS
 import locale       as Locale
 import configparser as ConfigParser
 
-# Fix Glib segfaults
-OS.putenv("G_SLICE", "always-malloc")
-
 from gi.repository  import GObject, Gio, Gdk, Gtk
 import mixlib       as MixLib
 
@@ -258,6 +255,9 @@ class MixWindow(object):
 def main():
 	# Keep GTK+ from mixing languages
 	Locale.setlocale(Locale.LC_MESSAGES, "C")
+	
+	# When called early enough, we don't need G_SLICE=always-malloc
+	GObject.threads_init()
 
 	# Initialize GTK Application // One window per process while in alpha state
 	Application = Mixtool("com.bachsau.mixtool", Gio.ApplicationFlags.NON_UNIQUE)
