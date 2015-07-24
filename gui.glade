@@ -17,7 +17,6 @@
     </columns>
   </object>
   <object class="GtkApplicationWindow" id="MainWindow">
-    <property name="width_request">320</property>
     <property name="height_request">200</property>
     <property name="can_focus">False</property>
     <property name="title">Mixtool</property>
@@ -67,12 +66,12 @@
             </child>
             <child>
               <object class="GtkToolButton" id="ToolbarSave">
-                <property name="visible">True</property>
+                <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="tooltip_text">Press this button to damage everything!</property>
-                <property name="label">Write Index</property>
-                <property name="stock_id">gtk-dialog-warning</property>
-                <signal name="clicked" handler="write_index" swapped="no"/>
+                <property name="tooltip_text">Optimize MIX for distribution</property>
+                <property name="label">Optimize</property>
+                <property name="stock_id">gtk-convert</property>
+                <signal name="clicked" handler="optimize" swapped="no"/>
                 <accelerator key="s" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
@@ -244,7 +243,7 @@
                   <object class="GtkTreeViewColumn" id="ContentListName">
                     <property name="resizable">True</property>
                     <property name="sizing">fixed</property>
-                    <property name="fixed_width">250</property>
+                    <property name="fixed_width">300</property>
                     <property name="min_width">30</property>
                     <property name="title">Name</property>
                     <property name="clickable">True</property>
@@ -263,7 +262,7 @@
                   <object class="GtkTreeViewColumn" id="ContentListOffset">
                     <property name="resizable">True</property>
                     <property name="sizing">fixed</property>
-                    <property name="fixed_width">200</property>
+                    <property name="fixed_width">150</property>
                     <property name="min_width">30</property>
                     <property name="title">Offset</property>
                     <property name="clickable">True</property>
@@ -283,7 +282,7 @@
                   <object class="GtkTreeViewColumn" id="ContentListSize">
                     <property name="resizable">True</property>
                     <property name="sizing">fixed</property>
-                    <property name="fixed_width">200</property>
+                    <property name="fixed_width">150</property>
                     <property name="min_width">30</property>
                     <property name="title">Size</property>
                     <property name="clickable">True</property>
@@ -303,7 +302,7 @@
                   <object class="GtkTreeViewColumn" id="ContentListOverhead">
                     <property name="resizable">True</property>
                     <property name="sizing">fixed</property>
-                    <property name="fixed_width">200</property>
+                    <property name="fixed_width">150</property>
                     <property name="min_width">30</property>
                     <property name="title">Overhead</property>
                     <property name="clickable">True</property>
@@ -364,6 +363,7 @@
     <property name="title">About Mixtool</property>
     <property name="resizable">False</property>
     <property name="modal">True</property>
+    <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>
@@ -401,6 +401,7 @@
     <property name="can_focus">False</property>
     <property name="title">Insert file</property>
     <property name="modal">True</property>
+    <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>
@@ -468,6 +469,7 @@
     <property name="can_focus">False</property>
     <property name="title">Search filename</property>
     <property name="modal">True</property>
+    <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>
@@ -478,49 +480,6 @@
         <property name="can_focus">False</property>
         <property name="orientation">vertical</property>
         <property name="spacing">2</property>
-        <child internal-child="action_area">
-          <object class="GtkButtonBox" id="SearchDialogButtons">
-            <property name="can_focus">False</property>
-            <property name="layout_style">end</property>
-            <child>
-              <object class="GtkButton" id="SearchDialogCancel">
-                <property name="label">gtk-cancel</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="can_default">True</property>
-                <property name="receives_default">True</property>
-                <property name="use_stock">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="SearchDialogOK">
-                <property name="label">gtk-find</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="can_default">True</property>
-                <property name="has_default">True</property>
-                <property name="receives_default">True</property>
-                <property name="use_stock">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="pack_type">end</property>
-            <property name="position">0</property>
-          </packing>
-        </child>
         <child>
           <object class="GtkBox" id="SearchDialogBox">
             <property name="visible">True</property>
@@ -569,7 +528,50 @@
           <packing>
             <property name="expand">True</property>
             <property name="fill">True</property>
-            <property name="position">1</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="SearchDialogButtons">
+            <property name="can_focus">False</property>
+            <property name="layout_style">end</property>
+            <child>
+              <object class="GtkButton" id="SearchDialogCancel">
+                <property name="label">gtk-cancel</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="can_default">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_stock">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="SearchDialogOK">
+                <property name="label">gtk-find</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="can_default">True</property>
+                <property name="has_default">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_stock">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="pack_type">end</property>
+            <property name="position">0</property>
           </packing>
         </child>
       </object>
@@ -580,29 +582,22 @@
     </action-widgets>
   </object>
   <object class="GtkDialog" id="SettingsDialog">
+    <property name="width_request">630</property>
     <property name="can_focus">False</property>
+    <property name="title">Mixtool settings</property>
+    <property name="modal">True</property>
+    <property name="window_position">center-on-parent</property>
+    <property name="default_width">630</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>
+    <property name="skip_taskbar_hint">True</property>
     <property name="transient_for">MainWindow</property>
     <child internal-child="vbox">
       <object class="GtkBox" id="SettingsDialogIbox">
         <property name="can_focus">False</property>
         <property name="orientation">vertical</property>
         <property name="spacing">2</property>
-        <child>
-          <object class="GtkCheckButton" id="CheckboxAllLowercase">
-            <property name="label">Insert all-lowercase</property>
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="receives_default">False</property>
-            <property name="xalign">0</property>
-            <property name="draw_indicator">True</property>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">0</property>
-          </packing>
-        </child>
         <child internal-child="action_area">
           <object class="GtkButtonBox" id="SettingsDialogButtons">
             <property name="can_focus">False</property>
@@ -644,7 +639,38 @@
           </packing>
         </child>
         <child>
-          <object class="GtkCheckButton" id="CheckboxAllASCII">
+          <object class="GtkCheckButton" id="AllLowercaseCheckbox">
+            <property name="label">Insert all-lowercase</property>
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">False</property>
+            <property name="xalign">0</property>
+            <property name="draw_indicator">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="AllLowercaseDescription">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="margin_left">25</property>
+            <property name="margin_bottom">10</property>
+            <property name="xalign">0</property>
+            <property name="label">By default, casing is retained by insert and rename operations, but due to the inner workings of MIX files, access is case insensitive for letters from A to Z only, while being case sensitive for all other characters. That might be confusing, so you can force Mixtool to always use lowercase on insert and rename operations.</property>
+            <property name="wrap">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkCheckButton" id="AllASCIICheckbox">
             <property name="label">Insert all-ASCII</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
@@ -656,6 +682,22 @@
             <property name="expand">False</property>
             <property name="fill">True</property>
             <property name="position">3</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="AllASCIIDescription">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="margin_left">25</property>
+            <property name="margin_bottom">10</property>
+            <property name="xalign">0</property>
+            <property name="label">When this option is set, Mixtool replaces all diacritical characters with their normalized version on insert and rename operations. It does not convert any non-latin characters though. Insertion of files with chinese or japanese names will always fail as MIXes are simply not able to store these type of characters.</property>
+            <property name="wrap">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">4</property>
           </packing>
         </child>
       </object>
@@ -674,6 +716,7 @@
     <property name="can_focus">False</property>
     <property name="title">Extract multiple files</property>
     <property name="modal">True</property>
+    <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>
@@ -747,6 +790,7 @@
     <property name="can_focus">False</property>
     <property name="title">Extract single file</property>
     <property name="modal">True</property>
+    <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>
@@ -821,6 +865,7 @@
     <property name="can_focus">False</property>
     <property name="title">Open MIX File</property>
     <property name="modal">True</property>
+    <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>
@@ -889,6 +934,7 @@
     <property name="can_focus">False</property>
     <property name="title">Save MIX File</property>
     <property name="modal">True</property>
+    <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>

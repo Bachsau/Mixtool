@@ -19,8 +19,13 @@
 
 import sys          as Sys
 import os           as OS
+import io           as IO
+import signal       as Signal
 import locale       as Locale
 import configparser as ConfigParser
+
+# Fix Glib segfaults
+#OS.putenv("G_SLICE", "always-malloc")
 
 from gi.repository  import GObject, Gio, Gdk, Gtk
 import mixlib       as MixLib
@@ -64,6 +69,7 @@ class MixWindow(object):
 		self.SearchDialog        = GtkBuilder.get_object("SearchDialog")
 		self.SearchDialogEntry   = GtkBuilder.get_object("SearchDialogEntry")
 		self.AboutDialog         = GtkBuilder.get_object("AboutDialog")
+		self.SettingsDialog      = GtkBuilder.get_object("SettingsDialog")
 		self.ContentList         = GtkBuilder.get_object("ContentList")
 		self.ContentStore        = GtkBuilder.get_object("ContentStore")
 		self.ContentSelector     = GtkBuilder.get_object("ContentSelector")
@@ -87,15 +93,15 @@ class MixWindow(object):
 		self.set_titlebar(self.filename)
 		self.set_statusbar("This is alpha software. Use at your own risk!")
 		
-	def write_index(self, *args):
-		self.MixFile.write_index()
+	def optimize(self, *args):
+		self.MixFile.write_index(True)
 		self.refresh()
 
 	# Load file
 	def loadfile(self, filename):
 		# TODO: Input sanitising, test for existence
 		try:
-			self.MixFile = MixLib.MixFile(open(filename, "r+b"))
+			self.MixFile = MixLib.MixFile(IO.open(filename, "r+b"))
 		except Exception as error:
 			messagebox("Error loading MIX file" ,"e")
 			raise
@@ -132,12 +138,6 @@ class MixWindow(object):
 		self.OpenDialog.hide()
 		if response == Gtk.ResponseType.OK:
 			self.loadfile(self.OpenDialog.get_filename())
-
-	def savedialog(self, *args):
-		response = self.SaveDialog.run()
-		self.SaveDialog.hide()
-		if response == Gtk.ResponseType.OK:
-			messagebox("Selected " + self.SaveDialog.get_filename())
 			
 	# Insert dialog
 	def insertdialog(self, *args):
@@ -150,15 +150,8 @@ class MixWindow(object):
 				filename = OS.path.basename(inpath)
 				inode = self.MixFile.insert(filename, inpath)
 				
-				rowid = id(inode)
-				treeiter = self.ContentStore.append((
-					rowid,
-					inode["name"],
-					inode["offset"],
-					inode["size"],
-					inode["alloc"] - inode["size"]
-				))
-				self.contents[rowid] = (treeiter, inode)
+				self.MixFile.write_index()
+				self.refresh()
 
 
 	def extractdialog(self, *args):
@@ -206,7 +199,8 @@ class MixWindow(object):
 		messagebox("Not implemented yet", "i", self.MainWindow)
 
 	def settingsdialog(self, *args):
-		messagebox("Not implemented yet", "i", self.MainWindow)
+		self.SettingsDialog.run()
+		self.SettingsDialog.hide()
 
 	def aboutdialog(self, *args):
 		self.AboutDialog.run()
@@ -258,11 +252,12 @@ def main():
 	
 	# When called early enough, we don't need G_SLICE=always-malloc
 	GObject.threads_init()
-
+	
 	# Initialize GTK Application // One window per process while in alpha state
 	Application = Mixtool("com.bachsau.mixtool", Gio.ApplicationFlags.NON_UNIQUE)
-
+	
 	# Start GUI
+	Signal.signal(Signal.SIGINT, Signal.SIG_DFL)
 	status = Application.run()
 	print("GTK returned")
 	
