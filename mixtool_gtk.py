@@ -18,14 +18,15 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import sys          as Sys
+import gc           as GC
 import os           as OS
 import io           as IO
-import signal       as Signal
 import locale       as Locale
+import signal       as Signal
 import configparser as ConfigParser
 
 # Fix Glib segfaults
-#OS.putenv("G_SLICE", "always-malloc")
+#OS.environ["G_SLICE"] = "always-malloc"
 
 from gi.repository  import GObject, Gio, Gdk, Gtk
 import mixlib       as MixLib
@@ -38,12 +39,27 @@ COLUMN_SIZE     = 3
 COLUMN_OVERHEAD = 4
 
 class Mixtool(Gtk.Application):
-	# Main initialization routine
+	"""Mixtool application management class"""
+	__slots__ = "config", "conffile"
+	
 	def __init__(self, application_id, flags):
+		"""Initialize GTK+ Application"""
 		Gtk.Application.__init__(self, application_id=application_id, flags=flags)
+		
+		self.config = {}
+		
+		# Determine configuration file
+		
 
 	def do_activate(self, *args):
+		"""Create a new main window"""
 		MixWindow(self)
+		
+	def load_config(self):
+		"""Load configuration from file"""
+		
+	def save_config(self):
+		"""Save configuration to file"""
 		
 class MixWindow(object):
 	def __init__(self, application):
@@ -241,8 +257,8 @@ class MixWindow(object):
 	# Gtk.Application quits if this was the last one
 	def close(self, *args):
 		# Cleanup GtkBuilder
-		for object_ in self.GtkBuilder.get_objects():
-			try: object_.destroy()
+		for obj in self.GtkBuilder.get_objects():
+			try: obj.destroy()
 			except AttributeError: pass
 			
 # Starter
@@ -250,17 +266,24 @@ def main():
 	# Keep GTK+ from mixing languages
 	Locale.setlocale(Locale.LC_MESSAGES, "C")
 	
-	# When called early enough, we don't need G_SLICE=always-malloc
+	# Since GTK+ does not support KeyboardInterrupt, reset SIGINT to default.
+	Signal.signal(Signal.SIGINT, Signal.SIG_DFL)
+	
+	# Initialize GObject's treads capability
+	# Stops segfaults so G_SLICE="always-malloc" is not needed
 	GObject.threads_init()
 	
-	# Initialize GTK Application // One window per process while in alpha state
+	# Initialize GTK Application // One window per process in alpha state
+	GObject.set_application_name("Mixtool")
 	Application = Mixtool("com.bachsau.mixtool", Gio.ApplicationFlags.NON_UNIQUE)
 	
 	# Start GUI
-	Signal.signal(Signal.SIGINT, Signal.SIG_DFL)
 	status = Application.run()
 	print("GTK returned")
 	
+	# Do a clean exit
+	del Application
+	GC.collect()
 	Sys.exit(status)
 
 # A simple, instance-independant messagebox

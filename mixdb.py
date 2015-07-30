@@ -36,7 +36,7 @@ class MixDB:
 		
 		try:
 			for type_ in TYPES:
-				self.DBQuery.execute("CREATE TABLE IF NOT EXISTS `mixdb_{0}` (`key_{0}` INT PRIMARY KEY NOT NULL CHECK(TYPEOF(`key_{0}`) = 'integer'), `name` CHAR NOT NULL CHECK(TYPEOF(`name`) = 'text')) WITHOUT ROWID;".format(type_))
+				self.DBQuery.execute("CREATE TABLE IF NOT EXISTS `names_{0}` (`key_{0}` INT PRIMARY KEY NOT NULL CHECK(TYPEOF(`key_{0}`) = 'integer'), `name` CHAR NOT NULL CHECK(TYPEOF(`name`) = 'text')) WITHOUT ROWID;".format(type_))
 		except SQLite3.Error as e:
 			self.DB.rollback()
 			raise MixDBError("SQLite3:", e.args[0])
