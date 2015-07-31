@@ -18,7 +18,6 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import sys          as Sys
-import gc           as GC
 import os           as OS
 import io           as IO
 import locale       as Locale
@@ -137,10 +136,10 @@ class MixWindow(object):
 			rowid = id(inode)
 			treeiter = self.ContentStore.append((
 				rowid,
-				inode["name"],
-				inode["offset"],
-				inode["size"],
-				inode["alloc"] - inode["size"]
+				inode.name,
+				inode.offset,
+				inode.size,
+				inode.alloc - inode.size
 			))
 			self.contents[rowid] = (treeiter, inode)
 
@@ -238,7 +237,7 @@ class MixWindow(object):
 
 				if inode is not None:
 					treeiter = self.contents[id(inode)][0]
-					self.ContentStore[treeiter][COLUMN_NAME] = inode["name"]
+					self.ContentStore[treeiter][COLUMN_NAME] = inode.name
 
 					path = self.ContentStore.get_path(treeiter)
 					self.ContentList.set_cursor(path)
@@ -281,9 +280,6 @@ def main():
 	status = Application.run()
 	print("GTK returned")
 	
-	# Do a clean exit
-	del Application
-	GC.collect()
 	Sys.exit(status)
 
 # A simple, instance-independant messagebox
