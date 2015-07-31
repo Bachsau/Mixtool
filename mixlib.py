@@ -160,24 +160,24 @@ class MixFile(object):
 				del self.index[dbkey]
 				
 				# Add names to index
-				namecount = 0
+				names = False
 				for name in namelist:
 					name = name.decode("cp1252", "ignore")
 					key = genkey(name, self.mixtype)
 					if key in self.index:
 						self.index[key].name = name
-						namecount += 1
+						names = True
 
 				# XCC sometimes puts two Databases in a file by mistake,
 				# so if no names were found, give it another try
-				if namecount: break
+				if names: break
 
 		# Create a sorted list of all contents
 		self.contents = sorted(self.index.values())
 
 		# Calculate alloc values
 		# This is the size up to wich a file may grow without needing a move
-		for i in range(0, len(self.contents) - 1):
+		for i in range(len(self.contents) - 1):
 			self.contents[i].alloc = self.contents[i+1].offset - self.contents[i].offset
 			
 			if self.contents[i].alloc < self.contents[i].size:
@@ -294,6 +294,29 @@ class MixFile(object):
 			self.is_encrypted = False
 
 		self.mixtype = newtype
+		
+	# Move contents in stream
+	# Not to be called from outside
+	def _move_internal(self, rpos, wpos, size):
+		"Internal move method"
+		block = BLOCKSIZE
+		full = size // block
+		rest = size % block
+		
+		if full:
+			buffer = bytearray(block)
+			for j in range(0, full):
+				self.Stream.seek(rpos)
+				rpos += self.Stream.readinto(buffer)
+				self.Stream.seek(wpos)
+				wpos += self.Stream.write(buffer)
+				
+		if rest:
+			self.Stream.seek(rpos)
+			buffer = self.Stream.read(rest)
+			self.Stream.seek(wpos)
+			self.Stream.write(buffer)
+		
 
 	# Write current header (Flags, Keysource, Index, Database, Checksum) to MIX
 	# TODO: Implement context manager
@@ -305,52 +328,66 @@ class MixFile(object):
 		and overhead removed, so it is ready for distribution.
 		"""
 		assert len(self.contents) == len(self.index)
-		filecount   = len(self.contents) + 1
+		filecount   = len(self.contents)
 		indexoffset = 6 if self.mixtype == TYPE_TD else 10
-		indexsize   = filecount * 12
+		indexsize   = (filecount + 1) * 12
 		bodyoffset  = indexoffset + indexsize
 		flags       = 0
-		block       = BLOCKSIZE
 		firstfile   = self.contents[0]
 		lastfile    = self.contents[-1]
 
 		# First, anything occupying index space must be moved
 		while firstfile.offset < bodyoffset:
 			size = firstfile.size
-			full = size // block
-			rest = size % block
-			
 			rpos = firstfile.offset
 			wpos = lastfile.offset + lastfile.alloc
 			
 			firstfile.offset = wpos
-			firstfile.alloc = size
-			
-			if full:
-				buffer = bytearray(block)
-				for j in range(0, full):
-					self.Stream.seek(rpos)
-					rpos += self.Stream.readinto(buffer)
-					self.Stream.seek(wpos)
-					wpos += self.Stream.write(buffer)
-				
-			if rest:
-				self.Stream.seek(rpos)
-				buffer = self.Stream.read(rest)
-				self.Stream.seek(wpos)
-				self.Stream.write(buffer)
-				
-			del buffer
+			firstfile.alloc = firstfile.size
 			
 			del self.contents[0]
 			self.contents.append(firstfile)
 			lastfile = firstfile
 			firstfile = self.contents[0]
 			
-		# TODO: Concatenate files if optimize was requested
-		if optimize:
-			pass
+			self._move_internal(rpos, wpos, size)
 			
+		# Concatenate files if optimize was requested
+		if optimize:
+			nextoffset = bodyoffset
+			i = 0
+			while i < filecount:
+				inode = self.contents[i]
+				messagebox("endless")
+				if inode.offset > nextoffset:
+					rpos = inode.offset
+					wpos = nextoffset
+					size = 0
+					more = True
+					
+					while more:
+						more = inode.size == inode.alloc
+						messagebox(more)
+						
+						inode.offset = nextoffset
+						inode.alloc = inode.size
+						
+						size += inode.size
+						
+						nextoffset += inode.size
+						i += 1
+						
+						if i < filecount:
+							inode = self.contents[i]
+						else:
+							break
+						
+					self._move_internal(rpos, wpos, size)
+				else:
+					inode.alloc = inode.size
+					nextoffset += inode.size
+					i += 1
+					
 		# Write names
 		dbsize = 75
 		namecount = 1
@@ -395,7 +432,7 @@ class MixFile(object):
 		if self.mixtype != TYPE_TD:
 			self.Stream.write(bytes(2))
 			self.Stream.write(flags.to_bytes(2, "little"))
-		self.Stream.write(filecount.to_bytes(2, "little"))
+		self.Stream.write((filecount + 1).to_bytes(2, "little"))
 		self.Stream.write(bodysize.to_bytes(4, "little"))
 		
 		self.Stream.flush()
