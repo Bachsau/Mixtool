@@ -358,16 +358,13 @@ class MixFile(object):
 			i = 0
 			while i < filecount:
 				inode = self.contents[i]
-				messagebox("endless")
 				if inode.offset > nextoffset:
 					rpos = inode.offset
 					wpos = nextoffset
 					size = 0
-					more = True
 					
-					while more:
+					while True:
 						more = inode.size == inode.alloc
-						messagebox(more)
 						
 						inode.offset = nextoffset
 						inode.alloc = inode.size
@@ -377,12 +374,13 @@ class MixFile(object):
 						nextoffset += inode.size
 						i += 1
 						
-						if i < filecount:
+						if more and i < filecount:
 							inode = self.contents[i]
 						else:
 							break
 						
 					self._move_internal(rpos, wpos, size)
+					
 				else:
 					inode.alloc = inode.size
 					nextoffset += inode.size
