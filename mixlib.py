@@ -35,6 +35,7 @@ TYPE_TS  = 2
 DBKEYS    = 1422054725, 913179935
 KEYFILE   = 1983676893
 BLOCKSIZE = 2097152
+PREALLOC  = 262144
 
 XCC_ID = b"XCC by Olaf van der Spek\x1a\x04\x17\x27\x10\x19\x80\x00"
 
@@ -239,7 +240,7 @@ class MixFile(object):
 		newkey = self.get_key(new)
 		
 		if newkey in DBKEYS:
-			raise MixNameError("Invalid filename")
+			raise MixNameError("Reserved filename")
 			
 		existing = self.index.get(newkey)
 				
@@ -309,14 +310,11 @@ class MixFile(object):
 		indexsize   = filecount * 12
 		bodyoffset  = indexoffset + indexsize
 		flags       = 0
-		files       = list(self.index.items())
 		block       = BLOCKSIZE
+		firstfile   = self.contents[0]
+		lastfile    = self.contents[-1]
 
 		# First, anything occupying index space must be moved
-		files.sort(key=lambda i: i[1].offset)
-		firstfile = files[0][1]
-		lastfile = files[-1][1]
-		i = 0
 		while firstfile.offset < bodyoffset:
 			size = firstfile.size
 			full = size // block
@@ -344,18 +342,20 @@ class MixFile(object):
 				
 			del buffer
 			
-			i += 1
+			del self.contents[0]
+			self.contents.append(firstfile)
 			lastfile = firstfile
-			firstfile = files[i][1]
+			firstfile = self.contents[0]
 			
 		# TODO: Concatenate files if optimize was requested
 		if optimize:
-			files.sort(key=lambda i: i[1].offset)
+			pass
 			
 		# Write names
 		dbsize = 75
 		namecount = 1
 		dboffset = lastfile.offset + lastfile.alloc
+		files = sorted(self.index.items(), key=lambda i: i[1].offset)
 		
 		self.Stream.seek(dboffset)
 		self.Stream.write(bytes(52))
@@ -435,10 +435,11 @@ class MixFile(object):
 		if inode is None:
 			raise MixError("File not found")
 			
-		self.contents.sort()
-			
 		index = self.contents.index(inode)
-		self.contents[index-1].alloc += inode.alloc
+		
+		if index:
+			self.contents[index-1].alloc += inode.alloc
+			
 		del self.contents[index]
 		del self.index[key]
 			
@@ -464,7 +465,7 @@ class MixFile(object):
 		assert not OS.path.isfile(dest)
 		
 		self.Stream.seek(inode.offset)
-		with IO.open(dest, "wb") as OutFile:
+		with open(dest, "wb") as OutFile:
 			if full:
 				buffer = bytearray(block)
 				for i in range(0, full):
@@ -492,7 +493,6 @@ class MixFile(object):
 			
 		# TODO: Add code to find better position
 		
-		self.contents.sort()
 		offset = self.contents[-1].offset + self.contents[-1].alloc
 		size = OS.stat(source).st_size
 		
@@ -505,7 +505,7 @@ class MixFile(object):
 		rest = size % block
 		
 		self.Stream.seek(offset)
-		with IO.open(source, "rb") as InFile:
+		with open(source, "rb") as InFile:
 			if full:
 				buffer = bytearray(block)
 				for i in range(0, full):
@@ -521,22 +521,23 @@ class MixFile(object):
 	# Works like the build-in open function
 	def open(self, name, mode="r", buffering=-1, encoding=None, errors=None):
 		"!!! STUB !!!"
-		#inode = self.get_inode()
-		self.files_open.append(id(inode))
 
 # MixIO instaces are used to work with contained files as if they were real
 class MixIO(IO.BufferedIOBase):
-	# TODO: Realize expand() method in MixFile, not here!
 	"Access files inside MIXes as io objects"
-	__slots__ = "Controller", "Stream", "__cursor", "__inode"
+	__slots__ = "Container", "Stream", "__cursor", "__inode"
 	
 	def __init__(name, container):
-		self.Controller = container
-		self.Stream     = container.Stream
-		self.__inode    = container.get_inode(name)
-		self.__cursor   = 0
+		self.Container = container
+		self.Stream    = container.Stream
+		self.__inode   = container.get_inode(name)
+		self.__cursor  = 0
 		
 		self.MixFile.files_open.append(id(inode))
+		
+	# Move some files arround to clear space
+	def expand(self, size):
+		"Allocate an additional of 'size' bytes"
 		
 
 # Exception for internal errors
@@ -600,8 +601,8 @@ class mixnode(object):
 		)
 	
 	def __delattr__(self, attr):
-		"Raise AttributeError"
-		raise AttributeError("Can not delete mixnode attribute")
+		"Raise TypeError"
+		raise TypeError("Can't delete mixnode attributes")
 
 # Create MIX-Identifier from filename
 # Thanks to Olaf van der Spek for providing these functions

@@ -19,7 +19,6 @@
 
 import sys          as Sys
 import os           as OS
-import io           as IO
 import locale       as Locale
 import signal       as Signal
 import configparser as ConfigParser
@@ -116,7 +115,7 @@ class MixWindow(object):
 	def loadfile(self, filename):
 		# TODO: Input sanitising, test for existence
 		try:
-			self.MixFile = MixLib.MixFile(IO.open(filename, "r+b"))
+			self.MixFile = MixLib.MixFile(open(filename, "r+b"))
 		except Exception as error:
 			messagebox("Error loading MIX file" ,"e")
 			raise
