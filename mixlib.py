@@ -22,8 +22,6 @@ import os         as OS
 import io         as IO
 import binascii   as BinASCII
 
-from mixtool_gtk  import messagebox
-
 # Constants
 FLAG_CHECKSUM  = 1
 FLAG_ENCRYPTED = 2
@@ -532,18 +530,31 @@ class MixFile(object):
 				inode.name = name
 			raise MixError("File exists")
 			
-		# TODO: Add code to find better position
-		
-		offset = self.contents[-1].offset + self.contents[-1].alloc
+		block = BLOCKSIZE
 		size = OS.stat(source).st_size
+		full = size // block
+		rest = size % block
+			
+		if self.contents:
+			for inode in self.contents:
+				if inode.alloc - inode.size >= size:
+					# This applies if there's enough overhead to accomodate the file
+					index = self.contents.index(inode) + 1
+					inode.alloc -= size
+					offset = inode.offset + inode.alloc
+					break
+			else:
+				# This applies when no spare space was found
+				index = len(self.contents)
+				offset = self.contents[-1].offset + self.contents[-1].alloc
+		else:
+			# This applies to empty files
+			index = 0
+			offset = 1024
 		
 		inode = mixnode(name, offset, size, size)
 		self.index[key] = inode
-		self.contents.append(inode)
-		
-		block = BLOCKSIZE
-		full = size // block
-		rest = size % block
+		self.contents.insert(index, inode)
 		
 		self.Stream.seek(offset)
 		with open(source, "rb") as InFile:
