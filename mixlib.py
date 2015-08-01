@@ -113,7 +113,7 @@ class MixFile(object):
 				raise MixError("Incorrect filesize or invalid header")
 
 			# OK, time to read the index
-			for i in range(0, filecount):
+			for i in range(filecount):
 				key    = int.from_bytes(self.Stream.read(4), "little")
 				offset = int.from_bytes(self.Stream.read(4), "little") + bodyoffset
 				size   = int.from_bytes(self.Stream.read(4), "little")
@@ -305,7 +305,7 @@ class MixFile(object):
 		
 		if full:
 			buffer = bytearray(block)
-			for j in range(0, full):
+			for j in range(full):
 				self.Stream.seek(rpos)
 				rpos += self.Stream.readinto(buffer)
 				self.Stream.seek(wpos)
@@ -333,52 +333,59 @@ class MixFile(object):
 		indexsize   = (filecount + 1) * 12
 		bodyoffset  = indexoffset + indexsize
 		flags       = 0
-		firstfile   = self.contents[0]
-		lastfile    = self.contents[-1]
 
 		# First, anything occupying index space must be moved
-		while firstfile.offset < bodyoffset:
-			size = firstfile.size
-			rpos = firstfile.offset
-			wpos = lastfile.offset + lastfile.alloc
+		if filecount:
+			firstfile   = self.contents[0]
+			lastfile    = self.contents[-1]
+			nextoffset = lastfile.offset + lastfile.alloc
+			while firstfile.offset < bodyoffset:
+				rpos = firstfile.offset
+				wpos = nextoffset
 			
-			firstfile.offset = wpos
-			firstfile.alloc = firstfile.size
+				size = 0
+				more = True
 			
-			del self.contents[0]
-			self.contents.append(firstfile)
-			lastfile = firstfile
-			firstfile = self.contents[0]
+				while more and firstfile.offset < bodyoffset:
+					size += firstfile.size
+					more = firstfile.size == firstfile.alloc
+				
+					firstfile.alloc = firstfile.size
+					firstfile.offset = nextoffset
+					nextoffset += firstfile.size
 			
-			self._move_internal(rpos, wpos, size)
+					del self.contents[0]
+					self.contents.append(firstfile)
+					lastfile = firstfile
+					firstfile = self.contents[0]
+			
+				self._move_internal(rpos, wpos, size)
 			
 		# Concatenate files if optimize was requested
 		if optimize:
-			nextoffset = bodyoffset
 			i = 0
+			nextoffset = bodyoffset
 			while i < filecount:
 				inode = self.contents[i]
+				
 				if inode.offset > nextoffset:
 					rpos = inode.offset
 					wpos = nextoffset
-					size = 0
 					
-					while True:
-						more = inode.size == inode.alloc
-						
-						inode.offset = nextoffset
-						inode.alloc = inode.size
+					size = 0
+					more = True
+					
+					while more and i < filecount:
+						inode = self.contents[i]
 						
 						size += inode.size
+						more = inode.size == inode.alloc
 						
+						inode.alloc = inode.size
+						inode.offset = nextoffset
 						nextoffset += inode.size
 						i += 1
-						
-						if more and i < filecount:
-							inode = self.contents[i]
-						else:
-							break
-						
+					
 					self._move_internal(rpos, wpos, size)
 					
 				else:
@@ -389,12 +396,11 @@ class MixFile(object):
 		# Write names
 		dbsize = 75
 		namecount = 1
-		dboffset = lastfile.offset + lastfile.alloc
-		files = sorted(self.index.items(), key=lambda i: i[1].offset)
+		dboffset = lastfile.offset + lastfile.alloc if filecount else bodyoffset
 		
 		self.Stream.seek(dboffset)
 		self.Stream.write(bytes(52))
-		for key, inode in files:
+		for inode in self.contents:
 			if inode.name[:2] != "0x":
 				dbsize += self.Stream.write(inode.name.encode("cp1252", "strict"))
 				dbsize += self.Stream.write(b"\x00")
@@ -411,8 +417,11 @@ class MixFile(object):
 		self.Stream.write(namecount.to_bytes(4, "little"))
 			
 		# Write index
-		bodysize = firstfile.offset - bodyoffset + dbsize
+		bodysize = firstfile.offset - bodyoffset if filecount else 0
+		files = sorted(self.index.items(), key=lambda i: i[1].offset)
+		
 		dbkey = DBKEYS[1] if self.mixtype == TYPE_TS else DBKEYS[0]
+		files.append((dbkey, mixnode(None, dboffset, dbsize, dbsize)))
 		
 		self.Stream.seek(indexoffset)
 		for key, inode in files:
@@ -420,10 +429,6 @@ class MixFile(object):
 			self.Stream.write((inode.offset - bodyoffset).to_bytes(4, "little"))
 			self.Stream.write(inode.size.to_bytes(4, "little"))
 			bodysize += inode.alloc
-			
-		self.Stream.write(dbkey.to_bytes(4, "little"))
-		self.Stream.write((dboffset - bodyoffset).to_bytes(4, "little"))
-		self.Stream.write(dbsize.to_bytes(4, "little"))
 		
 		# Write MIX header
 		self.Stream.seek(0)
@@ -497,13 +502,14 @@ class MixFile(object):
 		full = size // block
 		rest = size % block
 		
+		# Alpha protection
 		assert not OS.path.isfile(dest)
 		
 		self.Stream.seek(inode.offset)
 		with open(dest, "wb") as OutFile:
 			if full:
 				buffer = bytearray(block)
-				for i in range(0, full):
+				for i in range(full):
 					self.Stream.readinto(buffer)
 					OutFile.write(buffer)
 			if rest:
@@ -543,7 +549,7 @@ class MixFile(object):
 		with open(source, "rb") as InFile:
 			if full:
 				buffer = bytearray(block)
-				for i in range(0, full):
+				for i in range(full):
 					InFile.readinto(buffer)
 					self.Stream.write(buffer)
 			if rest:
@@ -660,7 +666,7 @@ def genkey(name, mixtype):
 		key = 0
 		while i < len_:
 			a = 0
-			for j in range(0, 4):
+			for j in range(4):
 				a >>= 8
 				if i < len_:
 					a |= (name[i] << 24)

@@ -388,6 +388,19 @@
           <object class="GtkButtonBox" id="AboutDialogButtons">
             <property name="can_focus">False</property>
             <property name="layout_style">end</property>
+            <child>
+              <object class="GtkButton" id="AboutDialogDonate">
+                <property name="label">Donate</property>
+                <property name="sensitive">False</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -644,7 +657,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkCheckButton" id="AllLowercaseCheckbox">
+          <object class="GtkCheckButton" id="SettingsLowercaseCheckbox">
             <property name="label">Insert all-lowercase</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
@@ -659,7 +672,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkLabel" id="AllLowercaseDescription">
+          <object class="GtkLabel" id="SettingsLowercaseDescription">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="margin_left">25</property>
@@ -675,7 +688,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkCheckButton" id="AllASCIICheckbox">
+          <object class="GtkCheckButton" id="SettingsASCIICheckbox">
             <property name="label">Insert all-ASCII</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
@@ -690,7 +703,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkLabel" id="AllASCIIDescription">
+          <object class="GtkLabel" id="SettingsASCIIDescription">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="margin_left">25</property>
@@ -703,6 +716,37 @@
             <property name="expand">False</property>
             <property name="fill">True</property>
             <property name="position">4</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkCheckButton" id="SettingsBackupCheckbox">
+            <property name="label">Make backups</property>
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">False</property>
+            <property name="xalign">0</property>
+            <property name="draw_indicator">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">5</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="SettingsBackupDescription">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="margin_left">25</property>
+            <property name="margin_bottom">10</property>
+            <property name="xalign">0</property>
+            <property name="label">When this option is set, Mixtool will automatically create backups of modified files. Backups will be saved by the original filename suffixed by "~". No backup is made if such a file already exists.</property>
+            <property name="wrap">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">6</property>
           </packing>
         </child>
       </object>
