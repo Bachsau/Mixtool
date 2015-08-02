@@ -366,10 +366,12 @@ class MixFile(object):
 					self.contents.insert(index, firstfile)
 					del self.contents[0]
 					firstfile = self.contents[0]
-					lastfile = self.contents[-1]
-					
+				lastfile = self.contents[-1]
+				
 				self._move_internal(rpos, wpos, size)
 				
+			lastfile.alloc = lastfile.size
+			
 		# Concatenate files if optimize was requested
 		if optimize:
 			i = 0
@@ -428,7 +430,6 @@ class MixFile(object):
 		# Write index
 		bodysize = firstfile.offset - bodyoffset if filecount else 0
 		files = sorted(self.index.items(), key=lambda i: i[1].offset)
-		
 		dbkey = 913179935 if self.mixtype == TYPE_TS else 1422054725
 		files.append((dbkey, mixnode(None, dboffset, dbsize, dbsize)))
 		
@@ -524,7 +525,7 @@ class MixFile(object):
 				OutFile.write(buffer)
 				
 	# Insert a new, empty file and allocate some space
-	def add_inode(self, name, alloc=PREALLOC):
+	def add_inode(self, name, alloc=4096):
 		key = self.get_key(name)
 		inode = self.index.get(key)
 		
@@ -546,7 +547,7 @@ class MixFile(object):
 				index = 0
 				for inode in self.contents:
 					index += 1
-					if inode.alloc - inode.size - PREALLOC >= alloc and inode.offset + inode.size + PREALLOC >= minoffset:
+					if inode.alloc - inode.size >= alloc and inode.offset + inode.size >= minoffset:
 						# Applies when there's enough spare space anywhere else
 						inode.alloc -= alloc
 						offset = inode.offset + inode.alloc
@@ -554,7 +555,7 @@ class MixFile(object):
 				else:
 					# This applies when no spare space was found
 					index = filecount
-					self.contents[-1].alloc = self.contents[-1].size + PREALLOC
+					self.contents[-1].alloc = self.contents[-1].size
 					offset = self.contents[-1].offset + self.contents[-1].alloc
 		else:
 			# This applies to empty files
@@ -576,7 +577,7 @@ class MixFile(object):
 		MixNameError is raised if 'name' is not valid.
 		"""
 		size = OS.stat(source).st_size
-		inode = self.add_inode(name, size + PREALLOC)
+		inode = self.add_inode(name, size)
 		inode.size = size
 		
 		full = size // BLOCKSIZE
