@@ -23,9 +23,6 @@ import locale       as Locale
 import signal       as Signal
 import configparser as ConfigParser
 
-# Fix Glib segfaults
-#OS.environ["G_SLICE"] = "always-malloc"
-
 from gi.repository  import GObject, Gio, Gdk, Gtk
 import mixlib       as MixLib
 
@@ -268,7 +265,6 @@ def main():
 	Signal.signal(Signal.SIGINT, Signal.SIG_DFL)
 	
 	# Initialize GObject's treads capability
-	# Stops segfaults so G_SLICE="always-malloc" is not needed
 	GObject.threads_init()
 	
 	# Initialize GTK Application // One window per process in alpha state

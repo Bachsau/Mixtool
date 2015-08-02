@@ -333,28 +333,48 @@ class MixFile(object):
 		
 		# First, anything occupying index space must be moved
 		if filecount:
-			firstfile   = self.contents[0]
-			lastfile    = self.contents[-1]
-			nextoffset = lastfile.offset + lastfile.alloc
+			firstfile = self.contents[0]
+			lastfile = self.contents[-1]
 			while firstfile.offset < bodyoffset:
 				rpos = firstfile.offset
-				wpos = nextoffset
+				size = firstfile.size
 				
-				size = 0
-				more = True
-				
-				while more and firstfile.offset < bodyoffset:
-					size += firstfile.size
-					more = firstfile.size == firstfile.alloc
+				# Calculate move block
+				count = 0
+				while self.contents[count].size == self.contents[count].alloc:
+					count += 1
+					if count < filecount and self.contents[count].offset < bodyoffset:
+						size += self.contents[count].size
+					else:
+						break
+				else:
+					count += 1
 					
+				# Find target position
+				index = 0
+				for inode in self.contents:
+					index += 1
+					if inode.alloc - inode.size >= size and inode.offset + inode.size >= bodyoffset:
+						# Applies when there's enough spare space
+						inode.alloc -= size
+						wpos = inode.offset + inode.alloc
+						break
+				else:
+					# This applies when no spare space was found
+					index = filecount
+					wpos = lastfile.offset + lastfile.alloc
+					
+				# Update affected inodes
+				nextoffset = wpos
+				for i in range(count):
 					firstfile.alloc = firstfile.size
 					firstfile.offset = nextoffset
 					nextoffset += firstfile.size
 					
+					self.contents.insert(index, firstfile)
 					del self.contents[0]
-					self.contents.append(firstfile)
-					lastfile = firstfile
 					firstfile = self.contents[0]
+					lastfile = self.contents[-1]
 					
 				self._move_internal(rpos, wpos, size)
 				
@@ -543,15 +563,14 @@ class MixFile(object):
 				index = 0
 				offset = self.contents[0].offset - size
 			else:
-				i = 0
+				index = 0
 				for inode in self.contents:
 					if inode.alloc - inode.size >= size and inode.offset + inode.size >= minoffset:
 						# Applies when there's enough spare space anywhere else
-						index = i + 1
+						index += 1
 						inode.alloc -= size
 						offset = inode.offset + inode.alloc
 						break
-					i += 1
 				else:
 					# This applies when no spare space was found
 					index = filecount
