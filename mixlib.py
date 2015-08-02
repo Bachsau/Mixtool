@@ -523,14 +523,8 @@ class MixFile(object):
 				buffer = self.Stream.read(rest)
 				OutFile.write(buffer)
 				
-	# Insert a file from local filesystem
-	def insert(self, name, source):
-		"""
-		Insert 'source' from the local file system as 'name' and return its inode.
-		
-		MixError is raised if a file by that name already exists.
-		MixNameError is raised if 'name' is not valid.
-		"""
+	# Insert a new, empty file and allocate some space
+	def add_inode(self, name, alloc=PREALLOC):
 		key = self.get_key(name)
 		inode = self.index.get(key)
 		
@@ -538,11 +532,6 @@ class MixFile(object):
 			if inode.name[:2] == "0x":
 				inode.name = name
 			raise MixError("File exists")
-			
-		size = OS.stat(source).st_size
-		alloc = size + PREALLOC
-		full = size // BLOCKSIZE
-		rest = size % BLOCKSIZE
 		
 		filecount   = len(self.contents)
 		indexoffset = 6 if self.mixtype == TYPE_TD else 10
@@ -572,11 +561,28 @@ class MixFile(object):
 			index = 0
 			offset = minoffset
 			
-		inode = mixnode(name, offset, size, alloc)
+		inode = mixnode(name, offset, 0, alloc)
 		self.index[key] = inode
 		self.contents.insert(index, inode)
 		
-		self.Stream.seek(offset)
+		return inode
+				
+	# Insert a file from local filesystem
+	def insert(self, name, source):
+		"""
+		Insert 'source' from the local file system as 'name' and return its inode.
+		
+		MixError is raised if a file by that name already exists.
+		MixNameError is raised if 'name' is not valid.
+		"""
+		size = OS.stat(source).st_size
+		inode = self.add_inode(name, size + PREALLOC)
+		inode.size = size
+		
+		full = size // BLOCKSIZE
+		rest = size % BLOCKSIZE
+		
+		self.Stream.seek(inode.offset)
 		with open(source, "rb") as InFile:
 			if full:
 				buffer = bytearray(BLOCKSIZE)
