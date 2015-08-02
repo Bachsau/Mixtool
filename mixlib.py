@@ -66,11 +66,11 @@ class MixFile(object):
 				raise MixError("Unsupported MIX type")
 			self.mixtype = int(new)
 			return
-		
+			
 		filesize = self.Stream.seek(0, OS.SEEK_END)
 		if filesize < 4:
 			raise MixError("File too small")
-
+			
 		# First two bytes are zero for RA/TS and the number of files for TD
 		self.Stream.seek(0)
 		firstbytes = int.from_bytes(self.Stream.read(2), "little")
@@ -79,11 +79,11 @@ class MixFile(object):
 			flags = int.from_bytes(self.Stream.read(2), "little")
 			self.has_checksum = flags & FLAG_CHECKSUM == FLAG_CHECKSUM
 			self.is_encrypted = flags & FLAG_ENCRYPTED == FLAG_ENCRYPTED
-
+			
 			# Encrypted TS MIXes have a key.ini we can check for later,
 			# so at this point assume TYPE_TS only if unencrypted
 			self.mixtype = TYPE_RA if self.is_encrypted else TYPE_TS
-
+			
 			# Get header data for RA/TS
 			if self.is_encrypted:
 				# OK, we have to deal with this first
@@ -95,65 +95,65 @@ class MixFile(object):
 		else:
 			# Maybe it's a TD MIX
 			self.mixtype = TYPE_TD
-
+			
 			# Get header Data for TD
 			filecount = firstbytes
-
+			
 		# From here it's the same for every unencrypted MIX
 		if not self.is_encrypted:
 			bodysize    = int.from_bytes(self.Stream.read(4), "little")
 			indexoffset = self.Stream.tell()
 			indexsize   = filecount * 12
 			bodyoffset  = indexoffset + indexsize
-
+			
 			# Check if data is sane
 			if filesize - bodyoffset != bodysize:
 				raise MixError("Incorrect filesize or invalid header")
-
+				
 			# OK, time to read the index
 			for i in range(filecount):
 				key    = int.from_bytes(self.Stream.read(4), "little")
 				offset = int.from_bytes(self.Stream.read(4), "little") + bodyoffset
 				size   = int.from_bytes(self.Stream.read(4), "little")
-
+				
 				if offset + size > filesize:
 					raise MixError("Content " + hex(key) + " out of range")
-
+					
 				self.index[key] = mixnode(hex(key), offset, size, size)
-
+				
 			if len(self.index) != filecount:
 				raise MixError("Duplicate key")
-
+				
 		# Now read the names
 		for dbkey in DBKEYS:
 			if dbkey in self.index:
 				self.Stream.seek(self.index[dbkey].offset)
 				header = self.Stream.read(32)
-
+				
 				if header != XCC_ID: continue
-
+				
 				dbsize  = int.from_bytes(self.Stream.read(4), "little") # Total filesize
 				xcctype = int.from_bytes(self.Stream.read(4), "little") # 0 for LMD, 2 for XIF
 				version = int.from_bytes(self.Stream.read(4), "little") # Always zero
 				mixtype = int.from_bytes(self.Stream.read(4), "little") # XCC Game ID
-
+				
 				if dbsize != self.index[dbkey].size:
 					raise MixError("Invalid database")
-
+					
 				if mixtype > TYPE_TS + 3:
 					raise MixError("Unsupported MIX type")
 				elif mixtype > TYPE_TS:
 					mixtype = TYPE_TS
-
+					
 				self.mixtype = mixtype
-
+				
 				namecount = int.from_bytes(self.Stream.read(4), "little")
 				bodysize  = dbsize - 53 # Size - header - last byte
 				namelist  = self.Stream.read(bodysize).split(b"\x00") if bodysize > 0 else []
-
+				
 				if len(namelist) != namecount:
 					raise MixError("Invalid database")
-
+					
 				# Remove Database from index
 				del self.index[dbkey]
 				
@@ -165,14 +165,14 @@ class MixFile(object):
 					if key in self.index:
 						self.index[key].name = name
 						names = True
-
+						
 				# XCC sometimes puts two Databases in a file by mistake,
 				# so if no names were found, give it another try
 				if names: break
-
+				
 		# Create a sorted list of all contents
 		self.contents = sorted(self.index.values())
-
+		
 		# Calculate alloc values
 		# This is the size up to wich a file may grow without needing a move
 		for i in range(len(self.contents) - 1):
@@ -180,7 +180,7 @@ class MixFile(object):
 			
 			if self.contents[i].alloc < self.contents[i].size:
 				raise MixError("Overlapping file boundaries")
-
+				
 	# Central file-finding method (like stat)
 	# Also used to add missing names to the index
 	def get_inode(self, name):
@@ -217,7 +217,7 @@ class MixFile(object):
 			raise MixNameError("Invalid filename")
 			
 		return key
-
+		
 	# Rename a file in the MIX
 	def rename(self, old, new):
 		"""
@@ -231,17 +231,17 @@ class MixFile(object):
 		
 		if inode is None:
 			raise MixError("File not found")
-		
+			
 		if inode.name[:2] == "0x":
 				inode.name = old
-		
+				
 		newkey = self.get_key(new)
 		
 		if newkey in DBKEYS:
 			raise MixNameError("Reserved filename")
 			
 		existing = self.index.get(newkey)
-				
+		
 		if existing:
 			if existing is inode:
 				# This  means "old" and "new" matched the same key.
@@ -251,7 +251,7 @@ class MixFile(object):
 			else:
 				# In this case a different file by name "new" already exists
 				raise MixError("File exists")
-			
+				
 		# Now rename the file
 		del self.index[oldkey]
 		inode.name = new
@@ -261,7 +261,7 @@ class MixFile(object):
 	def convert(self, newtype):
 		"""
 		Convert MIX to 'newtype'.
-	
+		
 		When converting between	TD/RA and TS the MIX is not allowed to have missing
 		names as they can not be properly converted. MixError is raised in this	case.
 		"""
@@ -269,7 +269,7 @@ class MixFile(object):
 			raise MixError("Unsupported MIX type")
 		elif newtype > TYPE_TS:
 			newtype = TYPE_TS
-
+			
 		if (newtype >= TYPE_TS and self.mixtype < TYPE_TS)\
 		or (newtype < TYPE_TS and self.mixtype >= TYPE_TS):
 			# This means we have to generate new keys for all names
@@ -285,12 +285,12 @@ class MixFile(object):
 				raise MixError("Key collision")
 				
 			self.index = newindex
-
+			
 		# Checksum and Encryption is not supported in TD
 		if newtype == TYPE_TD:
 			self.has_checksum = False
 			self.is_encrypted = False
-
+			
 		self.mixtype = newtype
 		
 	# Move contents in stream
@@ -314,8 +314,7 @@ class MixFile(object):
 			buffer = self.Stream.read(rest)
 			self.Stream.seek(wpos)
 			self.Stream.write(buffer)
-		
-
+			
 	# Write current header (Flags, Keysource, Index, Database, Checksum) to MIX
 	# TODO: Implement context manager
 	def write_index(self, optimize=False):
@@ -331,7 +330,7 @@ class MixFile(object):
 		indexsize   = (filecount + 1) * 12
 		bodyoffset  = indexoffset + indexsize
 		flags       = 0
-
+		
 		# First, anything occupying index space must be moved
 		if filecount:
 			firstfile   = self.contents[0]
@@ -340,25 +339,25 @@ class MixFile(object):
 			while firstfile.offset < bodyoffset:
 				rpos = firstfile.offset
 				wpos = nextoffset
-			
+				
 				size = 0
 				more = True
-			
+				
 				while more and firstfile.offset < bodyoffset:
 					size += firstfile.size
 					more = firstfile.size == firstfile.alloc
-				
+					
 					firstfile.alloc = firstfile.size
 					firstfile.offset = nextoffset
 					nextoffset += firstfile.size
-			
+					
 					del self.contents[0]
 					self.contents.append(firstfile)
 					lastfile = firstfile
 					firstfile = self.contents[0]
-			
+					
 				self._move_internal(rpos, wpos, size)
-			
+				
 		# Concatenate files if optimize was requested
 		if optimize:
 			i = 0
@@ -413,7 +412,7 @@ class MixFile(object):
 		self.Stream.write(bytes(8))
 		self.Stream.write(self.mixtype.to_bytes(4, "little"))
 		self.Stream.write(namecount.to_bytes(4, "little"))
-			
+		
 		# Write index
 		bodysize = firstfile.offset - bodyoffset if filecount else 0
 		files = sorted(self.index.items(), key=lambda i: i[1].offset)
@@ -427,7 +426,7 @@ class MixFile(object):
 			self.Stream.write((inode.offset - bodyoffset).to_bytes(4, "little"))
 			self.Stream.write(inode.size.to_bytes(4, "little"))
 			bodysize += inode.alloc
-		
+			
 		# Write MIX header
 		self.Stream.seek(0)
 		if self.mixtype != TYPE_TD:
@@ -437,8 +436,7 @@ class MixFile(object):
 		self.Stream.write(bodysize.to_bytes(4, "little"))
 		
 		self.Stream.flush()
-				
-			
+		
 	# Return if MIX is TD, RA or TS
 	def get_type(self):
 		"Return a string describing the MIX type. Will be one of TD, RA, TS."
@@ -455,7 +453,7 @@ class MixFile(object):
 		
 		if inode is None:
 			raise MixError("File not found")
-
+			
 		self.Stream.seek(inode.offset)
 		return self.Stream.read(inode.size)
 		
@@ -480,7 +478,7 @@ class MixFile(object):
 			
 		del self.contents[index]
 		del self.index[key]
-			
+		
 	# Extract a file to local filesystem
 	def extract(self, name, dest):
 		"""
@@ -494,7 +492,7 @@ class MixFile(object):
 		
 		if inode is None:
 			raise MixError("File not found")
-		
+			
 		block = BLOCKSIZE
 		size = inode.size
 		full = size // block
@@ -513,7 +511,7 @@ class MixFile(object):
 			if rest:
 				buffer = self.Stream.read(rest)
 				OutFile.write(buffer)
-			
+				
 	# Insert a file from local filesystem
 	def insert(self, name, source):
 		"""
@@ -534,24 +532,35 @@ class MixFile(object):
 		size = OS.stat(source).st_size
 		full = size // block
 		rest = size % block
-			
-		if self.contents:
-			for inode in self.contents:
-				if inode.alloc - inode.size >= size:
-					# This applies if there's enough overhead to accomodate the file
-					index = self.contents.index(inode) + 1
-					inode.alloc -= size
-					offset = inode.offset + inode.alloc
-					break
+		
+		filecount   = len(self.contents)
+		indexoffset = 6 if self.mixtype == TYPE_TD else 10
+		minoffset   = (filecount + 100) * 12 + indexoffset
+		
+		if filecount:
+			if self.contents[0].offset > minoffset + size:
+				# Applies when there's much free space at the start
+				index = 0
+				offset = self.contents[0].offset - size
 			else:
-				# This applies when no spare space was found
-				index = len(self.contents)
-				offset = self.contents[-1].offset + self.contents[-1].alloc
+				i = 0
+				for inode in self.contents:
+					if inode.alloc - inode.size >= size and inode.offset + inode.size >= minoffset:
+						# Applies when there's enough spare space anywhere else
+						index = i + 1
+						inode.alloc -= size
+						offset = inode.offset + inode.alloc
+						break
+					i += 1
+				else:
+					# This applies when no spare space was found
+					index = filecount
+					offset = self.contents[-1].offset + self.contents[-1].alloc
 		else:
 			# This applies to empty files
 			index = 0
-			offset = 1024
-		
+			offset = minoffset
+			
 		inode = mixnode(name, offset, size, size)
 		self.index[key] = inode
 		self.contents.insert(index, inode)
@@ -568,12 +577,12 @@ class MixFile(object):
 				self.Stream.write(buffer)
 				
 		return inode
-
+		
 	# Opens a file inside the MIX using MixIO
 	# Works like the build-in open function
 	def open(self, name, mode="r", buffering=-1, encoding=None, errors=None):
 		"!!! STUB !!!"
-
+		
 # MixIO instaces are used to work with contained files as if they were real
 class MixIO(IO.BufferedIOBase):
 	"Access files inside MIXes as io objects"
@@ -591,7 +600,6 @@ class MixIO(IO.BufferedIOBase):
 	def expand(self, size):
 		"Allocate an additional of 'size' bytes"
 		
-
 # Exception for internal errors
 class MixError(Exception):
 	__slots__ = ()
@@ -651,11 +659,11 @@ class mixnode(object):
 			repr(self.size),
 			repr(self.alloc)
 		)
-	
+		
 	def __delattr__(self, attr):
 		"Raise TypeError"
 		raise TypeError("Can't delete mixnode attributes")
-
+		
 # Create MIX-Identifier from filename
 # Thanks to Olaf van der Spek for providing these functions
 def genkey(name, mixtype):
@@ -663,7 +671,7 @@ def genkey(name, mixtype):
 	name = name.encode("cp1252", "strict")
 	name = name.upper()
 	len_ = len(name)
-
+	
 	if mixtype == TYPE_TS:
 		# Compute key for TS MIXes
 		a = len_ & ~3
