@@ -23,20 +23,12 @@ import io         as IO
 import binascii   as BinASCII
 
 # Constants
-FLAG_CHECKSUM  = 1
-FLAG_ENCRYPTED = 2
-
 TYPE_TD  = 0
 TYPE_RA  = 1
 TYPE_TS  = 2
 
-DBKEYS    = 1422054725, 913179935
-KEYFILE   = 1983676893
 BLOCKSIZE = 2097152
-PREALLOC  = 262144
-
-XCC_ID = b"XCC by Olaf van der Spek\x1a\x04\x17\x27\x10\x19\x80\x00"
-
+PREALLOC  = 4096
 
 # Instance representing a single MIX file
 # Think of this as a file system driver
@@ -77,8 +69,8 @@ class MixFile(object):
 		if not firstbytes:
 			# It seems we have a RA/TS MIX so decode the flags
 			flags = int.from_bytes(self.Stream.read(2), "little")
-			self.has_checksum = flags & FLAG_CHECKSUM == FLAG_CHECKSUM
-			self.is_encrypted = flags & FLAG_ENCRYPTED == FLAG_ENCRYPTED
+			self.has_checksum = flags & 1 == 1
+			self.is_encrypted = flags & 2 == 2
 			
 			# Encrypted TS MIXes have a key.ini we can check for later,
 			# so at this point assume TYPE_TS only if unencrypted
@@ -125,12 +117,13 @@ class MixFile(object):
 				raise MixError("Duplicate key")
 				
 		# Now read the names
-		for dbkey in DBKEYS:
+		for dbkey in (1422054725, 913179935):
 			if dbkey in self.index:
 				self.Stream.seek(self.index[dbkey].offset)
 				header = self.Stream.read(32)
 				
-				if header != XCC_ID: continue
+				if header != b"XCC by Olaf van der Spek\x1a\x04\x17'\x10\x19\x80\x00":
+					continue
 				
 				dbsize  = int.from_bytes(self.Stream.read(4), "little") # Total filesize
 				xcctype = int.from_bytes(self.Stream.read(4), "little") # 0 for LMD, 2 for XIF
@@ -237,7 +230,7 @@ class MixFile(object):
 				
 		newkey = self.get_key(new)
 		
-		if newkey in DBKEYS:
+		if newkey in (1422054725, 913179935):
 			raise MixNameError("Reserved filename")
 			
 		existing = self.index.get(newkey)
@@ -297,12 +290,11 @@ class MixFile(object):
 	# Not to be called from outside
 	def _move_internal(self, rpos, wpos, size):
 		"Internal move method"
-		block = BLOCKSIZE
-		full = size // block
-		rest = size % block
+		full = size // BLOCKSIZE
+		rest = size % BLOCKSIZE
 		
 		if full:
-			buffer = bytearray(block)
+			buffer = bytearray(BLOCKSIZE)
 			for j in range(full):
 				self.Stream.seek(rpos)
 				rpos += self.Stream.readinto(buffer)
@@ -427,7 +419,7 @@ class MixFile(object):
 		
 		# Write database header
 		self.Stream.seek(dboffset)
-		self.Stream.write(XCC_ID)
+		self.Stream.write(b"XCC by Olaf van der Spek\x1a\x04\x17'\x10\x19\x80\x00")
 		self.Stream.write(dbsize.to_bytes(4, "little"))
 		self.Stream.write(bytes(8))
 		self.Stream.write(self.mixtype.to_bytes(4, "little"))
@@ -437,7 +429,7 @@ class MixFile(object):
 		bodysize = firstfile.offset - bodyoffset if filecount else 0
 		files = sorted(self.index.items(), key=lambda i: i[1].offset)
 		
-		dbkey = DBKEYS[1] if self.mixtype == TYPE_TS else DBKEYS[0]
+		dbkey = 913179935 if self.mixtype == TYPE_TS else 1422054725
 		files.append((dbkey, mixnode(None, dboffset, dbsize, dbsize)))
 		
 		self.Stream.seek(indexoffset)
@@ -513,10 +505,9 @@ class MixFile(object):
 		if inode is None:
 			raise MixError("File not found")
 			
-		block = BLOCKSIZE
 		size = inode.size
-		full = size // block
-		rest = size % block
+		full = size // BLOCKSIZE
+		rest = size % BLOCKSIZE
 		
 		# Alpha protection
 		assert not OS.path.isfile(dest)
@@ -524,7 +515,7 @@ class MixFile(object):
 		self.Stream.seek(inode.offset)
 		with open(dest, "wb") as OutFile:
 			if full:
-				buffer = bytearray(block)
+				buffer = bytearray(BLOCKSIZE)
 				for i in range(full):
 					self.Stream.readinto(buffer)
 					OutFile.write(buffer)
@@ -548,51 +539,52 @@ class MixFile(object):
 				inode.name = name
 			raise MixError("File exists")
 			
-		block = BLOCKSIZE
 		size = OS.stat(source).st_size
-		full = size // block
-		rest = size % block
+		alloc = size + PREALLOC
+		full = size // BLOCKSIZE
+		rest = size % BLOCKSIZE
 		
 		filecount   = len(self.contents)
 		indexoffset = 6 if self.mixtype == TYPE_TD else 10
 		minoffset   = (filecount + 100) * 12 + indexoffset
 		
 		if filecount:
-			if self.contents[0].offset > minoffset + size:
+			if self.contents[0].offset > minoffset + alloc:
 				# Applies when there's much free space at the start
 				index = 0
-				offset = self.contents[0].offset - size
+				offset = self.contents[0].offset - alloc
 			else:
 				index = 0
 				for inode in self.contents:
-					if inode.alloc - inode.size >= size and inode.offset + inode.size >= minoffset:
+					index += 1
+					if inode.alloc - inode.size - PREALLOC >= alloc and inode.offset + inode.size + PREALLOC >= minoffset:
 						# Applies when there's enough spare space anywhere else
-						index += 1
-						inode.alloc -= size
+						inode.alloc -= alloc
 						offset = inode.offset + inode.alloc
 						break
 				else:
 					# This applies when no spare space was found
 					index = filecount
+					self.contents[-1].alloc = self.contents[-1].size + PREALLOC
 					offset = self.contents[-1].offset + self.contents[-1].alloc
 		else:
 			# This applies to empty files
 			index = 0
 			offset = minoffset
 			
-		inode = mixnode(name, offset, size, size)
+		inode = mixnode(name, offset, size, alloc)
 		self.index[key] = inode
 		self.contents.insert(index, inode)
 		
 		self.Stream.seek(offset)
 		with open(source, "rb") as InFile:
 			if full:
-				buffer = bytearray(block)
+				buffer = bytearray(BLOCKSIZE)
 				for i in range(full):
 					InFile.readinto(buffer)
 					self.Stream.write(buffer)
 			if rest:
-				buffer = InFile.read(block)
+				buffer = InFile.read(rest)
 				self.Stream.write(buffer)
 				
 		return inode
