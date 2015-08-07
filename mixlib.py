@@ -323,13 +323,11 @@ class MixFile(object):
 		bodyoffset  = indexoffset + indexsize
 		flags       = 0
 		
-		# First, anything occupying index space must be moved
 		if filecount:
-			firstfile = self.contents[0]
-			lastfile = self.contents[-1]
-			while firstfile.offset < bodyoffset:
-				rpos = firstfile.offset
-				size = firstfile.size
+			# First, anything occupying index space must be moved
+			while self.contents[0].offset < bodyoffset:
+				rpos = self.contents[0].offset
+				size = self.contents[0].size
 				
 				# Calculate move block
 				count = 0
@@ -354,23 +352,21 @@ class MixFile(object):
 				else:
 					# This applies when no spare space was found
 					index = filecount
-					wpos = lastfile.offset + lastfile.alloc
+					wpos = self.contents[-1].offset + self.contents[-1].alloc
 					
 				# Update affected inodes
 				nextoffset = wpos
 				for i in range(count):
-					firstfile.alloc = firstfile.size
-					firstfile.offset = nextoffset
-					nextoffset += firstfile.size
+					self.contents[0].alloc = self.contents[0].size
+					self.contents[0].offset = nextoffset
+					nextoffset += self.contents[0].size
 					
-					self.contents.insert(index, firstfile)
+					self.contents.insert(index, self.contents[0])
 					del self.contents[0]
-					firstfile = self.contents[0]
-				lastfile = self.contents[-1]
-				
+					
 				self._move_internal(rpos, wpos, size)
 				
-			lastfile.alloc = lastfile.size
+			self.contents[-1].alloc = self.contents[-1].size
 			
 		# Concatenate files if optimize was requested
 		if optimize:
@@ -407,7 +403,7 @@ class MixFile(object):
 		# Write names
 		dbsize = 75
 		namecount = 1
-		dboffset = lastfile.offset + lastfile.alloc if filecount else bodyoffset
+		dboffset = self.contents[-1].offset + self.contents[-1].alloc if filecount else bodyoffset
 		
 		self.Stream.seek(dboffset)
 		self.Stream.write(bytes(52))
@@ -428,7 +424,7 @@ class MixFile(object):
 		self.Stream.write(namecount.to_bytes(4, "little"))
 		
 		# Write index
-		bodysize = firstfile.offset - bodyoffset if filecount else 0
+		bodysize = self.contents[0].offset - bodyoffset if filecount else 0
 		files = sorted(self.index.items(), key=lambda i: i[1].offset)
 		dbkey = 913179935 if self.mixtype == TYPE_TS else 1422054725
 		files.append((dbkey, mixnode(None, dboffset, dbsize, dbsize)))
@@ -524,7 +520,7 @@ class MixFile(object):
 				buffer = self.Stream.read(rest)
 				OutFile.write(buffer)
 				
-	# Insert a new, empty file and allocate some space
+	# Insert a new, empty file
 	def add_inode(self, name, alloc=4096):
 		key = self.get_key(name)
 		inode = self.index.get(key)
