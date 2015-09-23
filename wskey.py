@@ -1,5 +1,8 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # coding=utf8
+
+# This file is not used and will be removed.
+# Its functions will be integrated in mixlib.py
 
 from array import array
 from mixtool_gtk import messagebox

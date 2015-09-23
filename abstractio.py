@@ -1,12 +1,11 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # coding=utf8
-open = None
+
+# This file is not used and will be removed.
+# Its functions will be integrated in mixlib.py
 
 # AbstractIO expands the standard IO module with Classes to work on
 # abstract file-in-file objects with infinite recursion.
-#
-# Designed to work with the MixLib it should work with every other class
-# that resembles its interface.
 
 import io as IO
 import os as OS

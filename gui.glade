@@ -373,7 +373,7 @@
     <property name="transient_for">MainWindow</property>
     <property name="has_resize_grip">False</property>
     <property name="program_name">Mixtool</property>
-    <property name="version">Alpha</property>
+    <property name="version">Alpha 0.2</property>
     <property name="comments">An editor for Westwood Studios’ MIX files</property>
     <property name="website">http://bachsau.github.io/Mixtool/</property>
     <property name="website_label">Visit Mixtool website</property>
@@ -688,39 +688,8 @@
           </packing>
         </child>
         <child>
-          <object class="GtkCheckButton" id="SettingsASCIICheckbox">
-            <property name="label">Insert all-ASCII</property>
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="receives_default">False</property>
-            <property name="xalign">0</property>
-            <property name="draw_indicator">True</property>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">3</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkLabel" id="SettingsASCIIDescription">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="margin_left">25</property>
-            <property name="margin_bottom">10</property>
-            <property name="xalign">0</property>
-            <property name="label">When this option is set, Mixtool replaces all diacritical characters with their normalized version on insert and rename operations. It does not convert any non-latin characters though. Insertion of files with chinese or japanese names will always fail as MIXes are simply not able to store these type of characters.</property>
-            <property name="wrap">True</property>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">4</property>
-          </packing>
-        </child>
-        <child>
           <object class="GtkCheckButton" id="SettingsBackupCheckbox">
-            <property name="label">Make backups</property>
+            <property name="label">Backup old files</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">False</property>

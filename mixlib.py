@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # coding=utf8
 
 # Mixtool – An editor for Westwood Studios’ MIX files
@@ -28,7 +28,6 @@ TYPE_RA  = 1
 TYPE_TS  = 2
 
 BLOCKSIZE = 2097152
-PREALLOC  = 4096
 
 # Instance representing a single MIX file
 # Think of this as a file system driver
@@ -164,7 +163,7 @@ class MixFile(object):
 				if names: break
 				
 		# Create a sorted list of all contents
-		self.contents = sorted(self.index.values())
+		self.contents = sorted(self.index.values(), key=lambda i: i.offset)
 		
 		# Calculate alloc values
 		# This is the size up to wich a file may grow without needing a move
@@ -183,8 +182,7 @@ class MixFile(object):
 		Will save 'name' to the index if missing.
 		MixNameError is raised if 'name' is not valid.
 		"""
-		key = self.get_key(name)
-		inode = self.index.get(key)
+		inode = self.index.get(self.get_key(name))
 		
 		if inode is not None and inode.name[:2] == "0x":
 				inode.name = name
@@ -210,6 +208,10 @@ class MixFile(object):
 			raise MixNameError("Invalid filename")
 			
 		return key
+		
+	def get_contents(self):
+		"Return a list of tuples holding the name and size of each file."
+		return [(i.name, i.size) for i in self.contents]
 		
 	# Rename a file in the MIX
 	def rename(self, old, new):
@@ -256,7 +258,7 @@ class MixFile(object):
 		Convert MIX to 'newtype'.
 		
 		When converting between	TD/RA and TS the MIX is not allowed to have missing
-		names as they can not be properly converted. MixError is raised in this	case.
+		names as they can not be converted properly. MixError is raised in this	case.
 		"""
 		if newtype < TYPE_TD or newtype > TYPE_TS + 3:
 			raise MixError("Unsupported MIX type")
@@ -295,7 +297,7 @@ class MixFile(object):
 		
 		if full:
 			buffer = bytearray(BLOCKSIZE)
-			for j in range(full):
+			for i in range(full):
 				self.Stream.seek(rpos)
 				rpos += self.Stream.readinto(buffer)
 				self.Stream.seek(wpos)
@@ -323,22 +325,22 @@ class MixFile(object):
 		bodyoffset  = indexoffset + indexsize
 		flags       = 0
 		
+		# First, anything occupying index space must be moved
 		if filecount:
-			# First, anything occupying index space must be moved
 			while self.contents[0].offset < bodyoffset:
 				rpos = self.contents[0].offset
 				size = self.contents[0].size
 				
 				# Calculate move block
-				count = 0
-				while self.contents[count].size == self.contents[count].alloc:
-					count += 1
-					if count < filecount and self.contents[count].offset < bodyoffset:
-						size += self.contents[count].size
+				i = 0
+				while self.contents[i].size == self.contents[i].alloc:
+					i += 1
+					if i < filecount and self.contents[i].offset < bodyoffset:
+						size += self.contents[i].size
 					else:
 						break
 				else:
-					count += 1
+					i += 1
 					
 				# Find target position
 				index = 0
@@ -356,7 +358,7 @@ class MixFile(object):
 					
 				# Update affected inodes
 				nextoffset = wpos
-				for i in range(count):
+				for i in range(i):
 					self.contents[0].alloc = self.contents[0].size
 					self.contents[0].offset = nextoffset
 					nextoffset += self.contents[0].size
@@ -405,8 +407,7 @@ class MixFile(object):
 		namecount = 1
 		dboffset = self.contents[-1].offset + self.contents[-1].alloc if filecount else bodyoffset
 		
-		self.Stream.seek(dboffset)
-		self.Stream.write(bytes(52))
+		self.Stream.seek(dboffset + 52)
 		for inode in self.contents:
 			if inode.name[:2] != "0x":
 				dbsize += self.Stream.write(inode.name.encode("cp1252", "strict"))
@@ -662,8 +663,14 @@ class mixnode(object):
 		return self.alloc or self.size
 		
 	def __bool__(self):
-		"Return True"
-		return True
+		"Return True if node contains valid data, else False"
+		return True if (
+			isinstance(self.name, str) and
+			isinstance(self.offset, int) and
+			isinstance(self.size, int) and
+			isinstance(self.alloc, int) and
+			self.size <= self.alloc
+		) else False
 		
 	def __repr__(self):
 		"Return string representation"
@@ -681,7 +688,11 @@ class mixnode(object):
 # Create MIX-Identifier from filename
 # Thanks to Olaf van der Spek for providing these functions
 def genkey(name, mixtype):
-	"Compute the key of 'name' according to 'mixtype' and return it"
+	"""
+	Compute the key of 'name' according to 'mixtype' and return it.
+	
+	This is a low-level function that rarely needs to be used directly.
+	"""
 	name = name.encode("cp1252", "strict")
 	name = name.upper()
 	len_ = len(name)

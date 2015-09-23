@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # coding=utf8
 
 # Mixtool – An editor for Westwood Studios’ MIX files

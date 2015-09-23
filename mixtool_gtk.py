@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # coding=utf8
 
 # Mixtool – An editor for Westwood Studios’ MIX files
@@ -128,6 +128,8 @@ class MixWindow(object):
 		self.contents  = {}
 		self.ContentStore.clear()
 		
+		# 3rd party developers: Do NOT use this method!
+		# Use MixFile.get_contents instead.		
 		for inode in self.MixFile.contents:
 			rowid = id(inode)
 			treeiter = self.ContentStore.append((
