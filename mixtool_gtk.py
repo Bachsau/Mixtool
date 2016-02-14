@@ -2,7 +2,7 @@
 # coding=utf8
 
 # Mixtool – An editor for Westwood Studios’ MIX files
-# Copyright (C) 2015 Bachsau
+# Copyright © 2015 Bachsau
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,7 +23,11 @@ import locale       as Locale
 import signal       as Signal
 import configparser as ConfigParser
 
+import gi           as GI
+GI.require_version("Gdk", '3.0')
+GI.require_version("Gtk", '3.0')
 from gi.repository  import GObject, Gio, Gdk, Gtk
+
 import mixlib       as MixLib
 
 # Constants

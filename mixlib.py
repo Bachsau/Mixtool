@@ -2,7 +2,7 @@
 # coding=utf8
 
 # Mixtool – An editor for Westwood Studios’ MIX files
-# Copyright (C) 2015 Bachsau
+# Copyright © 2015 Bachsau
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
