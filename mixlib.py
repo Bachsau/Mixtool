@@ -58,7 +58,7 @@ class MixFile(object):
 			self.mixtype = int(new)
 			return
 			
-		filesize = self.Stream.seek(0, OS.SEEK_END)
+		filesize = self.Stream.seek(0, IO.SEEK_END)
 		if filesize < 4:
 			raise MixError("File too small")
 			
@@ -125,8 +125,9 @@ class MixFile(object):
 					continue
 				
 				dbsize  = int.from_bytes(self.Stream.read(4), "little") # Total filesize
-				xcctype = int.from_bytes(self.Stream.read(4), "little") # 0 for LMD, 2 for XIF
-				version = int.from_bytes(self.Stream.read(4), "little") # Always zero
+				# Four bytes for XCC type; 0 for LMD, 2 for XIF
+				# Four bytes for DB version; Always zero
+				self.Stream.seek(8, IO.SEEK_CUR)
 				mixtype = int.from_bytes(self.Stream.read(4), "little") # XCC Game ID
 				
 				if dbsize != self.index[dbkey].size:

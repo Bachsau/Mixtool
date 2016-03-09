@@ -1061,7 +1061,7 @@
                   <object class="GtkLabel" id="label4">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">MIX version:</property>
+                    <property name="label">MIX version:</property>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>
@@ -1090,7 +1090,7 @@
                       <object class="GtkLabel" id="label5">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Compatibillity:
+                        <property name="label">Compatibillity:
 ddg</property>
                       </object>
                       <packing>
@@ -1111,7 +1111,7 @@ ddg</property>
                   <object class="GtkLabel" id="label6">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">File properties:</property>
+                    <property name="label">File properties:</property>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>
@@ -1127,7 +1127,7 @@ ddg</property>
                     <property name="orientation">vertical</property>
                     <child>
                       <object class="GtkCheckButton" id="Encrypt">
-                        <property name="label" translatable="yes">Encrypted</property>
+                        <property name="label">Encrypted</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">False</property>
@@ -1142,7 +1142,7 @@ ddg</property>
                     </child>
                     <child>
                       <object class="GtkCheckButton" id="checkbutton1">
-                        <property name="label" translatable="yes">Has checksum</property>
+                        <property name="label">Has checksum</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">False</property>
@@ -1157,7 +1157,7 @@ ddg</property>
                     </child>
                     <child>
                       <object class="GtkCheckButton" id="checkbutton2">
-                        <property name="label" translatable="yes">Compressed</property>
+                        <property name="label">Compressed</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">False</property>
@@ -1180,7 +1180,7 @@ ddg</property>
                 </child>
                 <child>
                   <object class="GtkCheckButton" id="checkbutton3">
-                    <property name="label" translatable="yes">Add copyright file (copy.txt)</property>
+                    <property name="label">Add copyright file (copy.txt)</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
@@ -1200,7 +1200,7 @@ ddg</property>
               <object class="GtkLabel" id="label1">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Properties</property>
+                <property name="label">Properties</property>
               </object>
               <packing>
                 <property name="tab_fill">False</property>
@@ -1214,7 +1214,7 @@ ddg</property>
                   <object class="GtkLabel" id="label7">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">Product name:</property>
+                    <property name="label">Product name:</property>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>
@@ -1239,7 +1239,7 @@ ddg</property>
                   <object class="GtkLabel" id="label8">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">Copyright:</property>
+                    <property name="label">Copyright:</property>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>
@@ -1252,7 +1252,7 @@ ddg</property>
                   <object class="GtkEntry" id="entry2">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
-                    <property name="text" translatable="yes">(C) 2015 Bachsau</property>
+                    <property name="text">© 2015 Bachsau</property>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -1265,7 +1265,7 @@ ddg</property>
                   <object class="GtkLabel" id="label9">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">Comments / License:</property>
+                    <property name="label">Comments / License:</property>
                     <property name="angle">0.050000000000000003</property>
                   </object>
                   <packing>
@@ -1296,7 +1296,7 @@ ddg</property>
               <object class="GtkLabel" id="label2">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Copyright</property>
+                <property name="label">Copyright</property>
               </object>
               <packing>
                 <property name="position">1</property>
@@ -1310,7 +1310,7 @@ ddg</property>
               <object class="GtkLabel" id="label3">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">page 3</property>
+                <property name="label">page 3</property>
               </object>
               <packing>
                 <property name="position">2</property>

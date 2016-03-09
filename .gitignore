@@ -3,7 +3,9 @@
 
 # Desktop control files
 .DS_Store
+Thumbs.db
 desktop.ini
+ehthumbs.db
 
 # Compiled Python code
 __pycache__/
