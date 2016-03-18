@@ -1,5 +1,6 @@
-﻿
-# Mixtool
+﻿Mixtool
+========
+
 An editor for Westwood Studios’ MIX files, the data containers used in their classic Command & Conquer games from Tiberian Dawn to Red Alert 2: Yuri’s Revenge.
 
 Many thanks to Olaf van der Spek for his documentation of the MIX file format and the XCC Utilities (http://xhp.xwis.net/).
