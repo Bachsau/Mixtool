@@ -1,0 +1,66 @@
+@charset "UTF-8";
+
+@font-face {
+	font-family:Florentine;
+	src:
+		url("florentine/flornt.eot#") format("embedded-opentype"),
+		url("florentine/flornt.woff") format("woff"),
+		url("florentine/flornt.ttf") format("truetype"),
+		url("florentine/flornt.svg#Florentine") format("svg");
+}
+
+* {
+	box-sizing:border-box;
+	margin:0;
+	padding:0;
+	border:0 none;
+	background:transparent;
+	color:inherit;
+	font:inherit;
+	line-height:1.2em;
+	text-align:inherit;
+	text-decoration:inherit;
+	text-transform:inherit;
+	text-indent:0;
+}
+
+html {
+	display:block;
+	position:fixed;
+	overflow:hidden;
+	left:0;
+	top:0;
+	width:100%;
+	height:100%;
+	
+}
+
+body {
+	display:block;
+	position:static;
+	overflow:auto;
+	width:100%;
+	height:100%;
+	padding:20px;
+	background:#DCB485 url("bg.jpg") repeat fixed 0 0;
+	color:#000000;
+	font:normal 24px "Times New Roman",Times,serif;
+	text-align:left;
+	text-decoration:none;
+	text-transform:none;
+	text-shadow:1px 1px 2px #808080;
+}
+
+h1, p, ul {
+	margin-bottom:20px;
+}
+
+h1 {
+	font-family:Florentine;
+	font-size:40px;
+}
+
+ul {
+	padding-left:21px;
+	list-style:square outside;
+}

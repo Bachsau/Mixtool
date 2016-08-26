@@ -1,0 +1,9 @@
+@charset "UTF-8";
+
+body {
+	background-position:-250px 0;
+}
+
+a {
+	text-decoration:underline;
+}

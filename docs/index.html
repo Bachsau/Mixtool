@@ -1,0 +1,20 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Frameset//EN" "http://www.w3.org/TR/html4/frameset.dtd">
+<html dir="ltr" lang="en">
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<meta http-equiv="Content-Script-Type" content="text/javascript">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<title>Mixtool</title>
+		<link rel="icon" type="image/vnd.microsoft.icon" href="favicon.ico">
+		<style type="text/css">
+			frameset, frame
+			{
+				border:none 0;
+			}
+		</style>
+	</head>
+	<frameset cols="250,*" onload="if (self.location.hash) main.location.replace(self.location.hash.substring(1));" border="0">
+		<frame name="nav" src="nav.html" frameborder="0" noresize>
+		<frame name="main" src="home.html" frameborder="0" noresize>
+	</frameset>
+</html>
