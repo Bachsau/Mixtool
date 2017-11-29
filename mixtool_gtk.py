@@ -264,9 +264,6 @@ class MixWindow(object):
 			
 # Starter
 def main():
-	# Keep GTK+ from mixing languages
-	Locale.setlocale(Locale.LC_MESSAGES, "C")
-	
 	# Since GTK+ does not support KeyboardInterrupt, reset SIGINT to default.
 	Signal.signal(Signal.SIGINT, Signal.SIG_DFL)
 	
