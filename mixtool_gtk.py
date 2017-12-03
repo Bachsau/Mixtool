@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # coding=utf8
 
-# Mixtool – An editor for Westwood Studios’ MIX files
-# Copyright © 2015 Bachsau
+# Mixtool - An editor for Westwood Studios' MIX files
+# Copyright (C) 2015 Bachsau
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -85,6 +85,7 @@ class MixWindow(object):
 		self.SearchDialogEntry   = GtkBuilder.get_object("SearchDialogEntry")
 		self.AboutDialog         = GtkBuilder.get_object("AboutDialog")
 		self.SettingsDialog      = GtkBuilder.get_object("SettingsDialog")
+		self.PropertiesDialog    = GtkBuilder.get_object("PropertiesDialog")
 		self.ContentList         = GtkBuilder.get_object("ContentList")
 		self.ContentStore        = GtkBuilder.get_object("ContentStore")
 		self.ContentSelector     = GtkBuilder.get_object("ContentSelector")
@@ -124,7 +125,7 @@ class MixWindow(object):
 		self.filename = OS.path.basename(filename)
 
 		self.set_titlebar(self.filename)
-		self.set_statusbar(" ".join((self.MixFile.get_type(), "MIX contains", str(len(self.MixFile.contents)), "files.")))
+		self.set_statusbar(" ".join((self.MixFile.get_type(), "MIX contains", str(len(self.MixFile._contents)), "files.")))
 
 		self.refresh()
 			
@@ -134,7 +135,7 @@ class MixWindow(object):
 		
 		# 3rd party developers: Do NOT use this method!
 		# Use MixFile.get_contents instead.		
-		for inode in self.MixFile.contents:
+		for inode in self.MixFile._contents:
 			rowid = id(inode)
 			treeiter = self.ContentStore.append((
 				rowid,
@@ -213,7 +214,8 @@ class MixWindow(object):
 		return rows
 
 	def propertiesdialog(self, *args):
-		messagebox("Not implemented yet", "i", self.MainWindow)
+		self.PropertiesDialog.run()
+		self.PropertiesDialog.hide()
 
 	def settingsdialog(self, *args):
 		self.SettingsDialog.run()

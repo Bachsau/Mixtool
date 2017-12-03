@@ -1,7 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.16.1 -->
+<!-- Generated with glade 3.20.2 
+
+Copyright (C) 2015 Bachsau
+
+This file is part of Mixtool.
+
+Mixtool is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Mixtool is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
+
+-->
 <interface>
-  <requires lib="gtk+" version="3.10"/>
+  <requires lib="gtk+" version="3.20"/>
+  <!-- interface-license-type gplv3 -->
+  <!-- interface-name Mixtool -->
+  <!-- interface-description An editor for Westwood Studios' MIX files -->
+  <!-- interface-copyright 2015 Bachsau -->
   <object class="GtkListStore" id="ContentStore">
     <columns>
       <!-- column-name rowid -->
@@ -39,6 +62,7 @@
             <property name="toolbar_style">both</property>
             <child>
               <object class="GtkToolButton" id="ToolbarNew">
+                <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
                 <property name="label">New</property>
@@ -59,6 +83,20 @@
                 <property name="stock_id">gtk-open</property>
                 <signal name="clicked" handler="opendialog" swapped="no"/>
                 <accelerator key="o" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToolButton" id="ToolbarBack">
+                <property name="sensitive">False</property>
+                <property name="can_focus">False</property>
+                <property name="tooltip_text">Go up one level</property>
+                <property name="label">Back</property>
+                <property name="stock_id">gtk-go-back</property>
+                <accelerator key="b" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -343,11 +381,11 @@
             <property name="margin_top">6</property>
             <property name="margin_bottom">6</property>
             <property name="hexpand">True</property>
-            <property name="xalign">0</property>
             <property name="ellipsize">end</property>
             <property name="single_line_mode">True</property>
             <property name="track_visited_links">False</property>
             <property name="lines">1</property>
+            <property name="xalign">0</property>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -357,6 +395,9 @@
           </packing>
         </child>
       </object>
+    </child>
+    <child>
+      <placeholder/>
     </child>
   </object>
   <object class="GtkAboutDialog" id="AboutDialog">
@@ -373,13 +414,14 @@
     <property name="transient_for">MainWindow</property>
     <property name="program_name">Mixtool</property>
     <property name="version">Alpha 0.2</property>
+    <property name="copyright">Copyright © 2015 Bachsau</property>
     <property name="comments">An editor for Westwood Studios’ MIX files</property>
-    <property name="website">http://bachsau.github.io/Mixtool/</property>
+    <property name="website">http://docs.bachsau.com/Mixtool/</property>
     <property name="website_label">Visit Mixtool website</property>
     <property name="logo">icon.png</property>
     <property name="license_type">gpl-3-0</property>
     <child internal-child="vbox">
-      <object class="GtkBox" id="AboutDialogIbox">
+      <object class="GtkBox" id="AboutDialogBox">
         <property name="can_focus">False</property>
         <property name="orientation">vertical</property>
         <property name="spacing">2</property>
@@ -410,6 +452,9 @@
           </packing>
         </child>
       </object>
+    </child>
+    <child>
+      <placeholder/>
     </child>
   </object>
   <object class="GtkFileChooserDialog" id="InsertDialog">
@@ -480,10 +525,13 @@
       <action-widget response="-6">InsertDialogCancel</action-widget>
       <action-widget response="-5">InsertDialogOK</action-widget>
     </action-widgets>
+    <child>
+      <placeholder/>
+    </child>
   </object>
   <object class="GtkDialog" id="PropertiesDialog">
     <property name="can_focus">False</property>
-    <property name="title" translatable="yes">Properties</property>
+    <property name="title">Properties</property>
     <property name="role">mixtool.propertiesdialog</property>
     <property name="modal">True</property>
     <property name="destroy_with_parent">True</property>
@@ -495,132 +543,6 @@
         <property name="can_focus">False</property>
         <property name="orientation">vertical</property>
         <property name="spacing">2</property>
-        <child>
-          <object class="GtkGrid" id="PropertiesDialogGrid">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="row_spacing">5</property>
-            <property name="column_spacing">5</property>
-            <child>
-              <object class="GtkLabel" id="PropertiesDialogVersionLabel">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="xalign">1</property>
-                <property name="label">MIX _version:</property>
-                <property name="use_underline">True</property>
-                <property name="mnemonic_widget">PropertiesDialogVersionDropdown</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">0</property>
-                <property name="width">1</property>
-                <property name="height">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="PropertiesDialogPropertiesLabel">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="margin_top">3</property>
-                <property name="xalign">1</property>
-                <property name="yalign">0</property>
-                <property name="label">File properties:</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">1</property>
-                <property name="width">1</property>
-                <property name="height">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkBox" id="PropertiesDialogPropertiesBox">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="orientation">vertical</property>
-                <property name="homogeneous">True</property>
-                <child>
-                  <object class="GtkCheckButton" id="PropertiesDialogEncrypted">
-                    <property name="label">_Encrypt header</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">False</property>
-                    <property name="use_underline">True</property>
-                    <property name="xalign">0</property>
-                    <property name="draw_indicator">True</property>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkCheckButton" id="PropertiesDialogChecksum">
-                    <property name="label">Save _checksum</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">False</property>
-                    <property name="use_underline">True</property>
-                    <property name="xalign">0</property>
-                    <property name="draw_indicator">True</property>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">1</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkCheckButton" id="PropertiesDialogCompressed">
-                    <property name="label">Com_press data</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">False</property>
-                    <property name="use_underline">True</property>
-                    <property name="xalign">0</property>
-                    <property name="draw_indicator">True</property>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">2</property>
-                  </packing>
-                </child>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">1</property>
-                <property name="width">1</property>
-                <property name="height">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkComboBoxText" id="PropertiesDialogVersionDropdown">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="hexpand">True</property>
-                <property name="active">0</property>
-                <items>
-                  <item id="0" translatable="yes">1 – TD</item>
-                  <item id="1" translatable="yes">2 – RA</item>
-                  <item id="2" translatable="yes">3 – TS, RA2, YR</item>
-                </items>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">0</property>
-                <property name="width">1</property>
-                <property name="height">1</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">0</property>
-          </packing>
-        </child>
         <child internal-child="action_area">
           <object class="GtkButtonBox" id="PropertiesDialogButtons">
             <property name="can_focus">False</property>
@@ -664,12 +586,130 @@
             <property name="position">1</property>
           </packing>
         </child>
+        <child>
+          <object class="GtkGrid" id="PropertiesDialogGrid">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="row_spacing">5</property>
+            <property name="column_spacing">5</property>
+            <child>
+              <object class="GtkLabel" id="PropertiesDialogVersionLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label">MIX _version:</property>
+                <property name="use_underline">True</property>
+                <property name="mnemonic_widget">PropertiesDialogVersionDropdown</property>
+                <property name="xalign">1</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="PropertiesDialogPropertiesLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="margin_top">3</property>
+                <property name="label">File properties:</property>
+                <property name="xalign">1</property>
+                <property name="yalign">0</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkBox" id="PropertiesDialogPropertiesBox">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="orientation">vertical</property>
+                <property name="homogeneous">True</property>
+                <child>
+                  <object class="GtkCheckButton" id="PropertiesDialogEncrypted">
+                    <property name="label">_Encrypt header</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">False</property>
+                    <property name="use_underline">True</property>
+                    <property name="draw_indicator">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkCheckButton" id="PropertiesDialogChecksum">
+                    <property name="label">Save _checksum</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">False</property>
+                    <property name="use_underline">True</property>
+                    <property name="draw_indicator">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkCheckButton" id="PropertiesDialogCompressed">
+                    <property name="label">Com_press data</property>
+                    <property name="visible">True</property>
+                    <property name="sensitive">False</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">False</property>
+                    <property name="use_underline">True</property>
+                    <property name="draw_indicator">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">2</property>
+                  </packing>
+                </child>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkComboBoxText" id="PropertiesDialogVersionDropdown">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="hexpand">True</property>
+                <items>
+                  <item id="0">1 – TD</item>
+                  <item id="1">2 – RA</item>
+                  <item id="2">3 – TS, RA2, YR</item>
+                </items>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
       </object>
     </child>
     <action-widgets>
       <action-widget response="-6">PropertiesDialogCancel</action-widget>
       <action-widget response="-5">PropertiesDialogOK</action-widget>
     </action-widgets>
+    <child>
+      <placeholder/>
+    </child>
   </object>
   <object class="GtkDialog" id="SearchDialog">
     <property name="can_focus">False</property>
@@ -687,57 +727,6 @@
         <property name="can_focus">False</property>
         <property name="orientation">vertical</property>
         <property name="spacing">2</property>
-        <child>
-          <object class="GtkBox" id="SearchDialogBox1">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="border_width">5</property>
-            <property name="spacing">5</property>
-            <child>
-              <object class="GtkLabel" id="SearchDialogLabel">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="xalign">0</property>
-                <property name="label">Name:</property>
-                <property name="single_line_mode">True</property>
-                <property name="track_visited_links">False</property>
-                <property name="lines">1</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkEntry" id="SearchDialogEntry">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="has_focus">True</property>
-                <property name="is_focus">True</property>
-                <property name="hexpand">True</property>
-                <property name="max_length">255</property>
-                <property name="activates_default">True</property>
-                <property name="truncate_multiline">True</property>
-                <property name="caps_lock_warning">False</property>
-                <property name="primary_icon_activatable">False</property>
-                <property name="secondary_icon_activatable">False</property>
-                <property name="primary_icon_sensitive">False</property>
-                <property name="secondary_icon_sensitive">False</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="expand">True</property>
-            <property name="fill">True</property>
-            <property name="position">0</property>
-          </packing>
-        </child>
         <child internal-child="action_area">
           <object class="GtkButtonBox" id="SearchDialogButtons">
             <property name="can_focus">False</property>
@@ -781,12 +770,66 @@
             <property name="position">0</property>
           </packing>
         </child>
+        <child>
+          <object class="GtkBox" id="SearchDialogBox1">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="border_width">5</property>
+            <property name="spacing">5</property>
+            <child>
+              <object class="GtkLabel" id="SearchDialogLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label">Name:</property>
+                <property name="single_line_mode">True</property>
+                <property name="track_visited_links">False</property>
+                <property name="lines">1</property>
+                <property name="xalign">0</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkEntry" id="SearchDialogEntry">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="has_focus">True</property>
+                <property name="is_focus">True</property>
+                <property name="hexpand">True</property>
+                <property name="max_length">255</property>
+                <property name="activates_default">True</property>
+                <property name="truncate_multiline">True</property>
+                <property name="caps_lock_warning">False</property>
+                <property name="primary_icon_activatable">False</property>
+                <property name="secondary_icon_activatable">False</property>
+                <property name="primary_icon_sensitive">False</property>
+                <property name="secondary_icon_sensitive">False</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">True</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
       </object>
     </child>
     <action-widgets>
       <action-widget response="-6">SearchDialogCancel</action-widget>
       <action-widget response="-5">SearchDialogOK</action-widget>
     </action-widgets>
+    <child>
+      <placeholder/>
+    </child>
   </object>
   <object class="GtkDialog" id="SettingsDialog">
     <property name="width_request">630</property>
@@ -850,13 +893,28 @@
           </packing>
         </child>
         <child>
-          <object class="GtkCheckButton" id="SettingsLowercaseCheckbox">
-            <property name="label">Insert all-lowercase</property>
+          <object class="GtkCheckButton" id="SettingsForceASCII">
+            <property name="label">Enforce simple file names (Recommended)</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">False</property>
-            <property name="xalign">0</property>
             <property name="draw_indicator">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="SettingsForceASCIIDescription">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="margin_left">25</property>
+            <property name="margin_bottom">10</property>
+            <property name="label">Accept only letters from A-z, digits from 0-9 and "-._" in file names for maximum compatibility.</property>
+            <property name="wrap">True</property>
+            <property name="xalign">0</property>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -865,14 +923,12 @@
           </packing>
         </child>
         <child>
-          <object class="GtkLabel" id="SettingsLowercaseDescription">
+          <object class="GtkCheckButton" id="SettingsLowercaseCheckbox">
+            <property name="label">Insert all-lowercase</property>
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="margin_left">25</property>
-            <property name="margin_bottom">10</property>
-            <property name="xalign">0</property>
-            <property name="label">By default, casing is retained by insert and rename operations, but due to the inner workings of MIX files, access is case insensitive for letters from A to Z only, while being case sensitive for all other characters. That might be confusing, so you can force Mixtool to always use lowercase on insert and rename operations.</property>
-            <property name="wrap">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">False</property>
+            <property name="draw_indicator">True</property>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -881,13 +937,44 @@
           </packing>
         </child>
         <child>
-          <object class="GtkCheckButton" id="SettingsBackupCheckbox">
-            <property name="label">Backup old files</property>
+          <object class="GtkLabel" id="SettingsLowercaseDescription">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="margin_left">25</property>
+            <property name="margin_bottom">10</property>
+            <property name="label">By default, casing is retained on insert and rename operations, but due to the inner workings of MIX files, access is case insensitive for letters from A to Z only, while being case sensitive for all other characters. That might be confusing, so you can force Mixtool to always use lowercase on insert and rename operations.</property>
+            <property name="wrap">True</property>
+            <property name="xalign">0</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">3</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkCheckButton" id="SettingsDisableEncryption">
+            <property name="label">Disable encryption</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">False</property>
-            <property name="xalign">0</property>
             <property name="draw_indicator">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">4</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="SettingsDisableEncryptionDescription">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="margin_left">25</property>
+            <property name="margin_bottom">10</property>
+            <property name="label">Encrypted headers are a useless feature found in some MIX files distributed by Westwood Studios. Setting this option will automatically disable that feature for every file saved by Mixtool.</property>
+            <property name="wrap">True</property>
+            <property name="xalign">0</property>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -896,19 +983,33 @@
           </packing>
         </child>
         <child>
-          <object class="GtkLabel" id="SettingsBackupDescription">
+          <object class="GtkCheckButton" id="SettingsBackupCheckbox">
+            <property name="label">Backup old files</property>
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="margin_left">25</property>
-            <property name="margin_bottom">10</property>
-            <property name="xalign">0</property>
-            <property name="label">When this option is set, Mixtool will automatically create backups of modified files. Backups will be saved by the original filename suffixed by "~". No backup is made if such a file already exists.</property>
-            <property name="wrap">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">False</property>
+            <property name="draw_indicator">True</property>
           </object>
           <packing>
             <property name="expand">False</property>
             <property name="fill">True</property>
             <property name="position">6</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="SettingsBackupDescription">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="margin_left">25</property>
+            <property name="margin_bottom">10</property>
+            <property name="label">When this option is set, Mixtool will automatically create backups of modified files. Backups will be saved by the original filename suffixed by "~". No backup is made if such a file already exists.</property>
+            <property name="wrap">True</property>
+            <property name="xalign">0</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">7</property>
           </packing>
         </child>
       </object>
@@ -917,6 +1018,9 @@
       <action-widget response="-6">SettingsDialogCancel</action-widget>
       <action-widget response="-5">SettingsDialogOK</action-widget>
     </action-widgets>
+    <child>
+      <placeholder/>
+    </child>
   </object>
   <object class="GtkImage" id="ExtractImageMulti">
     <property name="visible">True</property>
@@ -991,6 +1095,9 @@
       <action-widget response="-6">ExtractMultiDialogCancel</action-widget>
       <action-widget response="-5">ExtractMultiDialogOK</action-widget>
     </action-widgets>
+    <child>
+      <placeholder/>
+    </child>
   </object>
   <object class="GtkImage" id="ExtractImageSingle">
     <property name="visible">True</property>
@@ -1066,13 +1173,14 @@
       <action-widget response="-6">ExtractSingleDialogCancel</action-widget>
       <action-widget response="-5">ExtractSingleDialogOK</action-widget>
     </action-widgets>
+    <child>
+      <placeholder/>
+    </child>
   </object>
   <object class="GtkFileFilter" id="MixFilter">
     <patterns>
       <pattern>*.mix</pattern>
       <pattern>*.MIX</pattern>
-      <pattern>*.mgz</pattern>
-      <pattern>*.MGZ</pattern>
     </patterns>
   </object>
   <object class="GtkFileChooserDialog" id="OpenDialog">
@@ -1144,6 +1252,9 @@
       <action-widget response="-6">OpenDialogCancel</action-widget>
       <action-widget response="-5">OpenDialogOK</action-widget>
     </action-widgets>
+    <child>
+      <placeholder/>
+    </child>
   </object>
   <object class="GtkFileChooserDialog" id="SaveDialog">
     <property name="can_focus">False</property>
@@ -1215,5 +1326,8 @@
       <action-widget response="-6">SaveDialogCancel</action-widget>
       <action-widget response="-5">SaveDialogOK</action-widget>
     </action-widgets>
+    <child>
+      <placeholder/>
+    </child>
   </object>
 </interface>

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # coding=utf8
 
-# Mixtool – An editor for Westwood Studios’ MIX files
-# Copyright © 2015 Bachsau
+# Mixtool - An editor for Westwood Studios' MIX files
+# Copyright (C) 2015 Bachsau
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@ ENCODING = "cp1252"
 # Think of this as a file system driver
 class MixFile(object):
 	"Manage MIX files, one file per instance."
-	__slots__ = "Stream", "files_open", "index", "contents", "mixtype", "has_checksum", "is_encrypted"
+	__slots__ = "_Stream", "_files_open", "_index", "_contents", "_mixtype", "has_checksum", "is_encrypted"
 	
 	# Constructor parses MIX file
 	def __init__(self, stream, new=None):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # coding=utf8
 
-# Mixtool – An editor for Westwood Studios’ MIX files
+# Mixtool - An editor for Westwood Studios' MIX files
 # Copyright (C) 2015 Bachsau
 #
 # This program is free software: you can redistribute it and/or modify
