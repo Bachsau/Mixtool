@@ -1,23 +1,27 @@
 #!/usr/bin/env python3
 # coding=utf8
 
-# Mixtool - An editor for Westwood Studios' MIX files
-# Copyright (C) 2015 Bachsau
+# Copyright (C) 2015-2018 Bachsau
 #
-# This program is free software: you can redistribute it and/or modify
+# This file is part of Mixtool.
+#
+# Mixtool is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# This program is distributed in the hope that it will be useful,
+# Mixtool is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with Mixtool.  If not, see <https://www.gnu.org/licenses/>.
 
 """Routines to access MIX files"""
+# TODO: Define public API in final version
+#__all__ = ["MixFile", "genkey"]
+
 import os         as OS
 import io         as IO
 import binascii   as BinASCII
@@ -214,8 +218,12 @@ class MixFile(object):
 			
 		return key
 		
-	def get_contents(self):
-		"Return a list of tuples holding the name and size of each file."
+	def get_contents(self, extended=False):
+		""""
+		Return a list of tuples holding the name and size of each file.
+		If 'extended' is True, add information on internal position and alloc
+		"""
+		# TODO: Implement 'extended'
 		return [(i.name, i.size) for i in self._contents]
 		
 	# Rename a file in the MIX
@@ -331,6 +339,7 @@ class MixFile(object):
 		flags       = 0
 		
 		# First, anything occupying index space must be moved
+		# FIXME: A lot of confusing list editing happens here
 		if filecount:
 			while self._contents[0].offset < bodyoffset:
 				rpos = self._contents[0].offset
@@ -628,44 +637,16 @@ class MixError(Exception):
 class MixNameError(ValueError):
 	__slots__ = ()
 	
-class mixnode(object):
+class _MixNode(object):
 	"Inodes used by MixFile instances"
 	__slots__ = "name", "offset", "size", "alloc"
 	
 	def __init__(self, name, offset, size, alloc):
-		"Initialize mixnode"
+		"Initialize MIX node"
 		self.name   = name
 		self.offset = offset
 		self.size   = size
 		self.alloc  = alloc
-		
-	def __eq__(self, other):
-		"Return self is other"
-		return self is other
-		
-	def __ne__(self, other):
-		"Return self is not other"
-		return self is not other
-		
-	def __lt__(self, other):
-		"Return self.offset < other.offset"
-		return self.offset < other.offset
-		
-	def __le__(self, other):
-		"Return self.offset <= other.offset"
-		return self.offset <= other.offset
-		
-	def __gt__(self, other):
-		"Return self.offset > other.offset"
-		return self.offset > other.offset
-		
-	def __ge__(self, other):
-		"Return self.offset >= other.offset"
-		return self.offset >= other.offset
-		
-	def __len__(self):
-		"Return self.alloc or self.size"
-		return self.alloc or self.size
 		
 	def __bool__(self):
 		"Return True if node contains valid data, else False"
@@ -679,7 +660,7 @@ class mixnode(object):
 		
 	def __repr__(self):
 		"Return string representation"
-		return "mixnode({0}, {1}, {2}, {3})".format(
+		return "_MixNode({0}, {1}, {2}, {3})".format(
 			repr(self.name),
 			repr(self.offset),
 			repr(self.size),

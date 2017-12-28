@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Generated with glade 3.20.2 
 
-Copyright (C) 2015 Bachsau
+Copyright (C) 2015-2018 Bachsau
 
 This file is part of Mixtool.
 
@@ -24,7 +24,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
   <!-- interface-license-type gplv3 -->
   <!-- interface-name Mixtool -->
   <!-- interface-description An editor for Westwood Studios' MIX files -->
-  <!-- interface-copyright 2015 Bachsau -->
+  <!-- interface-copyright 2015-2018 Bachsau -->
   <object class="GtkListStore" id="ContentStore">
     <columns>
       <!-- column-name rowid -->
@@ -395,9 +395,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           </packing>
         </child>
       </object>
-    </child>
-    <child>
-      <placeholder/>
     </child>
   </object>
   <object class="GtkAboutDialog" id="AboutDialog">
