@@ -411,7 +411,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="transient_for">MainWindow</property>
     <property name="program_name">Mixtool</property>
     <property name="version">Alpha 0.2</property>
-    <property name="copyright">Copyright © 2015 Bachsau</property>
+    <property name="copyright">Copyright © 2015-2018 Bachsau</property>
     <property name="comments">An editor for Westwood Studios’ MIX files</property>
     <property name="website">http://docs.bachsau.com/Mixtool/</property>
     <property name="website_label">Visit Mixtool website</property>

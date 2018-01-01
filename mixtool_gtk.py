@@ -122,13 +122,14 @@ class MixWindow(object):
 		try:
 			self.MixFile = MixLib.MixFile(open(filename, "r+b"))
 		except Exception as error:
-			messagebox("Error loading MIX file" ,"e")
+			messagebox("Error loading MIX file" ,"e", self.MainWindow)
 			raise
 
 		self.filename = OS.path.basename(filename)
+		self.mixtype = ("TD", "RA", "TS")[self.MixFile.mixtype]
 
 		self.set_titlebar(self.filename)
-		self.set_statusbar(" ".join((self.MixFile.get_type(), "MIX contains", str(len(self.MixFile._contents)), "files.")))
+		self.set_statusbar(" ".join((self.mixtype, "MIX contains", str(len(self.MixFile._contents)), "files.")))
 
 		self.refresh()
 			

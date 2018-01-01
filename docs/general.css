@@ -62,13 +62,21 @@ body {
 	text-shadow:1px 1px 2px #808080;
 }
 
-h1, p, ul {
+h1, h2, p, ul {
 	margin-bottom:20px;
 }
 
 h1 {
 	font-family:Florentine;
 	font-size:40px;
+	font-weight:bold;
+}
+
+h2 {
+	margin-top:30px;
+	font-size:30px;
+	font-weight:bold;
+	font-style:italic;
 }
 
 ul {
