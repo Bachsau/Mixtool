@@ -39,19 +39,18 @@ html {
 	display:block;
 	position:fixed;
 	overflow:hidden;
-	left:0;
 	top:0;
-	width:100%;
+	left:0;
 	height:100%;
-	
+	width:100%;	
 }
 
 body {
 	display:block;
 	position:static;
 	overflow:auto;
-	width:100%;
 	height:100%;
+	width:100%;
 	padding:20px;
 	background:#DCB485 url("bg.jpg") repeat fixed 0 0;
 	color:#000000;
@@ -62,14 +61,14 @@ body {
 	text-shadow:1px 1px 2px #808080;
 }
 
-h1, h2, p, ul {
-	margin-bottom:20px;
-}
-
 h1 {
 	font-family:Florentine;
 	font-size:40px;
 	font-weight:bold;
+}
+
+h1:not(:nth-of-type(1)) {
+	margin-top:40px;
 }
 
 h2 {
@@ -79,7 +78,15 @@ h2 {
 	font-style:italic;
 }
 
+h1, h2, p, ul, pre {
+	margin-bottom:20px;
+}
+
 ul {
 	padding-left:21px;
 	list-style:square outside;
+}
+
+pre {
+	font-style:italic;
 }
