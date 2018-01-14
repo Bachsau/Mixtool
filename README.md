@@ -1,6 +1,8 @@
 Mixtool
 ========
 
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=8KPB96C786PKA)
+
 An editor for Westwood Studios' MIX files, the data containers used in their classic Command & Conquer games from Tiberian Dawn to Red Alert 2: Yuri's Revenge.
 
 Many thanks to Olaf van der Spek for his documentation of the MIX file format and the [XCC Utilities](http://xhp.xwis.net/).
@@ -25,5 +27,6 @@ Features planned for the final version:
 
 Features NOT to expect:
 ------------------------
+
 * Integrated viewers for Westwood file formats often found inside MIX files.
 * BIG file support

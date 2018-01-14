@@ -52,13 +52,17 @@ body {
 	height:100%;
 	width:100%;
 	padding:20px;
-	background:#DCB485 url("bg.jpg") repeat fixed 0 0;
+	background:#DCB485 url("bg.jpg") repeat fixed -250px 0;
 	color:#000000;
 	font:normal 24px "Times New Roman",Times,serif;
 	text-align:left;
 	text-decoration:none;
 	text-transform:none;
 	text-shadow:1px 1px 2px #808080;
+}
+
+a {
+	text-decoration:underline;
 }
 
 h1 {
