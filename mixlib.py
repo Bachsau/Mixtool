@@ -688,14 +688,15 @@ class _MixNode(object):
 # MixIO instaces are used to work with contained files as if they were real
 class MixIO(io.BufferedIOBase):
 	"""Access files inside MIXes like files on disk."""
-	__slots__ = "__container", "__inode", "__cursor", "__writeable"
+	__slots__ = "__container", "__inode", "__cursor", "__readable", "__writeable"
 
-	def __init__(self, container: MixFile, name: str, writeable: bool = False):
+	def __init__(self, container: MixFile, name: str, flags: int):
 		"""Initialize an abstract stream for 'name' on top of 'container'."""
 		self.__container = container
 		self.__inode = container._get_node(name)
-		# FIXME: This should probably raise ValueError instead of failing silently
-		self.__writeable = writeable and container._stream.writeable()
+		# FIXME: This should probably raise ValueError instead of failing silently on container error
+		self.__readable = flags & 1 and container._stream.readable()
+		self.__writeable = flags & 2 and container._stream.writeable()
 		self.__cursor = 0
 		self.__inode.links += 1
 
