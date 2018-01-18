@@ -82,15 +82,22 @@ h2 {
 	font-style:italic;
 }
 
-h1, h2, p, ul, pre {
+h1, h2, p, ul, ol, pre {
 	margin-bottom:20px;
 }
 
 ul {
-	padding-left:21px;
+	padding-left:1em;
 	list-style:square outside;
 }
 
+ol {
+	padding-left:1.5em;
+	list-style:upper-latin outside;
+}
+
 pre {
+	max-width:100%;
+	overflow:auto;
 	font-style:italic;
 }
