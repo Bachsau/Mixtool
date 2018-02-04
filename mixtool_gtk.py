@@ -19,18 +19,17 @@
 # along with Mixtool.  If not, see <https://www.gnu.org/licenses/>.
 
 """Mixtool GTK+ 3 application"""
-import sys          as Sys
-import os           as OS
-import locale       as Locale
-import signal       as Signal
-import configparser as ConfigParser
+import sys
+import os
+import signal
+import configparser
 
-import gi           as GI
-GI.require_version("Gdk", '3.0')
-GI.require_version("Gtk", '3.0')
-from gi.repository  import GObject, Gio, Gdk, Gtk
+import gi
+gi.require_version("Gdk", "3.0")
+gi.require_version("Gtk", "3.0")
+from gi.repository import GObject, Gio, Gdk, Gtk
 
-import mixlib       as MixLib
+import mixlib
 
 # Constants
 COLUMN_ROWID    = 0
@@ -41,15 +40,47 @@ COLUMN_OVERHEAD = 4
 
 class Mixtool(Gtk.Application):
 	"Application management class"
-	__slots__ = "config", "conffile"
 	
 	def __init__(self, application_id, flags):
 		"""Initialize GTK+ Application"""
 		Gtk.Application.__init__(self, application_id=application_id, flags=flags)
 		
-		self.config = {}
+		# Determine data directories
+		home_dir = os.path.expanduser("~")
 		
-		# Determine configuration file
+		if home_dir == "~":
+			home_dir = os.path.dirname(os.path.realpath(__file__))
+		else:
+			home_dir = os.path.realpath(home_dir)
+		
+		if sys.platform.startswith('win'):
+			data_dir = os.environ.get("LOCALAPPDATA")
+			
+			if data_dir is None or not os.path.exists(data_dir):
+				data_dir = home_dir + "\\AppData\\Local\\Mixtool"
+			else:
+				data_dir = os.path.realpath(data_dir) + "\\Mixtool"
+				
+			config_dir = os.environ.get("APPDATA")
+			
+			if config_dir is None or not os.path.exists(config_dir):
+				config_dir = home_dir + "\\AppData\\Roaming\\Mixtool"
+			else:
+				config_dir = os.path.realpath(config_dir) + "\\Mixtool"
+			
+		elif sys.platform.startswith('darwin'):
+			data_dir = home_dir + "/Library/Application Support/com.bachsau.mixtool"
+			config_dir = home_dir + "/Library/Preferences/com.bachsau.mixtool"
+			
+		else:
+			data_dir = home_dir + "/.local/share/mixtool"
+			config_dir = home_dir + "/.config/mixtool"
+			
+		if not os.path.exists(data_dir):
+			os.makedirs(data_dir)
+			
+		if not os.path.exists(config_dir):
+			os.makedirs(config_dir)
 		
 
 	def do_activate(self, *args):
@@ -120,12 +151,12 @@ class MixWindow(object):
 	def loadfile(self, filename):
 		# TODO: Input sanitising, test for existence
 		try:
-			self.MixFile = MixLib.MixFile(open(filename, "r+b"))
+			self.MixFile = mixlib.MixFile(open(filename, "r+b"))
 		except Exception as error:
 			messagebox("Error loading MIX file" ,"e", self.MainWindow)
 			raise
 
-		self.filename = OS.path.basename(filename)
+		self.filename = os.path.basename(filename)
 		self.mixtype = ("TD", "RA", "TS")[self.MixFile.mixtype]
 
 		self.set_titlebar(self.filename)
@@ -169,7 +200,7 @@ class MixWindow(object):
 			
 			if response == Gtk.ResponseType.OK:
 				inpath = self.InsertDialog.get_filename()
-				filename = OS.path.basename(inpath)
+				filename = os.path.basename(inpath)
 				inode = self.MixFile.insert(filename, inpath)
 				
 				self.MixFile.write_index()
@@ -200,14 +231,14 @@ class MixWindow(object):
 				if count > 1:
 					# Mitigate FileChoserDialog's inconsistent behavior
 					# to protect user's files
-					if OS.listdir(outpath):
-						outpath = OS.path.join(outpath, Dialog.get_current_name())
-						OS.mkdir(outpath)
+					if os.listdir(outpath):
+						outpath = os.path.join(outpath, Dialog.get_current_name())
+						os.mkdir(outpath)
 
 					# Save every file with its original name
 					for row in rows:
 						filename = row[COLUMN_NAME]
-						self.MixFile.extract(filename, OS.path.join(outpath, filename))
+						self.MixFile.extract(filename, os.path.join(outpath, filename))
 				else:
 					self.MixFile.extract(filename, outpath)
 
@@ -267,26 +298,30 @@ class MixWindow(object):
 		for obj in self.GtkBuilder.get_objects():
 			try: obj.destroy()
 			except AttributeError: pass
-			
+		
+		
 # Starter
 def main():
 	# Since GTK+ does not support KeyboardInterrupt, reset SIGINT to default.
-	Signal.signal(Signal.SIGINT, Signal.SIG_DFL)
+	# TODO: Find and implement a better way to handle this
+	signal.signal(signal.SIGINT, signal.SIG_DFL)
 	
 	# Initialize GObject's treads capability
 	GObject.threads_init()
 	
-	# Initialize GTK Application // One window per process in alpha state
+	# Initialize GTK Application
 	GObject.set_application_name("Mixtool")
-	Application = Mixtool("com.bachsau.mixtool", Gio.ApplicationFlags.NON_UNIQUE)
+	application = Mixtool("com.bachsau.mixtool", Gio.ApplicationFlags.NON_UNIQUE)
 	
 	# Start GUI
-	status = Application.run()
+	status = application.run()
 	print("GTK returned")
 	
-	Sys.exit(status)
+	sys.exit(status)
 
 # A simple, instance-independant messagebox
+# TODO: Add Traceback-Textbox
+# TODO: Center on screen
 def messagebox(text, type_="i", parent=None):
 	if type_ == "e":
 		message_type = Gtk.MessageType.ERROR
@@ -295,9 +330,10 @@ def messagebox(text, type_="i", parent=None):
 		message_type = Gtk.MessageType.INFO
 		buttons_type = Gtk.ButtonsType.OK
 
-	Dialog = Gtk.MessageDialog(parent, Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT, message_type, buttons_type, str(text))
-	response = Dialog.run()
-	Dialog.destroy()
+	dialog = Gtk.MessageDialog(parent, Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT, message_type, buttons_type, str(text))
+	response = dialog.run()
+	dialog.destroy()
 	return response
 
-if __name__ == "__main__": main()
+# Run the application
+main()

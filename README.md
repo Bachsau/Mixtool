@@ -20,6 +20,7 @@ Features planned for the final version:
 * Re-usable abstraction module to work with MIX files from any Python 3 application.
 * Optimized, fast and beautiful code.
 * Binary packages for Windows, Linux and macOS.
+* Integrated Text-Editor
 
 
 Features NOT to expect:
