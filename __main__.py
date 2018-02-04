@@ -39,7 +39,8 @@ COLUMN_SIZE     = 3
 COLUMN_OVERHEAD = 4
 
 class Mixtool(Gtk.Application):
-	"Application management class"
+	"""Application management class"""
+	__slots__ = "data_dir", "config_dir", "settings"
 	
 	def __init__(self, application_id, flags):
 		"""Initialize GTK+ Application"""
@@ -57,41 +58,75 @@ class Mixtool(Gtk.Application):
 			data_dir = os.environ.get("LOCALAPPDATA")
 			
 			if data_dir is None or not os.path.exists(data_dir):
-				data_dir = home_dir + "\\AppData\\Local\\Mixtool"
+				data_dir = home_dir + "\\AppData\\Local\\Bachsau\\Mixtool"
 			else:
-				data_dir = os.path.realpath(data_dir) + "\\Mixtool"
+				data_dir = os.path.realpath(data_dir) + "\\Bachsau\\Mixtool"
 				
 			config_dir = os.environ.get("APPDATA")
 			
 			if config_dir is None or not os.path.exists(config_dir):
-				config_dir = home_dir + "\\AppData\\Roaming\\Mixtool"
+				config_dir = home_dir + "\\AppData\\Roaming\\Bachsau\\Mixtool"
 			else:
-				config_dir = os.path.realpath(config_dir) + "\\Mixtool"
+				config_dir = os.path.realpath(config_dir) + "\\Bachsau\\Mixtool"
 			
 		elif sys.platform.startswith('darwin'):
 			data_dir = home_dir + "/Library/Application Support/com.bachsau.mixtool"
 			config_dir = home_dir + "/Library/Preferences/com.bachsau.mixtool"
 			
 		else:
-			data_dir = home_dir + "/.local/share/mixtool"
-			config_dir = home_dir + "/.config/mixtool"
+			data_dir = home_dir + "/.local/share/bachsau/mixtool"
+			config_dir = home_dir + "/.config/bachsau/mixtool"
 			
-		if not os.path.exists(data_dir):
-			os.makedirs(data_dir)
+		try:
+			if not os.path.exists(data_dir):
+				os.makedirs(data_dir)
+				
+			if not os.path.exists(config_dir):
+				os.makedirs(config_dir)
+		except OSError:
+			messagebox("Unable to create data directories! Your settings will not be saved.", "e")
 			
-		if not os.path.exists(config_dir):
-			os.makedirs(config_dir)
+		# Default settings, as saved in the configuration file
+		default_settings = {
+			"Name": "Value",
+			"Name2": "Value2"
+		}
+		
+		# Read configuration file
+		settings = configparser.ConfigParser(delimiters=("=",), comment_prefixes=(";",), default_section=None)
+		settings.read_dict({"Mixtool": default_settings})
+		
+		try:
+			stream = open(os.sep.join((config_dir, "settings.ini")), encoding="ascii")
+		except FileNotFoundError:
+			pass
+		except OSError:
+			messagebox("Error reading configuration file.", "e")
+		else:
+			settings.read_file(stream)
+			stream.close()
+		
+		messagebox(settings.sections())
+		
+		# Populate object
+		self.data_dir = data_dir
+		self.config_dir = config_dir
+		self.settings = settings
 		
 
 	def do_activate(self, *args):
 		"""Create a new main window"""
 		MixWindow(self)
 		
-	def load_config(self):
-		"""Load configuration from file"""
-		
 	def save_config(self):
 		"""Save configuration to file"""
+		try:
+			stream = open(os.sep.join((self.config_dir, "settings.ini")), "w", encoding="ascii")
+		except OSError:
+			messagebox("Error writing configuration file.", "e")
+		else:
+			self.settings.write(stream)
+			stream.close()
 		
 class MixWindow(object):
 	"Main-Window controller class"
