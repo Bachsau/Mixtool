@@ -22,13 +22,25 @@
 import sys
 import os
 import signal
-import configparser
 
+# Modules for platform-specific configuration
+if sys.platform.startswith('win'):
+	import winreg
+	_PLATFORM = 1
+elif sys.platform.startswith('darwin'):
+	import plistlib
+	_PLATFORM = 2
+else:
+	import configparser
+	_PLATFORM = 0
+
+# GTK+ 3 modules
 import gi
 gi.require_version("Gdk", "3.0")
 gi.require_version("Gtk", "3.0")
 from gi.repository import GObject, Gio, Gdk, Gtk
 
+# Local modules
 import mixlib
 
 # Constants
@@ -38,13 +50,72 @@ COLUMN_OFFSET   = 2
 COLUMN_SIZE     = 3
 COLUMN_OVERHEAD = 4
 
-class Mixtool(Gtk.Application):
-	"""Application management class"""
-	__slots__ = "data_dir", "config_dir", "settings"
+# The settings manager is responsible for saving and retrieving
+# the user's settings according to the platform it runs on
+class Configuration(object):
+	"""Save and Retrieve settings based on platform standards.
 	
-	def __init__(self, application_id, flags):
-		"""Initialize GTK+ Application"""
-		Gtk.Application.__init__(self, application_id=application_id, flags=flags)
+	This class's constructor automatically returns a subclass
+	specific to the current platform.
+	
+	On Windows, settings are saved to the Registry.
+	On macOS, they are saved in property lists.
+	On all other platforms, plain-text configuration files are used.
+	"""
+	
+	__slots__ = ()
+	
+	def __new__(cls, *args, **kwargs):
+		"""Return a platform-specific subclass of 'Configuration'.
+		
+		Falls back to default when inherited by a subclass.
+		"""
+		
+		if cls.__base__ is object:
+			if _PLATFORM == 1:
+				return ConfigWin.__new__(ConfigWin, *args, **kwargs)
+			elif _PLATFORM == 2:
+				return ConfigMac.__new__(ConfigMac, *args, **kwargs)
+			else:
+				return ConfigGen.__new__(ConfigGen, *args, **kwargs)
+		else:
+			return object.__new__(cls, *args, **kwargs)
+	
+	def __init__(self):
+		"""Initialize the settings manager."""
+			
+	def register(self, name: str, default):
+		"""Register a setting to be handled.
+		
+		The setting is identified by 'name' with 'default' beeing its initial value.
+		Its type is considered the type for the setting, which can not be changed later on.
+		Acceptable types are 'str', 'bytes', 'bytearray', 'int', 'float' and 'bool'.
+		'bytearray' objects are saved as 'bytes'. 'TypeError' is raised for inacceptable types.
+		"""
+
+class ConfigWin(Configuration):
+	"""Save and Retrieve settings using the Registry."""
+	
+	__slots__ = ()
+	
+class ConfigMac(Configuration):
+	"""Save and Retrieve settings using a property list."""
+	
+	__slots__ = ()
+	
+class ConfigGen(Configuration):
+	"""Save and Retrieve settings using a configuration file."""
+	
+	__slots__ = ()
+
+
+class Configuration_OLD(object):
+	"""General settings manager"""
+	
+	# In alpha we will be using an ini-file on all platforms
+	# FIXME: Use plist on macOS and the registry on Windows
+	def __init__(self, defaults):
+		"""Initialize the settings manager with default settings"""
 		
 		# Determine data directories
 		home_dir = os.path.expanduser("~")
@@ -55,49 +126,62 @@ class Mixtool(Gtk.Application):
 			home_dir = os.path.realpath(home_dir)
 		
 		if sys.platform.startswith('win'):
+			# Microsoft Windows
 			data_dir = os.environ.get("LOCALAPPDATA")
-			
-			if data_dir is None or not os.path.exists(data_dir):
+
+			if data_dir is None:
 				data_dir = home_dir + "\\AppData\\Local\\Bachsau\\Mixtool"
 			else:
 				data_dir = os.path.realpath(data_dir) + "\\Bachsau\\Mixtool"
-				
+
 			config_dir = os.environ.get("APPDATA")
-			
-			if config_dir is None or not os.path.exists(config_dir):
+
+			if config_dir is None:
 				config_dir = home_dir + "\\AppData\\Roaming\\Bachsau\\Mixtool"
 			else:
 				config_dir = os.path.realpath(config_dir) + "\\Bachsau\\Mixtool"
-			
+
 		elif sys.platform.startswith('darwin'):
+			# Apple macOS
 			data_dir = home_dir + "/Library/Application Support/com.bachsau.mixtool"
 			config_dir = home_dir + "/Library/Preferences/com.bachsau.mixtool"
-			
+
 		else:
-			data_dir = home_dir + "/.local/share/bachsau/mixtool"
-			config_dir = home_dir + "/.config/bachsau/mixtool"
-			
+			# Linux and others
+			data_dir = os.environ.get("XDG_DATA_HOME")
+
+			if data_dir is None:
+				data_dir = home_dir + "/.local/share/bachsau/mixtool"
+			else:
+				data_dir = os.path.realpath(data_dir) + "/bachsau/mixtool"
+
+			config_dir = os.environ.get("XDG_CONFIG_HOME")
+
+			if config_dir is None:
+				config_dir = home_dir + "/.config/bachsau/mixtool"
+			else:
+				config_dir = os.path.realpath(config_dir) + "/bachsau/mixtool"
+
+		# Create non-existent directories
 		try:
-			if not os.path.exists(data_dir):
+			if not os.path.isdir(data_dir):
 				os.makedirs(data_dir)
-				
-			if not os.path.exists(config_dir):
+
+			if not os.path.isdir(config_dir):
 				os.makedirs(config_dir)
 		except OSError:
 			messagebox("Unable to create data directories! Your settings will not be saved.", "e")
-			
-		# Default settings, as saved in the configuration file
-		default_settings = {
-			"Name": "Value",
-			"Name2": "Value2"
-		}
 		
 		# Read configuration file
-		settings = configparser.ConfigParser(delimiters=("=",), comment_prefixes=(";",), default_section=None)
-		settings.read_dict({"Mixtool": default_settings})
+		# FIXME: Could be a class with implicit setting and write method
+		settings = configparser.ConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=None, strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
+		settings.optionxform = str.title
+		settings.read_dict({"Mixtool": defaults})
+		
+		config_file = os.sep.join((config_dir, "settings.ini"))
 		
 		try:
-			stream = open(os.sep.join((config_dir, "settings.ini")), encoding="ascii")
+			stream = open(config_file, encoding="utf_8")
 		except FileNotFoundError:
 			pass
 		except OSError:
@@ -106,29 +190,58 @@ class Mixtool(Gtk.Application):
 			settings.read_file(stream)
 			stream.close()
 		
-		messagebox(settings.sections())
-		
 		# Populate object
 		self.data_dir = data_dir
 		self.config_dir = config_dir
+		self.config_file = config_file
 		self.settings = settings
 		
 
+# The application controller
+class Mixtool(Gtk.Application):
+	"""Application management class"""
+	__slots__ = "app_dir", "settings"
+	
+	# Object initializer
+	def __init__(self, application_id, flags):
+		"""Initialize GTK+ Application"""
+		Gtk.Application.__init__(self, application_id=application_id, flags=flags)
+		self.app_dir = os.path.dirname(os.path.realpath(__file__))
+		
+	# This is run when Gio.Application initializes the first instance.
+	# It is not run on any remote controllers.
+	def do_startup(self):
+		"""Initialize the main instance"""
+		Gtk.Application.do_startup(self)
+		
+		# Default settings, as saved in the configuration file
+		default_settings = {
+			"Simplenames": "Yes",
+			"Insertlower": "Yes",
+			"Decrypt": "Yes",
+			"Backup": "Yes"
+		}
+		
+		self.settings = Configuration_OLD(default_settings)
+		
+		
+	# Method that creates a new main window in the main instance.
+	# Can be run multiple times on behalf of remote controllers.
 	def do_activate(self, *args):
 		"""Create a new main window"""
-		MixWindow(self)
+		MainWindow(self)
 		
 	def save_config(self):
 		"""Save configuration to file"""
 		try:
-			stream = open(os.sep.join((self.config_dir, "settings.ini")), "w", encoding="ascii")
+			stream = open(self.config_file, "w", encoding="utf_8")
 		except OSError:
 			messagebox("Error writing configuration file.", "e")
 		else:
-			self.settings.write(stream)
+			self.settings.write(stream, False)
 			stream.close()
 		
-class MixWindow(object):
+class MainWindow(object):
 	"Main-Window controller class"
 	def __init__(self, application):
 		self.Application = application
@@ -192,10 +305,10 @@ class MixWindow(object):
 			raise
 
 		self.filename = os.path.basename(filename)
-		self.mixtype = ("TD", "RA", "TS")[self.MixFile.mixtype]
+		self.mixtype = ("TD", "RA", "TS")[self.MixFile.get_mixtype()]
 
 		self.set_titlebar(self.filename)
-		self.set_statusbar(" ".join((self.mixtype, "MIX contains", str(len(self.MixFile._contents)), "files.")))
+		self.set_statusbar(" ".join((self.mixtype, "MIX contains", str(self.MixFile.get_filecount()), "files.")))
 
 		self.refresh()
 			
@@ -203,16 +316,17 @@ class MixWindow(object):
 		self.contents  = {}
 		self.ContentStore.clear()
 		
-		# 3rd party developers: Do NOT use this method!
-		# Use MixFile.get_contents instead.		
-		for inode in self.MixFile._contents:
-			rowid = id(inode)
+		for inode in self.MixFile.get_contents(True):
+			# TODO: Stop using private methods
+			# 3rd party developers: Do NOT use MixFile._get_inode()!
+			# There will be better ways to identify a file.
+			rowid = id(self.MixFile._get_inode(inode[0]))
 			treeiter = self.ContentStore.append((
 				rowid,
-				inode.name,
-				inode.offset,
-				inode.size,
-				inode.alloc - inode.size
+				inode[0], # Name
+				inode[2], # Offset
+				inode[1], # Size
+				inode[3] - inode[1] # Alloc - Size = Overhead
 			))
 			self.contents[rowid] = (treeiter, inode)
 
@@ -307,7 +421,10 @@ class MixWindow(object):
 
 			if response == Gtk.ResponseType.OK  and search:
 				name  = self.SearchDialogEntry.get_text()
-				inode = self.MixFile.get_inode(name)
+				# TODO: Stop using private methods
+				# 3rd party developers: Do NOT use MixFile._get_inode()!
+				# There will be better ways to identify a file.
+				inode = self.MixFile._get_inode(name)
 
 				if inode is not None:
 					treeiter = self.contents[id(inode)][0]
@@ -331,8 +448,10 @@ class MixWindow(object):
 	def close(self, *args):
 		# Cleanup GtkBuilder
 		for obj in self.GtkBuilder.get_objects():
-			try: obj.destroy()
-			except AttributeError: pass
+			try:
+				obj.destroy()
+			except AttributeError:
+				pass
 		
 		
 # Starter
@@ -349,14 +468,16 @@ def main():
 	application = Mixtool("com.bachsau.mixtool", Gio.ApplicationFlags.NON_UNIQUE)
 	
 	# Start GUI
+	# FIXME: All exceptions raised from inside are caught by GTK!
+	#        We need to look for a deeper place to catch them all.
 	status = application.run()
-	print("GTK returned")
+	print("GTK returned.", file=sys.stderr)
 	
-	sys.exit(status)
+	return status
 
-# A simple, instance-independant messagebox
+# A simple, instance-independent messagebox
 # TODO: Add Traceback-Textbox
-# TODO: Center on screen
+# TODO: Center on screen if it lacks a parent (if possible)
 def messagebox(text, type_="i", parent=None):
 	if type_ == "e":
 		message_type = Gtk.MessageType.ERROR
@@ -371,4 +492,4 @@ def messagebox(text, type_="i", parent=None):
 	return response
 
 # Run the application
-main()
+sys.exit(main())

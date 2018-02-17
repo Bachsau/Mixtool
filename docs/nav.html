@@ -52,7 +52,11 @@
 			</li>
 		</ul>
 		<div style="margin-top:60px;text-align:center;">
-			<a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=8KPB96C786PKA" target="_top" rel="nofollow"><img src="media/donate.gif" alt="Donate" height="47" width="160"></a>
+			<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+				<input type="hidden" name="cmd" value="_s-xclick">
+				<input type="hidden" name="hosted_button_id" value="8KPB96C786PKA">
+				<input type="image" src="media/donate.gif" name="submit" alt="Donate">
+			</form>
 		</div>
 	</body>
 </html>
