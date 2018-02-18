@@ -222,7 +222,7 @@ class Mixtool(Gtk.Application):
 			"Backup": "Yes"
 		}
 		
-		self.settings = Configuration_OLD(default_settings)
+		#self.settings = Configuration_OLD(default_settings)
 		
 		
 	# Method that creates a new main window in the main instance.

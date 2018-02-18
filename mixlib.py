@@ -35,6 +35,53 @@ BLOCKSIZE = 2097152
 
 ENCODING = "cp1252"
 
+
+# Base exception class
+class MixError(Exception):
+	__slots__ = ()
+
+# Exception for errors in the MIX file
+class MixFileError(MixError):
+	__slots__ = ()
+
+# Exception raised in case of internal errors
+# such as key collisions
+class MixInternalError(MixError):
+	__slots__ = ()
+
+# Exception raised when a Filename is not valid
+class MixNameError(ValueError, MixError):
+	__slots__ = ()
+
+# Exception for Errors in MixIO
+class MixIOError(OSError, MixError):
+	__slots__ = ()
+
+
+# MixNodes are lightweight objects to store a defined set of index data
+class _MixNode(object):
+	"""Nodes used by MixFile instances to store index data."""
+	__slots__ = ("name", "offset", "size", "alloc", "links")
+
+	def __init__(self, name: str, offset: int, size: int, alloc: int) -> None:
+		"""Initialize the node."""
+		self.name   = name
+		self.offset = offset
+		self.size   = size
+		self.alloc  = alloc
+		self.links  = 0
+
+	def __repr__(self) -> str:
+		"""Return string representation."""
+		return "_MixNode({0!r}, {1!r}, {2!r}, {3!r})".format(
+			self.name, self.offset, self.size, self.alloc
+		)
+
+	def __delattr__(self, attr: str) -> None:
+		"""Raise TypeError."""
+		raise TypeError("Can't delete node attributes.")
+		
+		
 # Instance representing a single MIX file
 # Think of this as a file system driver
 class MixFile(object):
@@ -43,7 +90,7 @@ class MixFile(object):
 	__slots__ = ("_dirty", "_stream", "_mixtype", "_index", "_contents", "has_checksum", "is_encrypted")
 
 	# Constructor parses MIX file
-	def __init__(self, stream: io.BufferedIOBase, new: int = None):
+	def __init__(self, stream: io.BufferedIOBase, new: int = None) -> None:
 		"""Parse a MIX from 'stream', which must be a buffered file object.
 
 		If 'new' is given, initialize an empty MIX of type 'new' instead.
@@ -206,7 +253,7 @@ class MixFile(object):
 
 	# Central file-finding method
 	# Also used to add missing names to the index
-	def _get_inode(self, name: str):
+	def _get_inode(self, name: str) -> _MixNode:
 		"""Return the inode for 'name' or 'None' if not found.
 
 		Save 'name' in the inode if missing.
@@ -221,7 +268,7 @@ class MixFile(object):
 		return inode
 
 	# Get key for any _valid_ name
-	def _get_key(self, name: str):
+	def _get_key(self, name: str) -> int:
 		"""Return the key for 'name', regardless of it being in the MIX.
 
 		'MixNameError' is raised if 'name' is not valid.
@@ -672,32 +719,8 @@ class MixFile(object):
 	# Works like the build-in open function
 	def open(self, name, mode="r", buffering=-1, encoding=None, errors=None):
 		"!!! STUB !!!"
-
-
-# MixNodes are lightweight objects to store a defined set of index data
-class _MixNode(object):
-	"""Nodes used by MixFile instances to store index data."""
-	__slots__ = ("name", "offset", "size", "alloc", "links")
-
-	def __init__(self, name: str, offset: int, size: int, alloc: int) -> None:
-		"""Initialize the node."""
-		self.name   = name
-		self.offset = offset
-		self.size   = size
-		self.alloc  = alloc
-		self.links  = 0
-
-	def __repr__(self) -> str:
-		"""Return string representation."""
-		return "_MixNode({0!r}, {1!r}, {2!r}, {3!r})".format(
-			self.name, self.offset, self.size, self.alloc
-		)
-
-	def __delattr__(self, attr: str) -> None:
-		"""Raise TypeError."""
-		raise TypeError("Can't delete node attributes.")
-
-
+		
+		
 # MixIO instaces are used to work with contained files as if they were real
 class MixIO(io.BufferedIOBase):
 	"""Access files inside MIXes like files on disk."""
@@ -749,30 +772,8 @@ class MixIO(io.BufferedIOBase):
 	def closed(self):
 		"""True if the stream is closed."""
 		return self.__inode is None
-
-
-# Base exception class
-class MixError(Exception):
-	__slots__ = ()
-
-# Exception for errors in the MIX file
-class MixFileError(MixError):
-	__slots__ = ()
-
-# Exception raised in case of internal errors
-# such as key collisions
-class MixInternalError(MixError):
-	__slots__ = ()
-
-# Exception raised when a Filename is not valid
-class MixNameError(ValueError, MixError):
-	__slots__ = ()
-
-# Exception for Errors in MixIO
-class MixIOError(OSError, MixError):
-	__slots__ = ()
-
-
+		
+		
 # Create MIX-Identifier from filename
 # Thanks to Olaf van der Spek for providing these functions
 def genkey(name: str, mixtype: int) -> int:
