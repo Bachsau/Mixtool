@@ -1,6 +1,5 @@
-# Mixtool
-
-[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=8KPB96C786PKA)
+Mixtool
+========
 
 An editor for Westwood Studios' MIX files, the data containers used in their classic Command & Conquer games from Tiberian Dawn to Red Alert 2: Yuri's Revenge.
 
@@ -18,6 +17,7 @@ Features planned for the final version:
 * Full recursion for MIX files contained in other ones, including editing capabilities.
 * Integrated online names database to avoid stumbling upon unknown filenames ever again.
 * Re-usable abstraction module to work with MIX files from any Python 3 application.
+  (Will be distributed under the MIT license)
 * Optimized, fast and beautiful code.
 * Binary packages for Windows, Linux and macOS.
 * Integrated Text-Editor

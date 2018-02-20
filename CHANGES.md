@@ -1,4 +1,5 @@
-# Changes to Mixtool
+Changes to Mixtool
+===================
 
 Alpha 0.2 (Work in progress)
 -----------------------------
