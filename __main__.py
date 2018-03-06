@@ -249,7 +249,7 @@ class MainWindow(object):
 		# Read GUI from file and retrieve objects from GtkBuilder
 		try:
 			GtkBuilder = Gtk.Builder()
-			GtkBuilder.add_from_file("gui.xml")
+			GtkBuilder.add_from_file("gui.glade")
 		except GObject.GError:
 			messagebox("Error reading GUI file", "e")
 			raise
