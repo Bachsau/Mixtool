@@ -22,17 +22,7 @@
 import sys
 import os
 import signal
-
-# Modules for platform-specific configuration
-if sys.platform.startswith('win'):
-	import winreg
-	_PLATFORM = 1
-elif sys.platform.startswith('darwin'):
-	import plistlib
-	_PLATFORM = 2
-else:
-	import configparser
-	_PLATFORM = 0
+import configparser
 
 # GTK+ 3 modules
 import gi
@@ -50,169 +40,57 @@ COLUMN_OFFSET   = 2
 COLUMN_SIZE     = 3
 COLUMN_OVERHEAD = 4
 
-# The settings manager is responsible for saving and retrieving
-# the user's settings according to the platform it runs on
-class Configuration(object):
-	"""Save and Retrieve settings based on platform standards.
-	
-	This class's constructor automatically returns a subclass
-	specific to the current platform.
-	
-	On Windows, settings are saved to the Registry.
-	On macOS, they are saved in property lists.
-	On all other platforms, plain-text configuration files are used.
-	"""
-	
-	__slots__ = ()
-	
-	def __new__(cls, *args, **kwargs):
-		"""Return a platform-specific subclass of 'Configuration'.
-		
-		Falls back to default when inherited by a subclass.
-		"""
-		
-		if cls.__base__ is object:
-			if _PLATFORM == 1:
-				return ConfigWin.__new__(ConfigWin, *args, **kwargs)
-			elif _PLATFORM == 2:
-				return ConfigMac.__new__(ConfigMac, *args, **kwargs)
-			else:
-				return ConfigGen.__new__(ConfigGen, *args, **kwargs)
-		else:
-			return object.__new__(cls, *args, **kwargs)
-	
-	def __init__(self):
-		"""Initialize the settings manager."""
-			
-	def register(self, name: str, default):
-		"""Register a setting to be handled.
-		
-		The setting is identified by 'name' with 'default' beeing its initial value.
-		Its type is considered the type for the setting, which can not be changed later on.
-		Acceptable types are 'str', 'bytes', 'bytearray', 'int', 'float' and 'bool'.
-		'bytearray' objects are saved as 'bytes'. 'TypeError' is raised for inacceptable types.
-		"""
 
-class ConfigWin(Configuration):
-	"""Save and Retrieve settings using the Registry."""
-	
-	__slots__ = ()
-	
-class ConfigMac(Configuration):
-	"""Save and Retrieve settings using a property list."""
-	
-	__slots__ = ()
-	
-class ConfigGen(Configuration):
-	"""Save and Retrieve settings using a configuration file."""
-	
-	__slots__ = ()
-
-
-class Configuration_OLD(object):
-	"""General settings manager"""
-	
-	# In alpha we will be using an ini-file on all platforms
-	# FIXME: Use plist on macOS and the registry on Windows
-	def __init__(self, defaults):
-		"""Initialize the settings manager with default settings"""
-		
-		# Determine data directories
-		home_dir = os.path.expanduser("~")
-		
-		if home_dir == "~":
-			home_dir = os.path.dirname(os.path.realpath(__file__))
-		else:
-			home_dir = os.path.realpath(home_dir)
-		
-		if sys.platform.startswith('win'):
-			# Microsoft Windows
-			data_dir = os.environ.get("LOCALAPPDATA")
-
-			if data_dir is None:
-				data_dir = home_dir + "\\AppData\\Local\\Bachsau\\Mixtool"
-			else:
-				data_dir = os.path.realpath(data_dir) + "\\Bachsau\\Mixtool"
-
-			config_dir = os.environ.get("APPDATA")
-
-			if config_dir is None:
-				config_dir = home_dir + "\\AppData\\Roaming\\Bachsau\\Mixtool"
-			else:
-				config_dir = os.path.realpath(config_dir) + "\\Bachsau\\Mixtool"
-
-		elif sys.platform.startswith('darwin'):
-			# Apple macOS
-			data_dir = home_dir + "/Library/Application Support/com.bachsau.mixtool"
-			config_dir = home_dir + "/Library/Preferences/com.bachsau.mixtool"
-
-		else:
-			# Linux and others
-			data_dir = os.environ.get("XDG_DATA_HOME")
-
-			if data_dir is None:
-				data_dir = home_dir + "/.local/share/bachsau/mixtool"
-			else:
-				data_dir = os.path.realpath(data_dir) + "/bachsau/mixtool"
-
-			config_dir = os.environ.get("XDG_CONFIG_HOME")
-
-			if config_dir is None:
-				config_dir = home_dir + "/.config/bachsau/mixtool"
-			else:
-				config_dir = os.path.realpath(config_dir) + "/bachsau/mixtool"
-
-		# Create non-existent directories
-		try:
-			if not os.path.isdir(data_dir):
-				os.makedirs(data_dir)
-
-			if not os.path.isdir(config_dir):
-				os.makedirs(config_dir)
-		except OSError:
-			messagebox("Unable to create data directories! Your settings will not be saved.", "e")
-		
-		# Read configuration file
-		# FIXME: Could be a class with implicit setting and write method
-		settings = configparser.ConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=None, strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
-		settings.optionxform = str.title
-		settings.read_dict({"Mixtool": defaults})
-		
-		config_file = os.sep.join((config_dir, "settings.ini"))
-		
-		try:
-			stream = open(config_file, encoding="utf_8")
-		except FileNotFoundError:
-			pass
-		except OSError:
-			messagebox("Error reading configuration file.", "e")
-		else:
-			settings.read_file(stream)
-			stream.close()
-		
-		# Populate object
-		self.data_dir = data_dir
-		self.config_dir = config_dir
-		self.config_file = config_file
-		self.settings = settings
-		
-
-# The application controller
+# Main application controller
 class Mixtool(Gtk.Application):
 	"""Application management class"""
-	__slots__ = "app_dir", "settings"
+	__slots__ = ("home_dir", "data_dir", "config_file", "settings")
 	
 	# Object initializer
-	def __init__(self, application_id, flags):
+	def __init__(self, application_id: str, flags: int):
 		"""Initialize GTK+ Application"""
 		Gtk.Application.__init__(self, application_id=application_id, flags=flags)
-		self.app_dir = os.path.dirname(os.path.realpath(__file__))
 		
 	# This is run when Gio.Application initializes the first instance.
 	# It is not run on any remote controllers.
 	def do_startup(self):
 		"""Initialize the main instance"""
 		Gtk.Application.do_startup(self)
+		
+		# Find a platform-specific data directory
+		self.home_dir = os.path.realpath(os.path.expanduser("~"))
+		
+		if sys.platform.startswith('win'):
+			# Microsoft Windows
+			os_appdata = os.environ.get("APPDATA")
+
+			if os_appdata is None:
+				self.data_dir = self.home_dir + "\\AppData\\Roaming\\Bachsau\\Mixtool"
+			else:
+				self.data_dir = os.path.realpath(os_appdata) + "\\Bachsau\\Mixtool"
+
+		elif sys.platform.startswith('darwin'):
+			# Apple macOS
+			self.data_dir = self.home_dir + "/Library/Application Support/Bachsau/Mixtool"
+
+		else:
+			# Linux and others
+			os_appdata = os.environ.get("XDG_DATA_HOME")
+
+			if os_appdata is None:
+				self.data_dir = self.home_dir + "/.local/share/bachsau/mixtool"
+			else:
+				self.data_dir = os.path.realpath(os_appdata) + "/bachsau/mixtool"
+				
+		# Create non-existent directories
+		try:
+			if not os.path.isdir(self.data_dir):
+				os.makedirs(self.data_dir)
+		except OSError:
+			messagebox("Unable to create data directory:\n{0}\n\nYour settings will not be saved.".format(self.data_dir), "e")
+			
+		# Set path to configuration file
+		self.config_file = os.sep.join((self.data_dir, "settings.ini"))
 		
 		# Default settings, as saved in the configuration file
 		default_settings = {
@@ -222,24 +100,40 @@ class Mixtool(Gtk.Application):
 			"Backup": "Yes"
 		}
 		
-		#self.settings = Configuration_OLD(default_settings)
+		# Read configuration file
+		self.settings = configparser.ConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=(";",), strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
+		self.settings.optionxform = str.title
+		self.settings.read_dict({"Mixtool": default_settings})
+		
+		try:
+			config_stream = open(self.config_file, encoding="ascii")
+		except FileNotFoundError:
+			pass
+		except OSError:
+			messagebox("Error reading configuration file.", "e")
+		else:
+			# FIXME: Add message boxes for parsing errors
+			self.settings.read_file(config_stream)
+			config_stream.close()
 		
 		
 	# Method that creates a new main window in the main instance.
 	# Can be run multiple times on behalf of remote controllers.
-	def do_activate(self, *args):
+	def do_activate(self):
 		"""Create a new main window"""
 		MainWindow(self)
 		
-	def save_config(self):
+	def save_settings(self):
 		"""Save configuration to file"""
 		try:
-			stream = open(self.config_file, "w", encoding="utf_8")
+			config_stream = open(self.config_file, "w", encoding="ascii")
 		except OSError:
 			messagebox("Error writing configuration file.", "e")
 		else:
-			self.settings.write(stream, False)
-			stream.close()
+			self.settings.write(config_stream, True)
+			config_stream.close()
+		
+# --------- OLD CODE ---------
 		
 class MainWindow(object):
 	"Main-Window controller class"

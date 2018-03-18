@@ -890,8 +890,8 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           </packing>
         </child>
         <child>
-          <object class="GtkCheckButton" id="SettingsForceASCII">
-            <property name="label">Enforce simple file names (Recommended)</property>
+          <object class="GtkCheckButton" id="SettingsForceSimpleNames">
+            <property name="label">Enforce simple file names (recommended)</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">False</property>
@@ -904,7 +904,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           </packing>
         </child>
         <child>
-          <object class="GtkLabel" id="SettingsForceASCIIDescription">
+          <object class="GtkLabel" id="SettingsForceSimpleNamesDescription">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="margin_left">25</property>
