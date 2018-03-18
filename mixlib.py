@@ -189,14 +189,15 @@ class MixFile(object):
 
 				dbsize  = int.from_bytes(stream.read(4), "little") # Total filesize
 
-				if dbsize != index[dbkey].size:
+				if dbsize != index[dbkey].size or dbsize > 16777216:
 					raise MixError("Invalid database.")
 
 				# Four bytes for XCC type; 0 for LMD, 2 for XIF
 				# Four bytes for DB version; Always zero
 				stream.seek(8, io.SEEK_CUR)
 				mixtype = int.from_bytes(stream.read(4), "little") # XCC Game ID
-
+				
+				# FIXME: Handle this correctly. I think we already knew the type before?
 				if mixtype > TYPE_TS + 3:
 					raise MixError("Unsupported MIX type")
 				elif mixtype > TYPE_TS:

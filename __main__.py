@@ -44,14 +44,17 @@ COLUMN_OVERHEAD = 4
 # Main application controller
 class Mixtool(Gtk.Application):
 	"""Application management class"""
-	__slots__ = ("home_dir", "data_dir", "config_file", "settings")
+	
+	__slots__ = ("home_dir", "data_dir", "config_file", "settings", "window")
 	
 	# Object initializer
-	def __init__(self, application_id: str, flags: int):
+	def __init__(self):
 		"""Initialize GTK+ Application"""
-		Gtk.Application.__init__(self, application_id=application_id, flags=flags)
+		Gtk.Application.__init__(self, application_id="com.bachsau.mixtool")
 		
-	# This is run when Gio.Application initializes the first instance.
+		self.window = None
+		
+	# This is run when Gtk.Application initializes the first instance.
 	# It is not run on any remote controllers.
 	def do_startup(self):
 		"""Initialize the main instance"""
@@ -89,7 +92,7 @@ class Mixtool(Gtk.Application):
 		except OSError:
 			messagebox("Unable to create data directory:\n{0}\n\nYour settings will not be saved.".format(self.data_dir), "e")
 			
-		# Set path to configuration file
+		# Define configuration file
 		self.config_file = os.sep.join((self.data_dir, "settings.ini"))
 		
 		# Default settings, as saved in the configuration file
@@ -116,12 +119,16 @@ class Mixtool(Gtk.Application):
 			self.settings.read_file(config_stream)
 			config_stream.close()
 		
-		
-	# Method that creates a new main window in the main instance.
+	# Method that creates a main window in the first instance.
 	# Can be run multiple times on behalf of remote controllers.
 	def do_activate(self):
-		"""Create a new main window"""
-		MainWindow(self)
+		"""Create a new main window or present an existing one."""
+		# FIXME: Edit multiple files in tabs
+		if self.window is None:
+			self.window = MainWindow(self)
+		else:
+			self.window.MainWindow.present()
+			print("Activated main window on behalf of remote controller.", file=sys.stderr)
 		
 	def save_settings(self):
 		"""Save configuration to file"""
@@ -138,7 +145,7 @@ class Mixtool(Gtk.Application):
 class MainWindow(object):
 	"Main-Window controller class"
 	def __init__(self, application):
-		self.Application = application
+		self.application = application
 
 		# Read GUI from file and retrieve objects from GtkBuilder
 		try:
@@ -351,7 +358,7 @@ class MainWindow(object):
 # Starter
 def main():
 	# Since GTK+ does not support KeyboardInterrupt, reset SIGINT to default.
-	# TODO: Find and implement a better way to handle this
+	# TODO: Find and implement a better way to handle this.
 	signal.signal(signal.SIGINT, signal.SIG_DFL)
 	
 	# Initialize GObject's treads capability
@@ -359,7 +366,7 @@ def main():
 	
 	# Initialize GTK Application
 	GObject.set_application_name("Mixtool")
-	application = Mixtool("com.bachsau.mixtool", Gio.ApplicationFlags.NON_UNIQUE)
+	application = Mixtool()
 	
 	# Start GUI
 	# FIXME: All exceptions raised from inside are caught by GTK!
