@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# coding=utf8
+# coding=utf_8
 
 # Copyright (C) 2015-2018 Bachsau
 #

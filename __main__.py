@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# coding=utf8
+# coding=utf_8
 
 # Copyright (C) 2015-2018 Bachsau
 #
@@ -45,54 +45,54 @@ COLUMN_OVERHEAD = 4
 class Mixtool(Gtk.Application):
 	"""Application management class"""
 	
-	__slots__ = ("home_dir", "data_dir", "config_file", "settings", "window")
+	__slots__ = ("home_dir", "data_dir", "config_file", "settings", "gui", "window")
 	
 	# Object initializer
-	def __init__(self):
-		"""Initialize GTK+ Application"""
+	def __init__(self) -> None:
+		"""Initialize the Mixtool instance"""
 		Gtk.Application.__init__(self, application_id="com.bachsau.mixtool")
 		
 		self.window = None
-		
+	
 	# This is run when Gtk.Application initializes the first instance.
 	# It is not run on any remote controllers.
-	def do_startup(self):
+	def do_startup(self) -> None:
 		"""Initialize the main instance"""
 		Gtk.Application.do_startup(self)
 		
-		# Find a platform-specific data directory
+		# Determine a platform-specific data directory
 		self.home_dir = os.path.realpath(os.path.expanduser("~"))
 		
 		if sys.platform.startswith('win'):
 			# Microsoft Windows
 			os_appdata = os.environ.get("APPDATA")
-
+			
 			if os_appdata is None:
 				self.data_dir = self.home_dir + "\\AppData\\Roaming\\Bachsau\\Mixtool"
 			else:
 				self.data_dir = os.path.realpath(os_appdata) + "\\Bachsau\\Mixtool"
-
+		
 		elif sys.platform.startswith('darwin'):
 			# Apple macOS
 			self.data_dir = self.home_dir + "/Library/Application Support/Bachsau/Mixtool"
-
+		
 		else:
 			# Linux and others
 			os_appdata = os.environ.get("XDG_DATA_HOME")
-
+			
 			if os_appdata is None:
 				self.data_dir = self.home_dir + "/.local/share/bachsau/mixtool"
 			else:
 				self.data_dir = os.path.realpath(os_appdata) + "/bachsau/mixtool"
-				
+		
 		# Create non-existent directories
 		try:
 			if not os.path.isdir(self.data_dir):
 				os.makedirs(self.data_dir)
 		except OSError:
 			messagebox("Unable to create data directory:\n{0}\n\nYour settings will not be saved.".format(self.data_dir), "e")
-			
-		# Define configuration file
+		
+		# Set location of configuration file
 		self.config_file = os.sep.join((self.data_dir, "settings.ini"))
 		
 		# Default settings, as saved in the configuration file
@@ -103,11 +103,12 @@ class Mixtool(Gtk.Application):
 			"Backup": "Yes"
 		}
 		
-		# Read configuration file
+		# Initialize ConfigParser
 		self.settings = configparser.ConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=(";",), strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
 		self.settings.optionxform = str.title
 		self.settings.read_dict({"Mixtool": default_settings})
 		
+		# Parse configuration file
 		try:
 			config_stream = open(self.config_file, encoding="ascii")
 		except FileNotFoundError:
@@ -119,18 +120,29 @@ class Mixtool(Gtk.Application):
 			self.settings.read_file(config_stream)
 			config_stream.close()
 		
+		# Parse GUI file
+		try:
+			self.gui = Gtk.Builder.new_from_file("gui.glade")
+		except GObject.GError:
+			messagebox("Error parsing GUI file", "e")
+		else:
+			legacy_controller = OldWindowController(self)
+			self.gui.connect_signals(legacy_controller)
+	
 	# Method that creates a main window in the first instance.
 	# Can be run multiple times on behalf of remote controllers.
-	def do_activate(self):
+	def do_activate(self) -> None:
 		"""Create a new main window or present an existing one."""
 		# FIXME: Edit multiple files in tabs
 		if self.window is None:
-			self.window = MainWindow(self)
+			self.window = self.gui.get_object("MainWindow")
+			self.add_window(self.window)
+			self.window.show()
 		else:
-			self.window.MainWindow.present()
+			self.window.present()
 			print("Activated main window on behalf of remote controller.", file=sys.stderr)
-		
-	def save_settings(self):
+	
+	def do_save_settings(self) -> None:
 		"""Save configuration to file"""
 		try:
 			config_stream = open(self.config_file, "w", encoding="ascii")
@@ -139,23 +151,23 @@ class Mixtool(Gtk.Application):
 		else:
 			self.settings.write(config_stream, True)
 			config_stream.close()
+
+
+# <old_code>
 		
-# --------- OLD CODE ---------
-		
-class MainWindow(object):
+class OldWindowController(object):
 	"Main-Window controller class"
 	def __init__(self, application):
-		self.application = application
-
 		# Read GUI from file and retrieve objects from GtkBuilder
-		try:
-			GtkBuilder = Gtk.Builder()
-			GtkBuilder.add_from_file("gui.glade")
-		except GObject.GError:
-			messagebox("Error reading GUI file", "e")
-			raise
-		else:
-			GtkBuilder.connect_signals(self)
+		GtkBuilder = application.gui
+#		try:
+#			GtkBuilder = Gtk.Builder()
+#			GtkBuilder.add_from_file("gui.glade")
+#		except GObject.GError:
+#			messagebox("Error reading GUI file", "e")
+#			raise
+#		else:
+#			GtkBuilder.connect_signals(self)
 
 		self.GtkBuilder          = GtkBuilder
 		self.MainWindow          = GtkBuilder.get_object("MainWindow")
@@ -178,8 +190,8 @@ class MainWindow(object):
 		self.ContentStore.set_sort_column_id(COLUMN_OFFSET, Gtk.SortType.ASCENDING)
 
 		# Fire up the main window
-		self.MainWindow.set_application(application)
-		self.MainWindow.show()
+#		self.MainWindow.set_application(application)
+#		self.MainWindow.show()
 
 		self.reset()
 
@@ -353,10 +365,13 @@ class MainWindow(object):
 				obj.destroy()
 			except AttributeError:
 				pass
-		
-		
+				
+# </old_code>
+
+
 # Starter
-def main():
+def main() -> int:
+	"""Run the Mixtool application and return a status code."""
 	# Since GTK+ does not support KeyboardInterrupt, reset SIGINT to default.
 	# TODO: Find and implement a better way to handle this.
 	signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -370,27 +385,49 @@ def main():
 	
 	# Start GUI
 	# FIXME: All exceptions raised from inside are caught by GTK!
-	#        We need to look for a deeper place to catch them all.
+	#        I need to look for a deeper place to catch them all.
 	status = application.run()
 	print("GTK returned.", file=sys.stderr)
 	
 	return status
 
 # A simple, instance-independent messagebox
-# TODO: Add Traceback-Textbox
-# TODO: Center on screen if it lacks a parent (if possible)
-def messagebox(text, type_="i", parent=None):
+def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, secondary: str = None) -> None:
+	"""Display a dialog box containing `text` and an OK button.
+	
+	`type_` can be 'i' for infomation, 'e' for error or 'w' for warning.
+	
+	If `parent` is given, the dialog will be a child of that window and
+	centered upon it.
+	
+	`secondary` can be used to display additional text. The primary text will
+	appear bolder in that case.
+	"""
+	if type_ == "i":
+		message_type = Gtk.MessageType.INFO
 	if type_ == "e":
 		message_type = Gtk.MessageType.ERROR
-		buttons_type = Gtk.ButtonsType.OK
+	elif type_ == "w":
+		message_type = Gtk.MessageType.WARNING
 	else:
-		message_type = Gtk.MessageType.INFO
-		buttons_type = Gtk.ButtonsType.OK
-
-	dialog = Gtk.MessageDialog(parent, Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT, message_type, buttons_type, str(text))
-	response = dialog.run()
+		raise ValueError("Invalid message type.")
+	
+	if parent is None:
+		flags = Gtk.DialogFlags(0)
+		position = Gtk.WindowPosition.CENTER
+	else:
+		flags = Gtk.DialogFlags.DESTROY_WITH_PARENT
+		position = Gtk.WindowPosition.CENTER_ON_PARENT
+	
+	dialog = Gtk.MessageDialog(parent, flags, message_type, Gtk.ButtonsType.OK, str(text))
+	dialog.set_position(position)
+	
+	if secondary is not None:
+		dialog.format_secondary_text(str(secondary))
+	
+	dialog.run()
 	dialog.destroy()
-	return response
+
 
 # Run the application
 sys.exit(main())
