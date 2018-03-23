@@ -48,7 +48,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="default_height">500</property>
     <property name="icon">icon.png</property>
     <property name="show_menubar">False</property>
-    <signal name="delete-event" handler="close" swapped="no"/>
+    <signal name="delete-event" handler="quit_application" swapped="no"/>
     <child>
       <object class="GtkBox" id="MainBox">
         <property name="visible">True</property>
@@ -67,7 +67,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="can_focus">False</property>
                 <property name="label">New</property>
                 <property name="stock_id">gtk-new</property>
-                <signal name="clicked" handler="reset" swapped="no"/>
+                <signal name="clicked" handler="reset_mainwindow" swapped="no"/>
                 <accelerator key="n" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
@@ -81,7 +81,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="can_focus">False</property>
                 <property name="label">Open</property>
                 <property name="stock_id">gtk-open</property>
-                <signal name="clicked" handler="opendialog" swapped="no"/>
+                <signal name="clicked" handler="invoke_open_dialog" swapped="no"/>
                 <accelerator key="o" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
@@ -110,7 +110,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="tooltip_text">Optimize MIX for distribution</property>
                 <property name="label">Optimize</property>
                 <property name="stock_id">gtk-convert</property>
-                <signal name="clicked" handler="optimize" swapped="no"/>
+                <signal name="clicked" handler="optimize_mixfile" swapped="no"/>
                 <accelerator key="s" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
@@ -134,7 +134,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="can_focus">False</property>
                 <property name="label">Insert</property>
                 <property name="stock_id">gtk-add</property>
-                <signal name="clicked" handler="insertdialog" swapped="no"/>
+                <signal name="clicked" handler="invoke_insert_dialog" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -160,7 +160,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="can_focus">False</property>
                 <property name="label">Extract</property>
                 <property name="stock_id">gtk-revert-to-saved</property>
-                <signal name="clicked" handler="extractdialog" swapped="no"/>
+                <signal name="clicked" handler="invoke_extract_dialog" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -173,7 +173,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="can_focus">False</property>
                 <property name="label">Search</property>
                 <property name="stock_id">gtk-find</property>
-                <signal name="clicked" handler="searchdialog" swapped="no"/>
+                <signal name="clicked" handler="invoke_search_dialog" swapped="no"/>
                 <accelerator key="f" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
@@ -197,7 +197,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="can_focus">False</property>
                 <property name="label">Properties</property>
                 <property name="stock_id">gtk-properties</property>
-                <signal name="clicked" handler="propertiesdialog" swapped="no"/>
+                <signal name="clicked" handler="invoke_properties_dialog" swapped="no"/>
                 <accelerator key="p" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
@@ -211,7 +211,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="can_focus">False</property>
                 <property name="label">Settings</property>
                 <property name="stock_id">gtk-preferences</property>
-                <signal name="clicked" handler="settingsdialog" swapped="no"/>
+                <signal name="clicked" handler="invoke_settings_dialog" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -224,7 +224,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="can_focus">False</property>
                 <property name="label">About</property>
                 <property name="stock_id">gtk-info</property>
-                <signal name="clicked" handler="aboutdialog" swapped="no"/>
+                <signal name="clicked" handler="invoke_about_dialog" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -237,7 +237,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="can_focus">False</property>
                 <property name="label">Quit</property>
                 <property name="stock_id">gtk-quit</property>
-                <signal name="clicked" handler="close" swapped="no"/>
+                <signal name="clicked" handler="quit_application" swapped="no"/>
                 <accelerator key="q" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
@@ -272,7 +272,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="show_expanders">False</property>
                 <property name="rubber_banding">True</property>
                 <property name="enable_grid_lines">vertical</property>
-                <signal name="row-activated" handler="extractdialog" swapped="no"/>
+                <signal name="row-activated" handler="invoke_extract_dialog" swapped="no"/>
                 <child internal-child="selection">
                   <object class="GtkTreeSelection" id="ContentSelector">
                     <property name="mode">multiple</property>

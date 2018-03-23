@@ -19,12 +19,14 @@
 # along with Mixtool.  If not, see <https://www.gnu.org/licenses/>.
 
 """Mixtool GTK+ 3 application"""
+
+# Standard modules
 import sys
 import os
 import signal
 import configparser
 
-# GTK+ 3 modules
+# Third party modules
 import gi
 gi.require_version("Gdk", "3.0")
 gi.require_version("Gtk", "3.0")
@@ -45,7 +47,7 @@ COLUMN_OVERHEAD = 4
 class Mixtool(Gtk.Application):
 	"""Application management class"""
 	
-	__slots__ = ("home_dir", "data_dir", "config_file", "settings", "gui", "window")
+	__slots__ = ("home_dir", "data_dir", "config_file", "settings", "gtk_builder", "window")
 	
 	# Object initializer
 	def __init__(self) -> None:
@@ -97,15 +99,14 @@ class Mixtool(Gtk.Application):
 		
 		# Default settings, as saved in the configuration file
 		default_settings = {
-			"Simplenames": "Yes",
-			"Insertlower": "Yes",
-			"Decrypt": "Yes",
-			"Backup": "Yes"
+			"simplenames": "yes",
+			"insertlower": "yes",
+			"decrypt": "yes",
+			"backup": "no"
 		}
 		
 		# Initialize ConfigParser
 		self.settings = configparser.ConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=(";",), strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
-		self.settings.optionxform = str.title
 		self.settings.read_dict({"Mixtool": default_settings})
 		
 		# Parse configuration file
@@ -122,12 +123,26 @@ class Mixtool(Gtk.Application):
 		
 		# Parse GUI file
 		try:
-			self.gui = Gtk.Builder.new_from_file("gui.glade")
+			self.gtk_builder = Gtk.Builder.new_from_file("gui.glade")
 		except GObject.GError:
 			messagebox("Error parsing GUI file", "e")
 		else:
 			legacy_controller = OldWindowController(self)
-			self.gui.connect_signals(legacy_controller)
+			callback_map = {
+				"quit_application": legacy_controller.close,
+				"reset_mainwindow": legacy_controller.reset,
+				"invoke_open_dialog": legacy_controller.opendialog,
+				"optimize_mixfile": legacy_controller.optimize,
+				"invoke_insert_dialog": legacy_controller.insertdialog,
+				"delete_selected": legacy_controller.delete_selected,
+				"invoke_extract_dialog": legacy_controller.extractdialog,
+				"invoke_search_dialog": legacy_controller.searchdialog,
+				"invoke_properties_dialog": legacy_controller.propertiesdialog,
+				"invoke_settings_dialog": legacy_controller.settingsdialog,
+				"invoke_about_dialog": legacy_controller.aboutdialog,
+				"invoke_extract_dialog": legacy_controller.extractdialog
+			}
+			self.gtk_builder.connect_signals(callback_map)
 	
 	# Method that creates a main window in the first instance.
 	# Can be run multiple times on behalf of remote controllers.
@@ -135,14 +150,14 @@ class Mixtool(Gtk.Application):
 		"""Create a new main window or present an existing one."""
 		# FIXME: Edit multiple files in tabs
 		if self.window is None:
-			self.window = self.gui.get_object("MainWindow")
+			self.window = self.gtk_builder.get_object("MainWindow")
 			self.add_window(self.window)
 			self.window.show()
 		else:
 			self.window.present()
 			print("Activated main window on behalf of remote controller.", file=sys.stderr)
 	
-	def do_save_settings(self) -> None:
+	def save_settings(self) -> None:
 		"""Save configuration to file"""
 		try:
 			config_stream = open(self.config_file, "w", encoding="ascii")
@@ -159,7 +174,7 @@ class OldWindowController(object):
 	"Main-Window controller class"
 	def __init__(self, application):
 		# Read GUI from file and retrieve objects from GtkBuilder
-		GtkBuilder = application.gui
+		GtkBuilder = application.gtk_builder
 #		try:
 #			GtkBuilder = Gtk.Builder()
 #			GtkBuilder.add_from_file("gui.glade")
@@ -375,6 +390,11 @@ def main() -> int:
 	# Since GTK+ does not support KeyboardInterrupt, reset SIGINT to default.
 	# TODO: Find and implement a better way to handle this.
 	signal.signal(signal.SIGINT, signal.SIG_DFL)
+	
+	# FIXME: Remove in final version
+	py_version = "{}.{}".format(sys.version_info[0], sys.version_info[1])
+	gi_version = "{}.{}".format(gi.version_info[0], gi.version_info[1])
+	print("Mixtool is running on Python {} using PyGObject {}.".format(py_version, gi_version), file=sys.stderr)
 	
 	# Initialize GObject's treads capability
 	GObject.threads_init()
