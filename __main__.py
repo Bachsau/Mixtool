@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # coding=utf_8
 
-# Copyright (C) 2015-2018 Bachsau
+# Copyright (C) 2015-2018 Sven Heinemann (Bachsau)
 #
 # This file is part of Mixtool.
 #
@@ -20,6 +20,8 @@
 
 """Mixtool GTK+ 3 application"""
 
+__version__ = "0.2.0-volatile"
+
 # Standard modules
 import sys
 import os
@@ -30,7 +32,7 @@ import configparser
 import gi
 gi.require_version("Gdk", "3.0")
 gi.require_version("Gtk", "3.0")
-from gi.repository import GObject, Gio, Gdk, Gtk
+from gi.repository import GObject, Gdk, Gtk
 
 # Local modules
 import mixlib
@@ -392,9 +394,8 @@ def main() -> int:
 	signal.signal(signal.SIGINT, signal.SIG_DFL)
 	
 	# FIXME: Remove in final version
-	py_version = "{}.{}".format(sys.version_info[0], sys.version_info[1])
-	gi_version = "{}.{}".format(gi.version_info[0], gi.version_info[1])
-	print("Mixtool is running on Python {} using PyGObject {}.".format(py_version, gi_version), file=sys.stderr)
+	print("Mixtool is running on Python {0[0]}.{0[1]} using PyGObject {1[0]}.{1[1]}."
+		.format(sys.version_info, gi.version_info), file=sys.stderr)
 	
 	# Initialize GObject's treads capability
 	GObject.threads_init()

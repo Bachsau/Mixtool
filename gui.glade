@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.20.2 
+<!-- Generated with glade 3.20.4 
 
-Copyright (C) 2015-2018 Bachsau
+Copyright (C) 2015-2018 Sven Heinemann (Bachsau)
 
 This file is part of Mixtool.
 
@@ -24,7 +24,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
   <!-- interface-license-type gplv3 -->
   <!-- interface-name Mixtool -->
   <!-- interface-description An editor for Westwood Studios' MIX files -->
-  <!-- interface-copyright 2015-2018 Bachsau -->
+  <!-- interface-copyright 2015-2018 Sven Heinemann (Bachsau) -->
   <object class="GtkListStore" id="ContentStore">
     <columns>
       <!-- column-name rowid -->
@@ -43,7 +43,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="height_request">200</property>
     <property name="can_focus">False</property>
     <property name="title">Mixtool</property>
-    <property name="role">mixtool.mainwindow</property>
+    <property name="role">main</property>
     <property name="window_position">center</property>
     <property name="default_height">500</property>
     <property name="icon">icon.png</property>
@@ -396,11 +396,14 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
         </child>
       </object>
     </child>
+    <child>
+      <placeholder/>
+    </child>
   </object>
   <object class="GtkAboutDialog" id="AboutDialog">
     <property name="can_focus">False</property>
     <property name="title">About Mixtool</property>
-    <property name="role">mixtool.aboutdialog</property>
+    <property name="role">about</property>
     <property name="resizable">False</property>
     <property name="modal">True</property>
     <property name="window_position">center-on-parent</property>
@@ -411,9 +414,9 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="transient_for">MainWindow</property>
     <property name="program_name">Mixtool</property>
     <property name="version">Alpha 0.2</property>
-    <property name="copyright">Copyright © 2015-2018 Bachsau</property>
+    <property name="copyright">Copyright © 2015–2018 Sven Heinemann (Bachsau)</property>
     <property name="comments">An editor for Westwood Studios’ MIX files</property>
-    <property name="website">http://docs.bachsau.com/Mixtool/</property>
+    <property name="website">http://go.bachsau.com/mixtool</property>
     <property name="website_label">Visit Mixtool website</property>
     <property name="logo">icon.png</property>
     <property name="license_type">gpl-3-0</property>
@@ -429,6 +432,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <child>
               <object class="GtkButton" id="AboutDialogDonate">
                 <property name="label">Donate</property>
+                <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">True</property>
                 <property name="can_default">True</property>
