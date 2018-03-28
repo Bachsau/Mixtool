@@ -1,4 +1,4 @@
-The MIT License (MIT)
+Lightbox2
 
 Copyright (c) 2015 Lokesh Dhakar
 
