@@ -32,7 +32,7 @@ import configparser
 import gi
 gi.require_version("Gdk", "3.0")
 gi.require_version("Gtk", "3.0")
-from gi.repository import GObject, Gdk, Gtk
+from gi.repository import GLib, Gio, Gdk, Gtk
 
 # Local modules
 import mixlib
@@ -54,7 +54,7 @@ class Mixtool(Gtk.Application):
 	# Object initializer
 	def __init__(self) -> None:
 		"""Initialize the Mixtool instance"""
-		Gtk.Application.__init__(self, application_id="com.bachsau.mixtool")
+		Gtk.Application.__init__(self, application_id="com.bachsau.mixtool", flags=Gio.ApplicationFlags.HANDLES_OPEN)
 		
 		self.window = None
 	
@@ -126,7 +126,7 @@ class Mixtool(Gtk.Application):
 		# Parse GUI file
 		try:
 			self.gtk_builder = Gtk.Builder.new_from_file("gui.glade")
-		except GObject.GError:
+		except GLib.GError:
 			messagebox("Error parsing GUI file", "e")
 		else:
 			legacy_controller = OldWindowController(self)
@@ -159,6 +159,14 @@ class Mixtool(Gtk.Application):
 			self.window.present()
 			print("Activated main window on behalf of remote controller.", file=sys.stderr)
 	
+	# Method run when the application is told
+	# to open files from outside.
+	def do_open(self, files: list, *args) -> None:
+		"""Open `files` and create a new tab for each of them."""
+		self.do_activate()
+		for file in files:
+			messagebox("I was told to open:", "i", self.window, secondary=file.get_path())
+	
 	def save_settings(self) -> None:
 		"""Save configuration to file"""
 		try:
@@ -180,7 +188,7 @@ class OldWindowController(object):
 #		try:
 #			GtkBuilder = Gtk.Builder()
 #			GtkBuilder.add_from_file("gui.glade")
-#		except GObject.GError:
+#		except GLib.GError:
 #			messagebox("Error reading GUI file", "e")
 #			raise
 #		else:
@@ -397,17 +405,18 @@ def main() -> int:
 	print("Mixtool is running on Python {0[0]}.{0[1]} using PyGObject {1[0]}.{1[1]}."
 		.format(sys.version_info, gi.version_info), file=sys.stderr)
 	
-	# Initialize GObject's treads capability
-	GObject.threads_init()
+	# Initialize GLib's treads capability
+	GLib.threads_init()
 	
 	# Initialize GTK Application
-	GObject.set_application_name("Mixtool")
+	GLib.set_prgname("mixtool")
+	GLib.set_application_name("Mixtool")
 	application = Mixtool()
 	
 	# Start GUI
 	# FIXME: All exceptions raised from inside are caught by GTK!
 	#        I need to look for a deeper place to catch them all.
-	status = application.run()
+	status = application.run(sys.argv)
 	print("GTK returned.", file=sys.stderr)
 	
 	return status
@@ -426,7 +435,7 @@ def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, second
 	"""
 	if type_ == "i":
 		message_type = Gtk.MessageType.INFO
-	if type_ == "e":
+	elif type_ == "e":
 		message_type = Gtk.MessageType.ERROR
 	elif type_ == "w":
 		message_type = Gtk.MessageType.WARNING

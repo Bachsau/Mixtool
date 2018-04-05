@@ -1,7 +1,7 @@
 #!/bin/sh
 trap false INT
 cd "$(dirname "$0")"
-export 'LC_ALL'='C'
+export 'LC_ALL'='en_US.utf8'
 export 'G_SLICE'='always-malloc'
 do_quit=''
 while test -z "$do_quit"
