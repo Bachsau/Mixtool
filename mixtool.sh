@@ -1,6 +1,6 @@
 #!/bin/sh
 trap false INT
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/src"
 export 'LC_ALL'='en_US.utf8'
 export 'G_SLICE'='always-malloc'
 do_quit=''
