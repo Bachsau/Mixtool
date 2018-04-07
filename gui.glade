@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.22.0 
+<!-- Generated with glade 3.22.1 
 
 Copyright (C) 2015-2018 Sven Heinemann (Bachsau)
 
@@ -50,6 +50,9 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="show_menubar">False</property>
     <signal name="delete-event" handler="quit_application" swapped="no"/>
     <child>
+      <placeholder/>
+    </child>
+    <child>
       <object class="GtkBox">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
@@ -61,7 +64,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <property name="hexpand">True</property>
             <property name="toolbar_style">both</property>
             <child>
-              <object class="GtkToolButton" id="ToolbarNew">
+              <object class="GtkToolButton" id="Toolbar.New">
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
@@ -76,7 +79,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="ToolbarOpen">
+              <object class="GtkToolButton" id="Toolbar.Open">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label">Open</property>
@@ -90,7 +93,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="ToolbarSave">
+              <object class="GtkToolButton" id="Toolbar.Optimize">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="tooltip_text">Optimize MIX for distribution</property>
@@ -105,17 +108,17 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkSeparatorToolItem" id="Separator0">
+              <object class="GtkSeparatorToolItem">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
               </object>
               <packing>
                 <property name="expand">False</property>
-                <property name="homogeneous">True</property>
+                <property name="homogeneous">False</property>
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="ToolbarInsert">
+              <object class="GtkToolButton" id="Toolbar.Insert">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label">Insert</property>
@@ -128,8 +131,8 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="ToolbarDelete">
-                <property name="sensitive">False</property>
+              <object class="GtkToolButton" id="Toolbar.Delete">
+                <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label">Delete</property>
                 <property name="stock_id">gtk-remove</property>
@@ -141,7 +144,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="ToolbarExtract">
+              <object class="GtkToolButton" id="Toolbar.Extract">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label">Extract</property>
@@ -154,7 +157,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="ToolbarSearch">
+              <object class="GtkToolButton" id="Toolbar.Search">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label">Search</property>
@@ -168,17 +171,17 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkSeparatorToolItem" id="Separator1">
+              <object class="GtkSeparatorToolItem">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
               </object>
               <packing>
                 <property name="expand">False</property>
-                <property name="homogeneous">True</property>
+                <property name="homogeneous">False</property>
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="ToolbarProperties">
+              <object class="GtkToolButton" id="Toolbar.Properties">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label">Properties</property>
@@ -192,7 +195,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="ToolbarSettings">
+              <object class="GtkToolButton" id="Toolbar.Settings">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label">Settings</property>
@@ -205,7 +208,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="ToolbarAbout">
+              <object class="GtkToolButton" id="Toolbar.About">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label">About</property>
@@ -218,7 +221,19 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="ToolbarQuit">
+              <object class="GtkToolButton" id="Toolbar.Close">
+                <property name="sensitive">False</property>
+                <property name="can_focus">False</property>
+                <property name="label">Close</property>
+                <property name="stock_id">gtk-close</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToolButton" id="Toolbar.Quit">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label">Quit</property>
@@ -290,6 +305,9 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="position">2</property>
               </packing>
             </child>
+            <style>
+              <class name="linked"/>
+            </style>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -440,9 +458,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
         </child>
       </object>
     </child>
-    <child>
-      <placeholder/>
-    </child>
   </object>
   <object class="GtkAboutDialog" id="AboutDialog">
     <property name="can_focus">False</property>
@@ -464,23 +479,25 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="website_label">Visit Mixtool website</property>
     <property name="logo">icon.png</property>
     <property name="license_type">gpl-3-0</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
-      <object class="GtkBox" id="AboutDialogBox">
+      <object class="GtkBox">
         <property name="can_focus">False</property>
         <property name="orientation">vertical</property>
         <property name="spacing">2</property>
         <child internal-child="action_area">
-          <object class="GtkButtonBox" id="AboutDialogButtons">
+          <object class="GtkButtonBox">
             <property name="can_focus">False</property>
             <property name="layout_style">end</property>
             <child>
-              <object class="GtkButton" id="AboutDialogDonate">
+              <object class="GtkButton">
                 <property name="label">Donate</property>
                 <property name="visible">True</property>
-                <property name="sensitive">False</property>
                 <property name="can_focus">True</property>
-                <property name="can_default">True</property>
                 <property name="receives_default">True</property>
+                <signal name="clicked" handler="show_donate_uri" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -498,9 +515,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
         </child>
       </object>
     </child>
-    <child>
-      <placeholder/>
-    </child>
   </object>
   <object class="GtkFileChooserDialog" id="InsertDialog">
     <property name="can_focus">False</property>
@@ -516,6 +530,9 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="create_folders">False</property>
     <property name="preview_widget_active">False</property>
     <property name="use_preview_label">False</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="InsertDialogBox">
         <property name="can_focus">False</property>
@@ -570,9 +587,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
       <action-widget response="-6">InsertDialogCancel</action-widget>
       <action-widget response="-5">InsertDialogOK</action-widget>
     </action-widgets>
-    <child>
-      <placeholder/>
-    </child>
   </object>
   <object class="GtkDialog" id="PropertiesDialog">
     <property name="can_focus">False</property>
@@ -583,6 +597,9 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="type_hint">dialog</property>
     <property name="skip_taskbar_hint">True</property>
     <property name="transient_for">MainWindow</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="PropertiesDialogBox">
         <property name="can_focus">False</property>
@@ -701,22 +718,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                     <property name="position">1</property>
                   </packing>
                 </child>
-                <child>
-                  <object class="GtkCheckButton" id="PropertiesDialogCompressed">
-                    <property name="label">Com_press data</property>
-                    <property name="visible">True</property>
-                    <property name="sensitive">False</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">False</property>
-                    <property name="use_underline">True</property>
-                    <property name="draw_indicator">True</property>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">2</property>
-                  </packing>
-                </child>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -752,9 +753,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
       <action-widget response="-6">PropertiesDialogCancel</action-widget>
       <action-widget response="-5">PropertiesDialogOK</action-widget>
     </action-widgets>
-    <child>
-      <placeholder/>
-    </child>
   </object>
   <object class="GtkDialog" id="SearchDialog">
     <property name="can_focus">False</property>
@@ -767,6 +765,9 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="type_hint">dialog</property>
     <property name="skip_taskbar_hint">True</property>
     <property name="transient_for">MainWindow</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="SearchDialogBox">
         <property name="can_focus">False</property>
@@ -872,9 +873,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
       <action-widget response="-6">SearchDialogCancel</action-widget>
       <action-widget response="-5">SearchDialogOK</action-widget>
     </action-widgets>
-    <child>
-      <placeholder/>
-    </child>
   </object>
   <object class="GtkDialog" id="SettingsDialog">
     <property name="width_request">630</property>
@@ -889,6 +887,9 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="type_hint">dialog</property>
     <property name="skip_taskbar_hint">True</property>
     <property name="transient_for">MainWindow</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="SettingsDialogBox">
         <property name="can_focus">False</property>
@@ -1063,9 +1064,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
       <action-widget response="-6">SettingsDialogCancel</action-widget>
       <action-widget response="-5">SettingsDialogOK</action-widget>
     </action-widgets>
-    <child>
-      <placeholder/>
-    </child>
   </object>
   <object class="GtkImage" id="ExtractImageMulti">
     <property name="visible">True</property>
@@ -1086,6 +1084,9 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="action">create-folder</property>
     <property name="preview_widget_active">False</property>
     <property name="use_preview_label">False</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="ExtractMultiDialogBox">
         <property name="can_focus">False</property>
@@ -1140,9 +1141,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
       <action-widget response="-6">ExtractMultiDialogCancel</action-widget>
       <action-widget response="-5">ExtractMultiDialogOK</action-widget>
     </action-widgets>
-    <child>
-      <placeholder/>
-    </child>
   </object>
   <object class="GtkImage" id="ExtractImageSingle">
     <property name="visible">True</property>
@@ -1164,6 +1162,9 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="do_overwrite_confirmation">True</property>
     <property name="preview_widget_active">False</property>
     <property name="use_preview_label">False</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="ExtractSingleDialogBox">
         <property name="can_focus">False</property>
@@ -1218,9 +1219,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
       <action-widget response="-6">ExtractSingleDialogCancel</action-widget>
       <action-widget response="-5">ExtractSingleDialogOK</action-widget>
     </action-widgets>
-    <child>
-      <placeholder/>
-    </child>
   </object>
   <object class="GtkFileFilter" id="MixFilter">
     <patterns>
@@ -1243,6 +1241,9 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="filter">MixFilter</property>
     <property name="preview_widget_active">False</property>
     <property name="use_preview_label">False</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="OpenDialogBox">
         <property name="can_focus">False</property>
@@ -1297,9 +1298,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
       <action-widget response="-6">OpenDialogCancel</action-widget>
       <action-widget response="-5">OpenDialogOK</action-widget>
     </action-widgets>
-    <child>
-      <placeholder/>
-    </child>
   </object>
   <object class="GtkFileChooserDialog" id="SaveDialog">
     <property name="can_focus">False</property>
@@ -1317,6 +1315,9 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="filter">MixFilter</property>
     <property name="preview_widget_active">False</property>
     <property name="use_preview_label">False</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="SaveDialogBox">
         <property name="can_focus">False</property>
@@ -1371,8 +1372,5 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
       <action-widget response="-6">SaveDialogCancel</action-widget>
       <action-widget response="-5">SaveDialogOK</action-widget>
     </action-widgets>
-    <child>
-      <placeholder/>
-    </child>
   </object>
 </interface>

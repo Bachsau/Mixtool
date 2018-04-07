@@ -94,7 +94,7 @@ class Mixtool(Gtk.Application):
 			if not os.path.isdir(self.data_dir):
 				os.makedirs(self.data_dir)
 		except OSError:
-			messagebox("Unable to create data directory:\n{0}\n\nYour settings will not be saved.".format(self.data_dir), "e")
+			messagebox("Unable to create data directory:\n{0}\n\nYour settings will not be saved.".format(self.data_dir), "w")
 		
 		# Set location of configuration file
 		self.config_file = os.sep.join((self.data_dir, "settings.ini"))
@@ -142,9 +142,16 @@ class Mixtool(Gtk.Application):
 				"invoke_properties_dialog": legacy_controller.propertiesdialog,
 				"invoke_settings_dialog": legacy_controller.settingsdialog,
 				"invoke_about_dialog": legacy_controller.aboutdialog,
-				"invoke_extract_dialog": legacy_controller.extractdialog
+				"invoke_extract_dialog": legacy_controller.extractdialog,
+				"show_donate_uri": self.show_donate_uri
 			}
 			self.gtk_builder.connect_signals(callback_map)
+	
+	# Open donation website in default browser
+	def show_donate_uri(self, widget: Gtk.Widget) -> bool:
+		"""Open donation website in default browser and return True."""
+		Gtk.show_uri_on_window(widget.get_toplevel(), "http://go.bachsau.com/mtdonate", Gtk.get_current_event_time())
+		return True
 	
 	# Method that creates a main window in the first instance.
 	# Can be run multiple times on behalf of remote controllers.
@@ -399,16 +406,17 @@ def main() -> int:
 	"""Run the Mixtool application and return a status code."""
 	# Since GTK+ does not support KeyboardInterrupt, reset SIGINT to default.
 	# TODO: Find and implement a better way to handle this.
+	# HINT: GLib.unix_signal_add()
 	signal.signal(signal.SIGINT, signal.SIG_DFL)
 	
 	# FIXME: Remove in final version
-	print("Mixtool is running on Python {0[0]}.{0[1]} using PyGObject {1[0]}.{1[1]}."
-		.format(sys.version_info, gi.version_info), file=sys.stderr)
+	print("Mixtool is running on Python {0[0]}.{0[1]} using PyGObject {1[0]}.{1[1]} and GTK+ {2[0]}.{2[1]}."
+		.format(sys.version_info, gi.version_info, (Gtk.get_major_version(), Gtk.get_minor_version())), file=sys.stderr)
 	
 	# Initialize GLib's treads capability
 	GLib.threads_init()
 	
-	# Initialize GTK Application
+	# Initialize Application
 	GLib.set_prgname("mixtool")
 	GLib.set_application_name("Mixtool")
 	application = Mixtool()
@@ -417,7 +425,7 @@ def main() -> int:
 	# FIXME: All exceptions raised from inside are caught by GTK!
 	#        I need to look for a deeper place to catch them all.
 	status = application.run(sys.argv)
-	print("GTK returned.", file=sys.stderr)
+	print("GTK+ returned.", file=sys.stderr)
 	
 	return status
 
