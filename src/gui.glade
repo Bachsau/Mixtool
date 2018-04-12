@@ -42,7 +42,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
   <object class="GtkApplicationWindow" id="MainWindow">
     <property name="height_request">200</property>
     <property name="can_focus">False</property>
-    <property name="title">Mixtool</property>
+    <property name="title">Mixtool (Alpha)</property>
     <property name="role">main</property>
     <property name="window_position">center</property>
     <property name="default_height">500</property>
@@ -61,7 +61,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           <object class="GtkToolbar" id="Toolbar">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="hexpand">True</property>
             <property name="toolbar_style">both</property>
             <child>
               <object class="GtkToolButton" id="Toolbar.New">
@@ -255,54 +254,24 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
         </child>
         <child>
           <object class="GtkButtonBox" id="TabBar">
+            <property name="height_request">28</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="hexpand">True</property>
             <property name="homogeneous">True</property>
             <property name="layout_style">expand</property>
             <child>
-              <object class="GtkRadioButton" id="DummyTab1">
-                <property name="label">Dummy 1</property>
+              <object class="GtkRadioButton" id="DummyTab">
+                <property name="label"> </property>
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
+                <property name="sensitive">False</property>
+                <property name="can_focus">False</property>
                 <property name="receives_default">False</property>
-                <property name="active">True</property>
                 <property name="draw_indicator">False</property>
               </object>
               <packing>
-                <property name="expand">False</property>
+                <property name="expand">True</property>
                 <property name="fill">True</property>
                 <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkRadioButton" id="DummyTab2">
-                <property name="label">Dummy 2</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">False</property>
-                <property name="draw_indicator">False</property>
-                <property name="group">DummyTab1</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkRadioButton" id="DummyTab3">
-                <property name="label">Dummy 3</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">False</property>
-                <property name="draw_indicator">False</property>
-                <property name="group">DummyTab1</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">2</property>
               </packing>
             </child>
             <style>
@@ -319,7 +288,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           <object class="GtkScrolledWindow" id="ContentArea">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
-            <property name="hexpand">True</property>
             <property name="vexpand">True</property>
             <child>
               <object class="GtkTreeView" id="ContentList">
@@ -443,7 +411,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <property name="margin_right">10</property>
             <property name="margin_top">6</property>
             <property name="margin_bottom">6</property>
-            <property name="hexpand">True</property>
             <property name="ellipsize">end</property>
             <property name="single_line_mode">True</property>
             <property name="track_visited_links">False</property>
@@ -494,6 +461,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="label">Donate</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
+                <property name="can_default">True</property>
                 <property name="receives_default">True</property>
                 <signal name="clicked" handler="show_donate_uri" swapped="no"/>
               </object>

@@ -49,7 +49,7 @@ COLUMN_OVERHEAD = 4
 class Mixtool(Gtk.Application):
 	"""Application management class"""
 	
-	__slots__ = ("home_dir", "data_dir", "config_file", "settings", "gtk_builder", "window")
+	__slots__ = ("home_dir", "data_dir", "config_file", "settings", "gtk_builder", "window", "files")
 	
 	# The GtkFileFilter used by open/save dialogs
 	file_filter = Gtk.FileFilter()
@@ -63,6 +63,7 @@ class Mixtool(Gtk.Application):
 		Gtk.Application.__init__(self, application_id="com.bachsau.mixtool", flags=Gio.ApplicationFlags.HANDLES_OPEN)
 		
 		self.window = None
+		self.files = {}
 	
 	# This is run when Gtk.Application initializes the first instance.
 	# It is not run on any remote controllers.
@@ -130,29 +131,36 @@ class Mixtool(Gtk.Application):
 			config_stream.close()
 		
 		# Parse GUI file
-		try:
-			self.gtk_builder = Gtk.Builder.new_from_file("gui.glade")
-		except GLib.GError:
-			messagebox("Error parsing GUI file", "e")
-		else:
-			global legacy_controller
-			legacy_controller = OldWindowController(self)
-			callback_map = {
-				"quit_application": legacy_controller.close,
-				"reset_mainwindow": legacy_controller.reset,
-				"invoke_open_dialog": self.invoke_open_dialog,
-				"optimize_mixfile": legacy_controller.optimize,
-				"invoke_insert_dialog": legacy_controller.insertdialog,
-				"delete_selected": legacy_controller.delete_selected,
-				"invoke_extract_dialog": legacy_controller.extractdialog,
-				"invoke_search_dialog": legacy_controller.searchdialog,
-				"invoke_properties_dialog": legacy_controller.propertiesdialog,
-				"invoke_settings_dialog": legacy_controller.settingsdialog,
-				"invoke_about_dialog": legacy_controller.aboutdialog,
-				"invoke_extract_dialog": legacy_controller.extractdialog,
-				"show_donate_uri": self.show_donate_uri
-			}
-			self.gtk_builder.connect_signals(callback_map)
+		gui_file = os.sep.join((os.path.dirname(os.path.realpath(__file__)), "gui.glade"))
+		self.gtk_builder = Gtk.Builder.new_from_file(gui_file)
+
+		global legacy_controller
+		legacy_controller = OldWindowController(self)
+		callback_map = {
+			"quit_application": legacy_controller.close,
+			"reset_mainwindow": legacy_controller.reset,
+			"invoke_open_dialog": self.invoke_open_dialog,
+			"optimize_mixfile": legacy_controller.optimize,
+			"invoke_insert_dialog": legacy_controller.insertdialog,
+			"delete_selected": legacy_controller.delete_selected,
+			"invoke_extract_dialog": legacy_controller.extractdialog,
+			"invoke_search_dialog": legacy_controller.searchdialog,
+			"invoke_properties_dialog": legacy_controller.propertiesdialog,
+			"invoke_settings_dialog": legacy_controller.settingsdialog,
+			"invoke_about_dialog": self.invoke_about_dialog,
+			"invoke_extract_dialog": legacy_controller.extractdialog,
+			"show_donate_uri": self.show_donate_uri
+		}
+		self.gtk_builder.connect_signals(callback_map)
+	
+	# Show about dialog
+	def invoke_about_dialog(self, widget: Gtk.Widget) -> bool:
+		"""Show a dialog with information on Mixtool."""
+		dialog = self.gtk_builder.get_object("AboutDialog")
+		dialog.set_default_response(Gtk.ResponseType.DELETE_EVENT)
+		dialog.run()
+		dialog.hide()
+		return True
 	
 	# Open donation website in default browser
 	def show_donate_uri(self, widget: Gtk.Widget) -> bool:
@@ -160,7 +168,7 @@ class Mixtool(Gtk.Application):
 		Gtk.show_uri_on_window(widget.get_toplevel(), "http://go.bachsau.com/mtdonate", Gtk.get_current_event_time())
 		return True
 	
-	# Native dialog to open MIX files
+	# Callback to open files by using a dialog
 	def invoke_open_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a file chooser dialog and open selected files."""
 		dialog = Gtk.FileChooserNative.new("Open MIX file", self.window, Gtk.FileChooserAction.OPEN, "_Open", "_Cancel")
@@ -174,16 +182,55 @@ class Mixtool(Gtk.Application):
 		if response == Gtk.ResponseType.ACCEPT:
 			self.mark_busy()
 			for path in dialog.get_filenames():
-				# TODO: Replace with new self.open_file() method
-				legacy_controller.loadfile(path)
+				self.open_file(path)
 			self.unmark_busy()
 		
 		dialog.destroy()
 		return True
 	
-	def open_file(self, path):
-		"""Try to open the file specified by `path`."""
-		# FIXME: Stub
+	def open_file(self, path: str) -> None:
+		"""Try to open the file at `path`."""
+		path = os.path.realpath(path)
+		
+		# Check if file is already open
+		for already_open in self.files.keys():
+			if os.path.samefile(already_open, path):
+				messagebox("This file is already open and can only be opened once:", "e", self.window, secondary=path)
+				return
+		
+		try:
+			# Try to open the file
+			pass
+		except Exception:
+			# Show any error messages
+			pass
+		else:
+			# Create a new GtkListStore for the file
+			self.files[path] = Gtk.ListStore()
+			
+			# Add a button
+			button = Gtk.RadioButton.new_with_label_from_widget(self.gtk_builder.get_object("DummyTab"), os.path.basename(path))
+			button.set_mode(False)
+			button.set_active(True)
+			button.set_tooltip_text(path)
+			button.connect("toggled", self.switch_file, path)
+			self.gtk_builder.get_object("TabBar").pack_start(button, True, True, 0)
+			button.show()
+		
+		# Legacy opener
+		legacy_controller.loadfile(path)
+	
+	# Activate another tab
+	def switch_file(self, widget: Gtk.Widget, path: str) -> bool:
+		"""Switch the currently displayed file to `path`."""
+		if not widget.get_active():
+			return True
+		
+		messagebox("Not implemented", "i", self.window, secondary=path)
+		return True
+	
+	def set_statusbar(self, text: str) -> None:
+		self.gtk_builder.get_object("StatusBar").set_text(text)
 	
 	# Method that creates a main window in the first instance.
 	# Can be run multiple times on behalf of remote controllers.
@@ -203,8 +250,10 @@ class Mixtool(Gtk.Application):
 	def do_open(self, files: list, *args) -> None:
 		"""Open `files` and create a new tab for each of them."""
 		self.do_activate()
+		self.mark_busy()
 		for file in files:
-			messagebox("I was told to open:", "i", self.window, secondary=file.get_path())
+			self.open_file(file.get_path())
+		self.unmark_busy()
 	
 	def save_settings(self) -> None:
 		"""Save configuration to file"""
@@ -220,18 +269,12 @@ class Mixtool(Gtk.Application):
 # <old_code>
 		
 class OldWindowController(object):
-	"Main-Window controller class"
+	"""Legacy window controller"""
 	def __init__(self, application):
-		# Read GUI from file and retrieve objects from GtkBuilder
+	
+		self.Application = application
+
 		GtkBuilder = application.gtk_builder
-#		try:
-#			GtkBuilder = Gtk.Builder()
-#			GtkBuilder.add_from_file("gui.glade")
-#		except GLib.GError:
-#			messagebox("Error reading GUI file", "e")
-#			raise
-#		else:
-#			GtkBuilder.connect_signals(self)
 
 		self.GtkBuilder          = GtkBuilder
 		self.MainWindow          = GtkBuilder.get_object("MainWindow")
@@ -374,9 +417,6 @@ class OldWindowController(object):
 		self.SettingsDialog.run()
 		self.SettingsDialog.hide()
 
-	def aboutdialog(self, *args):
-		self.AboutDialog.run()
-		self.AboutDialog.hide()
 
 	# Search current file for names
 	# TODO: Implement wildcard searching
@@ -407,10 +447,10 @@ class OldWindowController(object):
 			messagebox("Search needs an open MIX file", "e", self.MainWindow)
 
 	def set_statusbar(self, text):
-		self.StatusBar.set_text(str(text))
+		self.Application.set_statusbar(str(text))
 
 	def set_titlebar(self, text):
-		self.MainWindow.set_title(text + " – Mixtool (Alpha)")
+		pass
 
 	# Close window
 	# Gtk.Application quits if this was the last one
@@ -466,10 +506,13 @@ def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, second
 	appear bolder in that case.
 	"""
 	if type_ == "i":
+		title = "Notice"
 		message_type = Gtk.MessageType.INFO
 	elif type_ == "e":
+		title = "Error"
 		message_type = Gtk.MessageType.ERROR
 	elif type_ == "w":
+		title = "Warning"
 		message_type = Gtk.MessageType.WARNING
 	else:
 		raise ValueError("Invalid message type.")
@@ -482,6 +525,7 @@ def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, second
 		position = Gtk.WindowPosition.CENTER_ON_PARENT
 	
 	dialog = Gtk.MessageDialog(parent, flags, message_type, Gtk.ButtonsType.OK, str(text))
+	dialog.set_title(title)
 	dialog.set_position(position)
 	
 	if secondary is not None:
