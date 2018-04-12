@@ -20,7 +20,7 @@ Features planned for the final version:
   (Will be distributed under the MIT license)
 * Optimized, fast and beautiful code.
 * Binary packages for Windows, Linux and macOS.
-* Integrated Text-Editor
+* Integrated text editor
 
 
 Features NOT to expect:

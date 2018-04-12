@@ -51,6 +51,12 @@ class Mixtool(Gtk.Application):
 	
 	__slots__ = ("home_dir", "data_dir", "config_file", "settings", "gtk_builder", "window")
 	
+	# The GtkFileFilter used by open/save dialogs
+	file_filter = Gtk.FileFilter()
+	file_filter.set_name("MIX files")
+	file_filter.add_pattern("*.mix")
+	file_filter.add_pattern("*.MIX")
+	
 	# Object initializer
 	def __init__(self) -> None:
 		"""Initialize the Mixtool instance"""
@@ -129,11 +135,12 @@ class Mixtool(Gtk.Application):
 		except GLib.GError:
 			messagebox("Error parsing GUI file", "e")
 		else:
+			global legacy_controller
 			legacy_controller = OldWindowController(self)
 			callback_map = {
 				"quit_application": legacy_controller.close,
 				"reset_mainwindow": legacy_controller.reset,
-				"invoke_open_dialog": legacy_controller.opendialog,
+				"invoke_open_dialog": self.invoke_open_dialog,
 				"optimize_mixfile": legacy_controller.optimize,
 				"invoke_insert_dialog": legacy_controller.insertdialog,
 				"delete_selected": legacy_controller.delete_selected,
@@ -149,9 +156,34 @@ class Mixtool(Gtk.Application):
 	
 	# Open donation website in default browser
 	def show_donate_uri(self, widget: Gtk.Widget) -> bool:
-		"""Open donation website in default browser and return True."""
+		"""Open donation website in default browser."""
 		Gtk.show_uri_on_window(widget.get_toplevel(), "http://go.bachsau.com/mtdonate", Gtk.get_current_event_time())
 		return True
+	
+	# Native dialog to open MIX files
+	def invoke_open_dialog(self, widget: Gtk.Widget) -> bool:
+		"""Show a file chooser dialog and open selected files."""
+		dialog = Gtk.FileChooserNative.new("Open MIX file", self.window, Gtk.FileChooserAction.OPEN, "_Open", "_Cancel")
+		dialog.set_modal(True)
+		dialog.set_select_multiple(True)
+		dialog.add_filter(self.file_filter)
+		dialog.set_filter(self.file_filter)
+		response = dialog.run()
+		dialog.hide()
+		
+		if response == Gtk.ResponseType.ACCEPT:
+			self.mark_busy()
+			for path in dialog.get_filenames():
+				# TODO: Replace with new self.open_file() method
+				legacy_controller.loadfile(path)
+			self.unmark_busy()
+		
+		dialog.destroy()
+		return True
+	
+	def open_file(self, path):
+		"""Try to open the file specified by `path`."""
+		# FIXME: Stub
 	
 	# Method that creates a main window in the first instance.
 	# Can be run multiple times on behalf of remote controllers.
@@ -203,7 +235,6 @@ class OldWindowController(object):
 
 		self.GtkBuilder          = GtkBuilder
 		self.MainWindow          = GtkBuilder.get_object("MainWindow")
-		self.OpenDialog          = GtkBuilder.get_object("OpenDialog")
 		self.SaveDialog          = GtkBuilder.get_object("SaveDialog")
 		self.ExtractSingleDialog = GtkBuilder.get_object("ExtractSingleDialog")
 		self.ExtractMultiDialog  = GtkBuilder.get_object("ExtractMultiDialog")
@@ -278,13 +309,6 @@ class OldWindowController(object):
 	# Delete file(s) from mix
 	def delete_selected(self, *args):
 		pass
-
-	# Dialog functions
-	def opendialog(self, *args):
-		response = self.OpenDialog.run()
-		self.OpenDialog.hide()
-		if response == Gtk.ResponseType.OK:
-			self.loadfile(self.OpenDialog.get_filename())
 			
 	# Insert dialog
 	def insertdialog(self, *args):
@@ -433,7 +457,7 @@ def main() -> int:
 def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, secondary: str = None) -> None:
 	"""Display a dialog box containing `text` and an OK button.
 	
-	`type_` can be 'i' for infomation, 'e' for error or 'w' for warning.
+	`type_` can be 'i' for information, 'e' for error or 'w' for warning.
 	
 	If `parent` is given, the dialog will be a child of that window and
 	centered upon it.

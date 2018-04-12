@@ -61,6 +61,7 @@ class MixIOError(OSError, MixError):
 # MixNodes are lightweight objects to store a defined set of index data
 class _MixNode(object):
 	"""Nodes used by MixFile instances to store index data."""
+	
 	__slots__ = ("name", "offset", "size", "alloc", "links")
 
 	def __init__(self, name: str, offset: int, size: int, alloc: int) -> None:
@@ -91,9 +92,9 @@ class MixFile(object):
 
 	# Constructor parses MIX file
 	def __init__(self, stream: io.BufferedIOBase, new: int = None) -> None:
-		"""Parse a MIX from 'stream', which must be a buffered file object.
+		"""Parse a MIX from `stream`, which must be a buffered file object.
 
-		If 'new' is given, initialize an empty MIX of type 'new' instead.
+		If `new` is given, initialize an empty MIX of type `new` instead.
 		MixError ist raised on any parsing errors.
 		"""
 		
@@ -102,7 +103,13 @@ class MixFile(object):
 		# If stream is, for example, a raw I/O object, files could be destroyed
 		# without ever raising an error, so check this.
 		if not isinstance(stream, io.BufferedIOBase):
-			raise TypeError("'stream' must be an instance of io.BufferedIOBase")
+			raise TypeError("`stream` must be an instance of `io.BufferedIOBase`.")
+			
+		if not stream.readable():
+			raise ValueError("`stream` must be readable.")
+			
+		if not stream.seekable():
+			raise ValueError("`stream` must be seekable.")
 
 		# For new files, initialize mixtype and return
 		if new is not None:
@@ -245,12 +252,15 @@ class MixFile(object):
 		self.has_checksum = has_checksum
 		self.is_encrypted = is_encrypted
 
-
-	def __del__(self):
-		"""Call `self.write_index()` if changes have been made."""
-		
-		if self._dirty:
-			self.write_index()
+	# Dirty bit is only used to prevent file corruption,
+	# not for index-only changes like renames, etc.
+	def __del__(self) -> None:
+		"""Call `self.write_index()` if in inconsistent state."""
+		try:
+			if self._dirty:
+				self.write_index()
+		except Exception:
+			pass
 
 	# Central file-finding method
 	# Also used to add missing names to the index
@@ -778,7 +788,7 @@ class MixIO(io.BufferedIOBase):
 # Create MIX-Identifier from filename
 # Thanks to Olaf van der Spek for providing these functions
 def genkey(name: str, mixtype: int) -> int:
-	"""Compute the key of 'name' according to 'mixtype' and return it.
+	"""Return the key for `name` according to `mixtype`.
 
 	This is a low-level function that rarely needs to be used directly.
 	"""

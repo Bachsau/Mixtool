@@ -462,14 +462,12 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
   <object class="GtkAboutDialog" id="AboutDialog">
     <property name="can_focus">False</property>
     <property name="title">About Mixtool</property>
-    <property name="role">about</property>
     <property name="resizable">False</property>
     <property name="modal">True</property>
     <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>
-    <property name="skip_taskbar_hint">True</property>
     <property name="transient_for">MainWindow</property>
     <property name="program_name">Mixtool</property>
     <property name="version">Alpha 0.2</property>
@@ -752,6 +750,79 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <action-widgets>
       <action-widget response="-6">PropertiesDialogCancel</action-widget>
       <action-widget response="-5">PropertiesDialogOK</action-widget>
+    </action-widgets>
+  </object>
+  <object class="GtkFileChooserDialog" id="SaveDialog">
+    <property name="can_focus">False</property>
+    <property name="title">Save MIX File</property>
+    <property name="role">mixtool.savedialog</property>
+    <property name="modal">True</property>
+    <property name="window_position">center-on-parent</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="icon">icon.png</property>
+    <property name="type_hint">dialog</property>
+    <property name="skip_taskbar_hint">True</property>
+    <property name="transient_for">MainWindow</property>
+    <property name="action">save</property>
+    <property name="do_overwrite_confirmation">True</property>
+    <property name="preview_widget_active">False</property>
+    <property name="use_preview_label">False</property>
+    <child>
+      <placeholder/>
+    </child>
+    <child internal-child="vbox">
+      <object class="GtkBox" id="SaveDialogBox">
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="SaveDialogButtons">
+            <property name="can_focus">False</property>
+            <property name="layout_style">end</property>
+            <child>
+              <object class="GtkButton" id="SaveDialogCancel">
+                <property name="label">gtk-cancel</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="can_default">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_stock">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="SaveDialogOK">
+                <property name="label">gtk-save</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="can_default">True</property>
+                <property name="has_default">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_stock">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="pack_type">end</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+    <action-widgets>
+      <action-widget response="-6">SaveDialogCancel</action-widget>
+      <action-widget response="-5">SaveDialogOK</action-widget>
     </action-widgets>
   </object>
   <object class="GtkDialog" id="SearchDialog">
@@ -1218,159 +1289,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <action-widgets>
       <action-widget response="-6">ExtractSingleDialogCancel</action-widget>
       <action-widget response="-5">ExtractSingleDialogOK</action-widget>
-    </action-widgets>
-  </object>
-  <object class="GtkFileFilter" id="MixFilter">
-    <patterns>
-      <pattern>*.mix</pattern>
-      <pattern>*.MIX</pattern>
-    </patterns>
-  </object>
-  <object class="GtkFileChooserDialog" id="OpenDialog">
-    <property name="can_focus">False</property>
-    <property name="title">Open MIX File</property>
-    <property name="role">mixtool.opendialog</property>
-    <property name="modal">True</property>
-    <property name="window_position">center-on-parent</property>
-    <property name="destroy_with_parent">True</property>
-    <property name="icon">icon.png</property>
-    <property name="type_hint">dialog</property>
-    <property name="skip_taskbar_hint">True</property>
-    <property name="transient_for">MainWindow</property>
-    <property name="create_folders">False</property>
-    <property name="filter">MixFilter</property>
-    <property name="preview_widget_active">False</property>
-    <property name="use_preview_label">False</property>
-    <child>
-      <placeholder/>
-    </child>
-    <child internal-child="vbox">
-      <object class="GtkBox" id="OpenDialogBox">
-        <property name="can_focus">False</property>
-        <property name="orientation">vertical</property>
-        <property name="spacing">2</property>
-        <child internal-child="action_area">
-          <object class="GtkButtonBox" id="OpenDialogButtons">
-            <property name="can_focus">False</property>
-            <property name="layout_style">end</property>
-            <child>
-              <object class="GtkButton" id="OpenDialogCancel">
-                <property name="label">gtk-cancel</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="can_default">True</property>
-                <property name="receives_default">True</property>
-                <property name="use_stock">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="OpenDialogOK">
-                <property name="label">gtk-open</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="can_default">True</property>
-                <property name="has_default">True</property>
-                <property name="receives_default">True</property>
-                <property name="use_stock">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="pack_type">end</property>
-            <property name="position">0</property>
-          </packing>
-        </child>
-      </object>
-    </child>
-    <action-widgets>
-      <action-widget response="-6">OpenDialogCancel</action-widget>
-      <action-widget response="-5">OpenDialogOK</action-widget>
-    </action-widgets>
-  </object>
-  <object class="GtkFileChooserDialog" id="SaveDialog">
-    <property name="can_focus">False</property>
-    <property name="title">Save MIX File</property>
-    <property name="role">mixtool.savedialog</property>
-    <property name="modal">True</property>
-    <property name="window_position">center-on-parent</property>
-    <property name="destroy_with_parent">True</property>
-    <property name="icon">icon.png</property>
-    <property name="type_hint">dialog</property>
-    <property name="skip_taskbar_hint">True</property>
-    <property name="transient_for">MainWindow</property>
-    <property name="action">save</property>
-    <property name="do_overwrite_confirmation">True</property>
-    <property name="filter">MixFilter</property>
-    <property name="preview_widget_active">False</property>
-    <property name="use_preview_label">False</property>
-    <child>
-      <placeholder/>
-    </child>
-    <child internal-child="vbox">
-      <object class="GtkBox" id="SaveDialogBox">
-        <property name="can_focus">False</property>
-        <property name="orientation">vertical</property>
-        <property name="spacing">2</property>
-        <child internal-child="action_area">
-          <object class="GtkButtonBox" id="SaveDialogButtons">
-            <property name="can_focus">False</property>
-            <property name="layout_style">end</property>
-            <child>
-              <object class="GtkButton" id="SaveDialogCancel">
-                <property name="label">gtk-cancel</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="can_default">True</property>
-                <property name="receives_default">True</property>
-                <property name="use_stock">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="SaveDialogOK">
-                <property name="label">gtk-save</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="can_default">True</property>
-                <property name="has_default">True</property>
-                <property name="receives_default">True</property>
-                <property name="use_stock">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="pack_type">end</property>
-            <property name="position">0</property>
-          </packing>
-        </child>
-      </object>
-    </child>
-    <action-widgets>
-      <action-widget response="-6">SaveDialogCancel</action-widget>
-      <action-widget response="-5">SaveDialogOK</action-widget>
     </action-widgets>
   </object>
 </interface>
