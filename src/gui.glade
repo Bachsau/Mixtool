@@ -25,17 +25,15 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
   <!-- interface-name Mixtool -->
   <!-- interface-description An editor for Westwood Studios' MIX files -->
   <!-- interface-copyright 2015-2018 Sven Heinemann (Bachsau) -->
-  <object class="GtkListStore" id="ContentStore">
+  <object class="GtkListStore" id="DummyStore">
     <columns>
-      <!-- column-name rowid -->
-      <column type="gulong"/>
-      <!-- column-name name -->
+      <!-- column-name Name -->
       <column type="gchararray"/>
-      <!-- column-name offset -->
+      <!-- column-name Offset -->
       <column type="guint"/>
-      <!-- column-name size -->
+      <!-- column-name Size -->
       <column type="guint"/>
-      <!-- column-name overhead -->
+      <!-- column-name Overhead -->
       <column type="guint"/>
     </columns>
   </object>
@@ -94,6 +92,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <child>
               <object class="GtkToolButton" id="Toolbar.Optimize">
                 <property name="visible">True</property>
+                <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
                 <property name="tooltip_text">Optimize MIX for distribution</property>
                 <property name="label">Optimize</property>
@@ -119,6 +118,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <child>
               <object class="GtkToolButton" id="Toolbar.Insert">
                 <property name="visible">True</property>
+                <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
                 <property name="label">Insert</property>
                 <property name="stock_id">gtk-add</property>
@@ -132,6 +132,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <child>
               <object class="GtkToolButton" id="Toolbar.Delete">
                 <property name="visible">True</property>
+                <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
                 <property name="label">Delete</property>
                 <property name="stock_id">gtk-remove</property>
@@ -145,6 +146,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <child>
               <object class="GtkToolButton" id="Toolbar.Extract">
                 <property name="visible">True</property>
+                <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
                 <property name="label">Extract</property>
                 <property name="stock_id">gtk-revert-to-saved</property>
@@ -158,6 +160,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <child>
               <object class="GtkToolButton" id="Toolbar.Search">
                 <property name="visible">True</property>
+                <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
                 <property name="label">Search</property>
                 <property name="stock_id">gtk-find</property>
@@ -280,13 +283,14 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <child>
               <object class="GtkTreeView" id="ContentList">
                 <property name="visible">True</property>
+                <property name="sensitive">False</property>
                 <property name="can_focus">True</property>
                 <property name="has_focus">True</property>
                 <property name="is_focus">True</property>
                 <property name="hscroll_policy">natural</property>
                 <property name="vscroll_policy">natural</property>
-                <property name="model">ContentStore</property>
-                <property name="search_column">1</property>
+                <property name="model">DummyStore</property>
+                <property name="search_column">0</property>
                 <property name="fixed_height_mode">True</property>
                 <property name="show_expanders">False</property>
                 <property name="rubber_banding">True</property>
@@ -305,13 +309,13 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                     <property name="min_width">30</property>
                     <property name="title">Name</property>
                     <property name="clickable">True</property>
-                    <property name="sort_column_id">1</property>
+                    <property name="sort_column_id">0</property>
                     <child>
                       <object class="GtkCellRendererText" id="ContentListNameRenderer">
                         <property name="xalign">0</property>
                       </object>
                       <attributes>
-                        <attribute name="text">1</attribute>
+                        <attribute name="text">0</attribute>
                       </attributes>
                     </child>
                   </object>
@@ -325,13 +329,13 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                     <property name="title">Offset</property>
                     <property name="clickable">True</property>
                     <property name="alignment">1</property>
-                    <property name="sort_column_id">2</property>
+                    <property name="sort_column_id">1</property>
                     <child>
                       <object class="GtkCellRendererText" id="ContentListOffsetRenderer">
                         <property name="xalign">1</property>
                       </object>
                       <attributes>
-                        <attribute name="text">2</attribute>
+                        <attribute name="text">1</attribute>
                       </attributes>
                     </child>
                   </object>
@@ -345,13 +349,13 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                     <property name="title">Size</property>
                     <property name="clickable">True</property>
                     <property name="alignment">1</property>
-                    <property name="sort_column_id">3</property>
+                    <property name="sort_column_id">2</property>
                     <child>
                       <object class="GtkCellRendererText" id="ContentListSizeRenderer">
                         <property name="xalign">1</property>
                       </object>
                       <attributes>
-                        <attribute name="text">3</attribute>
+                        <attribute name="text">2</attribute>
                       </attributes>
                     </child>
                   </object>
@@ -365,13 +369,13 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                     <property name="title">Overhead</property>
                     <property name="clickable">True</property>
                     <property name="alignment">1</property>
-                    <property name="sort_column_id">4</property>
+                    <property name="sort_column_id">3</property>
                     <child>
                       <object class="GtkCellRendererText" id="ContentListOverheadRenderer">
                         <property name="xalign">1</property>
                       </object>
                       <attributes>
-                        <attribute name="text">4</attribute>
+                        <attribute name="text">3</attribute>
                       </attributes>
                     </child>
                   </object>

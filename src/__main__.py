@@ -32,17 +32,17 @@ from urllib import parse
 # Third party modules
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gio, Gtk
+from gi.repository import GLib, GObject, Gio, Gtk
 
 # Local modules
 import mixlib
 
 # Constants
-COLUMN_ROWID    = 0
-COLUMN_NAME     = 1
-COLUMN_OFFSET   = 2
-COLUMN_SIZE     = 3
-COLUMN_OVERHEAD = 4
+COLUMN_ROWID    = -1
+COLUMN_NAME     = 0
+COLUMN_OFFSET   = 1
+COLUMN_SIZE     = 2
+COLUMN_OVERHEAD = 3
 
 
 # Main application controller
@@ -197,7 +197,10 @@ class Mixtool(Gtk.Application):
 			
 			# Switch to last opened file
 			if isinstance(button, Gtk.RadioButton):
-				button.set_active(True)
+				button.toggled() if button.get_active() else button.set_active(True)
+			
+			# Enable the ContentList
+			self.gtk_builder.get_object("ContentList").set_sensitive(True)
 			
 			self.unmark_busy()
 		
@@ -215,14 +218,20 @@ class Mixtool(Gtk.Application):
 				return None
 		
 		try:
-			# Try to open the file
-			file = None
+			file = mixlib.MixFile(open(path, "r+b"))
 		except Exception:
-			# Show any error messages
-			pass
+			messagebox("Error loading MIX file." ,"e", self.window)
 		else:
 			# Initialize a Gtk.ListStore
-			store = Gtk.ListStore()
+			store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_UINT, GObject.TYPE_UINT, GObject.TYPE_UINT)
+			store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
+			for record in file.get_contents(True):
+				store.append((
+					record[0], # Name
+					record[2], # Offset
+					record[1], # Size
+					record[3] - record[1] # Alloc - Size = Overhead
+				))
 			
 			# Add a button
 			button = Gtk.RadioButton.new_with_label_from_widget(self.files[already_open][2] if self.files else None, os.path.basename(path))
@@ -235,10 +244,7 @@ class Mixtool(Gtk.Application):
 			# Add tuple to files dictionary
 			self.files[path] = (file, store, button)
 		
-		# Legacy opener
-		legacy_controller.loadfile(path)
-		
-		return button
+			return button
 	
 	# Activate another tab
 	def switch_file(self, widget: Gtk.Widget, path: str) -> bool:
@@ -246,7 +252,11 @@ class Mixtool(Gtk.Application):
 		if not widget.get_active():
 			return True
 		
-		messagebox("Not implemented", "i", self.window, secondary=path)
+		self.gtk_builder.get_object("ContentList").set_model(self.files[path][1])
+		
+		mixtype = ("TD", "RA", "TS")[self.files[path][0].get_mixtype()]
+		self.set_statusbar(" ".join((mixtype, "MIX contains", str(self.files[path][0].get_filecount()), "files.")))
+		
 		return True
 	
 	def set_statusbar(self, text: str) -> None:
@@ -260,6 +270,7 @@ class Mixtool(Gtk.Application):
 		if self.window is None:
 			self.window = self.gtk_builder.get_object("MainWindow")
 			self.add_window(self.window)
+			self.set_statusbar("This is alpha software. Use at your own risk!")
 			self.window.show()
 		else:
 			self.window.present()
@@ -319,15 +330,6 @@ class OldWindowController(object):
 		self.ContentStore        = GtkBuilder.get_object("ContentStore")
 		self.ContentSelector     = GtkBuilder.get_object("ContentSelector")
 		self.StatusBar           = GtkBuilder.get_object("StatusBar")
-
-		# Initially sort by Offset
-		self.ContentStore.set_sort_column_id(COLUMN_OFFSET, Gtk.SortType.ASCENDING)
-
-		# Fire up the main window
-#		self.MainWindow.set_application(application)
-#		self.MainWindow.show()
-
-		self.reset()
 
 	# Reset GUI and close file
 	def reset(self, *args):
