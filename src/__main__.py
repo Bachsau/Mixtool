@@ -27,12 +27,12 @@ import sys
 import os
 import signal
 import configparser
+from urllib import parse
 
 # Third party modules
 import gi
-gi.require_version("Gdk", "3.0")
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gio, Gdk, Gtk
+from gi.repository import GLib, Gio, Gtk
 
 # Local modules
 import mixlib
@@ -111,7 +111,8 @@ class Mixtool(Gtk.Application):
 			"simplenames": "yes",
 			"insertlower": "yes",
 			"decrypt": "yes",
-			"backup": "no"
+			"backup": "no",
+			"lastdir": parse.quote(self.home_dir)
 		}
 		
 		# Initialize ConfigParser
@@ -171,54 +172,73 @@ class Mixtool(Gtk.Application):
 	# Callback to open files by using a dialog
 	def invoke_open_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a file chooser dialog and open selected files."""
+		lastdir = parse.unquote(self.settings["Mixtool"]["lastdir"])
 		dialog = Gtk.FileChooserNative.new("Open MIX file", self.window, Gtk.FileChooserAction.OPEN, "_Open", "_Cancel")
 		dialog.set_modal(True)
 		dialog.set_select_multiple(True)
 		dialog.add_filter(self.file_filter)
 		dialog.set_filter(self.file_filter)
+		dialog.set_current_folder(lastdir)
 		response = dialog.run()
 		dialog.hide()
 		
 		if response == Gtk.ResponseType.ACCEPT:
 			self.mark_busy()
+			
+			# Save lastdir
+			newdir = dialog.get_current_folder()
+			if newdir != lastdir:
+				self.settings["Mixtool"]["lastdir"] = parse.quote(newdir)
+				self.save_settings()
+			
+			# Open the files
 			for path in dialog.get_filenames():
-				self.open_file(path)
+				button = self.open_file(path)
+			
+			# Switch to last opened file
+			if isinstance(button, Gtk.RadioButton):
+				button.set_active(True)
+			
 			self.unmark_busy()
 		
 		dialog.destroy()
 		return True
 	
-	def open_file(self, path: str) -> None:
-		"""Try to open the file at `path`."""
+	def open_file(self, path: str) -> Gtk.RadioButton:
+		"""Try to open the file at `path` and return the corresponding `Gtk.RadioButton`."""
 		path = os.path.realpath(path)
 		
 		# Check if file is already open
 		for already_open in self.files.keys():
 			if os.path.samefile(already_open, path):
 				messagebox("This file is already open and can only be opened once:", "e", self.window, secondary=path)
-				return
+				return None
 		
 		try:
 			# Try to open the file
-			pass
+			file = None
 		except Exception:
 			# Show any error messages
 			pass
 		else:
-			# Create a new GtkListStore for the file
-			self.files[path] = Gtk.ListStore()
+			# Initialize a Gtk.ListStore
+			store = Gtk.ListStore()
 			
 			# Add a button
-			button = Gtk.RadioButton.new_with_label_from_widget(self.gtk_builder.get_object("DummyTab"), os.path.basename(path))
+			button = Gtk.RadioButton.new_with_label_from_widget(self.files[already_open][2] if self.files else None, os.path.basename(path))
 			button.set_mode(False)
-			button.set_active(True)
 			button.set_tooltip_text(path)
 			button.connect("toggled", self.switch_file, path)
 			self.gtk_builder.get_object("TabBar").pack_start(button, True, True, 0)
 			button.show()
+			
+			# Add tuple to files dictionary
+			self.files[path] = (file, store, button)
 		
 		# Legacy opener
 		legacy_controller.loadfile(path)
+		
+		return button
 	
 	# Activate another tab
 	def switch_file(self, widget: Gtk.Widget, path: str) -> bool:
@@ -251,8 +271,15 @@ class Mixtool(Gtk.Application):
 		"""Open `files` and create a new tab for each of them."""
 		self.do_activate()
 		self.mark_busy()
+		
+		# Open the files
 		for file in files:
-			self.open_file(file.get_path())
+			button = self.open_file(file.get_path())
+		
+		# Switch to last opened file
+		if isinstance(button, Gtk.RadioButton):
+			button.set_active(True)
+		
 		self.unmark_busy()
 	
 	def save_settings(self) -> None:
@@ -264,6 +291,7 @@ class Mixtool(Gtk.Application):
 		else:
 			self.settings.write(config_stream, True)
 			config_stream.close()
+			print("Saved configuration file.", file=sys.stderr)
 
 
 # <old_code>
