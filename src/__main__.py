@@ -26,6 +26,7 @@ __version__ = "0.2.0-volatile"
 import sys
 import os
 import signal
+import collections
 import configparser
 from urllib import parse
 
@@ -46,11 +47,14 @@ COLUMN_SIZE     = 2
 COLUMN_OVERHEAD = 3
 
 
+# FileRecord data type
+_FileRecord = collections.namedtuple("_FileRecord", ("path", "stream", "container", "store", "button"))
+
 # Main application controller
 class Mixtool(Gtk.Application):
 	"""Application management class"""
 	
-	__slots__ = ("home_dir", "data_dir", "config_file", "settings", "gtk_builder", "window", "files")
+	__slots__ = ("home_dir", "data_dir", "config_file", "settings", "gtk_builder", "window", "files", "current_file")
 	
 	# The GtkFileFilter used by open/save dialogs
 	file_filter = Gtk.FileFilter()
@@ -64,7 +68,7 @@ class Mixtool(Gtk.Application):
 		Gtk.Application.__init__(self, application_id="com.bachsau.mixtool", flags=Gio.ApplicationFlags.HANDLES_OPEN)
 		
 		self.window = None
-		self.files = {}
+		self.files = []
 	
 	# This is run when Gtk.Application initializes the first instance.
 	# It is not run on any remote controllers.
@@ -140,7 +144,7 @@ class Mixtool(Gtk.Application):
 		legacy_controller = OldWindowController(self)
 		callback_map = {
 			"quit_application": legacy_controller.close,
-			"reset_mainwindow": legacy_controller.reset,
+			"invoke_new_dialog": legacy_controller.reset,
 			"invoke_open_dialog": self.invoke_open_dialog,
 			"optimize_mixfile": legacy_controller.optimize,
 			"invoke_insert_dialog": legacy_controller.insertdialog,
@@ -159,23 +163,20 @@ class Mixtool(Gtk.Application):
 	# Close file in current tab
 	def close_file(self, widget: Gtk.Widget) -> bool:
 		"""Close the currently active file."""
+		file = self.current_file
 		
-		# Remove file from dict
-		# TODO: Improve file tracking
-		for path, file in self.files.items():
-			if file is self.current_file:
-				del self.files[path]
-				break
+		# Remove from list of open files
+		self.files.remove(file)
 		
 		# Close stream
-		self.current_file[0].close()
+		file.stream.close()
 		
 		# Remove the tab
-		self.current_file[3].destroy()
+		file.button.destroy()
 		
 		if self.files:
-			# TODO: Activate previous tab
-			pass
+			# Activate previous tab
+			self.files[-1].button.set_active(True)
 		else:
 			# Switch to Quit button and disable ContentList
 			self.gtk_builder.get_object("Toolbar.Close").hide()
@@ -244,8 +245,8 @@ class Mixtool(Gtk.Application):
 		path = os.path.realpath(path)
 		
 		# Check if file is already open
-		for already_open in self.files.keys():
-			if os.path.samefile(already_open, path):
+		for already_open in self.files:
+			if os.path.samefile(already_open.path, path):
 				messagebox("This file is already open and can only be opened once:", "e", self.window, secondary=path)
 				return None
 		
@@ -269,30 +270,33 @@ class Mixtool(Gtk.Application):
 				))
 			
 			# Add a button
-			button = Gtk.RadioButton.new_with_label_from_widget(self.files[already_open][3] if self.files else None, os.path.basename(path))
+			button = Gtk.RadioButton.new_with_label_from_widget(already_open.button if self.files else None, os.path.basename(path))
 			button.set_mode(False)
 			button.get_child().set_ellipsize(Pango.EllipsizeMode.END)
 			button.set_tooltip_text(path)
-			button.connect("toggled", self.switch_file, path)
 			self.gtk_builder.get_object("TabBar").pack_start(button, True, True, 0)
 			button.show()
 			
-			# Add tuple to files dictionary
-			self.files[path] = (stream, container, store, button)
+			# Create the file record
+			file = _FileRecord(path, stream, container, store, button)
+			self.files.append(file)
+			
+			# Connect the signal
+			button.connect("toggled", self.switch_file, file)
 		
 			return button
 	
 	# Activate another tab
-	def switch_file(self, widget: Gtk.Widget, path: str) -> bool:
+	def switch_file(self, widget: Gtk.Widget, file: _FileRecord) -> bool:
 		"""Switch the currently displayed file to `path`."""
 		if not widget.get_active():
 			return True
 		
-		self.current_file = self.files[path]
-		self.gtk_builder.get_object("ContentList").set_model(self.current_file[2])
+		self.current_file = file
+		self.gtk_builder.get_object("ContentList").set_model(file.store)
 		
-		mixtype = ("TD", "RA", "TS")[self.current_file[1].get_mixtype()]
-		self.set_statusbar(" ".join((mixtype, "MIX contains", str(self.current_file[1].get_filecount()), "files.")))
+		mixtype = ("TD", "RA", "TS")[file.container.get_mixtype()]
+		self.set_statusbar(" ".join((mixtype, "MIX contains", str(file.container.get_filecount()), "files.")))
 		
 		return True
 	

@@ -67,7 +67,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="can_focus">False</property>
                 <property name="label">New</property>
                 <property name="stock_id">gtk-new</property>
-                <signal name="clicked" handler="reset_mainwindow" swapped="no"/>
+                <signal name="clicked" handler="invoke_new_dialog" swapped="no"/>
                 <accelerator key="n" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
