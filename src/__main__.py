@@ -256,7 +256,7 @@ class Mixtool(Gtk.Application):
 			stream = open(path, "r+b")
 			container = mixlib.MixFile(stream)
 		except Exception:
-			messagebox("Error loading MIX file." ,"e", self.window)
+			messagebox("Error loading MIX file:" ,"e", self.window, secondary=path)
 		else:
 			# Initialize a Gtk.ListStore
 			store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_UINT, GObject.TYPE_UINT, GObject.TYPE_UINT)

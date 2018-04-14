@@ -3,7 +3,8 @@ Changes to Mixtool
 
 Alpha 0.2 (Work in progress)
 -----------------------------
-* Is able to create new files
+* Ability create new files
+* Ability to open multiple files in tabs
 * Supports checksums
 * Reads, writes and heeds the settings
 * Clean and detailed error messages

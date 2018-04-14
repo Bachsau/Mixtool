@@ -10,3 +10,6 @@ ehthumbs.db
 # Compiled Python code
 __pycache__/
 *.py[cod]
+
+# Log files
+*.log
