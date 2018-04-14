@@ -31,8 +31,9 @@ from urllib import parse
 
 # Third party modules
 import gi
+gi.require_version("Pango", "1.0")
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, GObject, Gio, Gtk
+from gi.repository import GLib, GObject, Gio, Pango, Gtk
 
 # Local modules
 import mixlib
@@ -150,9 +151,39 @@ class Mixtool(Gtk.Application):
 			"invoke_settings_dialog": legacy_controller.settingsdialog,
 			"invoke_about_dialog": self.invoke_about_dialog,
 			"invoke_extract_dialog": legacy_controller.extractdialog,
-			"show_donate_uri": self.show_donate_uri
+			"show_donate_uri": self.show_donate_uri,
+			"close_file": self.close_file
 		}
 		self.gtk_builder.connect_signals(callback_map)
+	
+	# Close file in current tab
+	def close_file(self, widget: Gtk.Widget) -> bool:
+		"""Close the currently active file."""
+		
+		# Remove file from dict
+		# TODO: Improve file tracking
+		for path, file in self.files.items():
+			if file is self.current_file:
+				del self.files[path]
+				break
+		
+		# Close stream
+		self.current_file[0].close()
+		
+		# Remove the tab
+		self.current_file[3].destroy()
+		
+		if self.files:
+			# TODO: Activate previous tab
+			pass
+		else:
+			# Switch to Quit button and disable ContentList
+			self.gtk_builder.get_object("Toolbar.Close").hide()
+			self.gtk_builder.get_object("Toolbar.Quit").show()
+			self.gtk_builder.get_object("ContentList").set_model(None)
+			self.gtk_builder.get_object("ContentList").set_sensitive(False)
+		
+		return True
 	
 	# Show about dialog
 	def invoke_about_dialog(self, widget: Gtk.Widget) -> bool:
@@ -180,7 +211,6 @@ class Mixtool(Gtk.Application):
 		dialog.set_filter(self.file_filter)
 		dialog.set_current_folder(lastdir)
 		response = dialog.run()
-		dialog.hide()
 		
 		if response == Gtk.ResponseType.ACCEPT:
 			self.mark_busy()
@@ -199,7 +229,9 @@ class Mixtool(Gtk.Application):
 			if isinstance(button, Gtk.RadioButton):
 				button.toggled() if button.get_active() else button.set_active(True)
 			
-			# Enable the ContentList
+			# Switch to Close button and enable ContentList
+			self.gtk_builder.get_object("Toolbar.Quit").hide()
+			self.gtk_builder.get_object("Toolbar.Close").show()
 			self.gtk_builder.get_object("ContentList").set_sensitive(True)
 			
 			self.unmark_busy()
@@ -218,14 +250,17 @@ class Mixtool(Gtk.Application):
 				return None
 		
 		try:
-			file = mixlib.MixFile(open(path, "r+b"))
+			# TODO: Catch errors from mixlib.MixFile separately,
+			# so stream can be closed cleanly
+			stream = open(path, "r+b")
+			container = mixlib.MixFile(stream)
 		except Exception:
 			messagebox("Error loading MIX file." ,"e", self.window)
 		else:
 			# Initialize a Gtk.ListStore
 			store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_UINT, GObject.TYPE_UINT, GObject.TYPE_UINT)
 			store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
-			for record in file.get_contents(True):
+			for record in container.get_contents(True):
 				store.append((
 					record[0], # Name
 					record[2], # Offset
@@ -234,15 +269,16 @@ class Mixtool(Gtk.Application):
 				))
 			
 			# Add a button
-			button = Gtk.RadioButton.new_with_label_from_widget(self.files[already_open][2] if self.files else None, os.path.basename(path))
+			button = Gtk.RadioButton.new_with_label_from_widget(self.files[already_open][3] if self.files else None, os.path.basename(path))
 			button.set_mode(False)
+			button.get_child().set_ellipsize(Pango.EllipsizeMode.END)
 			button.set_tooltip_text(path)
 			button.connect("toggled", self.switch_file, path)
 			self.gtk_builder.get_object("TabBar").pack_start(button, True, True, 0)
 			button.show()
 			
 			# Add tuple to files dictionary
-			self.files[path] = (file, store, button)
+			self.files[path] = (stream, container, store, button)
 		
 			return button
 	
@@ -252,10 +288,11 @@ class Mixtool(Gtk.Application):
 		if not widget.get_active():
 			return True
 		
-		self.gtk_builder.get_object("ContentList").set_model(self.files[path][1])
+		self.current_file = self.files[path]
+		self.gtk_builder.get_object("ContentList").set_model(self.current_file[2])
 		
-		mixtype = ("TD", "RA", "TS")[self.files[path][0].get_mixtype()]
-		self.set_statusbar(" ".join((mixtype, "MIX contains", str(self.files[path][0].get_filecount()), "files.")))
+		mixtype = ("TD", "RA", "TS")[self.current_file[1].get_mixtype()]
+		self.set_statusbar(" ".join((mixtype, "MIX contains", str(self.current_file[1].get_filecount()), "files.")))
 		
 		return True
 	
@@ -289,7 +326,12 @@ class Mixtool(Gtk.Application):
 		
 		# Switch to last opened file
 		if isinstance(button, Gtk.RadioButton):
-			button.set_active(True)
+			button.toggled() if button.get_active() else button.set_active(True)
+		
+		# Switch to Close button and enable ContentList
+		self.gtk_builder.get_object("Toolbar.Quit").hide()
+		self.gtk_builder.get_object("Toolbar.Close").show()
+		self.gtk_builder.get_object("ContentList").set_sensitive(True)
 		
 		self.unmark_busy()
 	

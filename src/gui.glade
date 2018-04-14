@@ -224,10 +224,10 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             </child>
             <child>
               <object class="GtkToolButton" id="Toolbar.Close">
-                <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
                 <property name="label">Close</property>
                 <property name="stock_id">gtk-close</property>
+                <signal name="clicked" handler="close_file" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
