@@ -156,12 +156,12 @@ class Mixtool(Gtk.Application):
 			"invoke_about_dialog": self.invoke_about_dialog,
 			"invoke_extract_dialog": legacy_controller.extractdialog,
 			"show_donate_uri": self.show_donate_uri,
-			"close_file": self.close_file
+			"close_current_file": self.close_current_file
 		}
 		self.gtk_builder.connect_signals(callback_map)
 	
 	# Close file in current tab
-	def close_file(self, widget: Gtk.Widget) -> bool:
+	def close_current_file(self, widget: Gtk.Widget) -> bool:
 		"""Close the currently active file."""
 		file = self.current_file
 		
@@ -178,10 +178,13 @@ class Mixtool(Gtk.Application):
 			# Activate previous tab
 			self.files[-1].button.set_active(True)
 		else:
+			# Remove current_file
+			self.current_file = None
+			self.gtk_builder.get_object("ContentList").set_model(None)
+			
 			# Switch to Quit button and disable ContentList
 			self.gtk_builder.get_object("Toolbar.Close").hide()
 			self.gtk_builder.get_object("Toolbar.Quit").show()
-			self.gtk_builder.get_object("ContentList").set_model(None)
 			self.gtk_builder.get_object("ContentList").set_sensitive(False)
 		
 		return True
@@ -230,10 +233,10 @@ class Mixtool(Gtk.Application):
 			if isinstance(button, Gtk.RadioButton):
 				button.toggled() if button.get_active() else button.set_active(True)
 			
-			# Switch to Close button and enable ContentList
-			self.gtk_builder.get_object("Toolbar.Quit").hide()
-			self.gtk_builder.get_object("Toolbar.Close").show()
-			self.gtk_builder.get_object("ContentList").set_sensitive(True)
+				# Switch to Close button and enable ContentList
+				self.gtk_builder.get_object("Toolbar.Quit").hide()
+				self.gtk_builder.get_object("Toolbar.Close").show()
+				self.gtk_builder.get_object("ContentList").set_sensitive(True)
 			
 			self.unmark_busy()
 		
@@ -332,10 +335,10 @@ class Mixtool(Gtk.Application):
 		if isinstance(button, Gtk.RadioButton):
 			button.toggled() if button.get_active() else button.set_active(True)
 		
-		# Switch to Close button and enable ContentList
-		self.gtk_builder.get_object("Toolbar.Quit").hide()
-		self.gtk_builder.get_object("Toolbar.Close").show()
-		self.gtk_builder.get_object("ContentList").set_sensitive(True)
+			# Switch to Close button and enable ContentList
+			self.gtk_builder.get_object("Toolbar.Quit").hide()
+			self.gtk_builder.get_object("Toolbar.Close").show()
+			self.gtk_builder.get_object("ContentList").set_sensitive(True)
 		
 		self.unmark_busy()
 	
