@@ -54,8 +54,6 @@ _FileRecord = collections.namedtuple("_FileRecord", ("path", "stream", "containe
 class Mixtool(Gtk.Application):
 	"""Application management class"""
 	
-	__slots__ = ("home_dir", "data_dir", "config_file", "settings", "gtk_builder", "window", "files", "current_file")
-	
 	# The GtkFileFilter used by open/save dialogs
 	file_filter = Gtk.FileFilter()
 	file_filter.set_name("MIX files")
@@ -67,8 +65,15 @@ class Mixtool(Gtk.Application):
 		"""Initialize the Mixtool instance"""
 		Gtk.Application.__init__(self, application_id="com.bachsau.mixtool", flags=Gio.ApplicationFlags.HANDLES_OPEN)
 		
+		# Initialize attributes
+		self.home_dir = None
+		self.data_dir = None
+		self.config_file = None
+		self.settings = None
+		self.gtk_builder = None
 		self.window = None
 		self.files = []
+		current_file = None
 	
 	# This is run when Gtk.Application initializes the first instance.
 	# It is not run on any remote controllers.
