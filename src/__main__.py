@@ -65,7 +65,7 @@ class Mixtool(Gtk.Application):
 		"""Initialize the Mixtool instance"""
 		Gtk.Application.__init__(self, application_id="com.bachsau.mixtool", flags=Gio.ApplicationFlags.HANDLES_OPEN)
 		
-		# Initialize attributes
+		# Initialize instance attributes
 		self.home_dir = None
 		self.data_dir = None
 		self.config_file = None
@@ -185,7 +185,7 @@ class Mixtool(Gtk.Application):
 		else:
 			# Remove current_file
 			self.current_file = None
-			self.gtk_builder.get_object("ContentList").set_model(None)
+			self.gtk_builder.get_object("ContentList").set_model(self.gtk_builder.get_object("DummyStore"))
 			
 			# Switch to Quit button and disable ContentList
 			self.gtk_builder.get_object("Toolbar.Close").hide()
@@ -269,7 +269,7 @@ class Mixtool(Gtk.Application):
 			# Initialize a Gtk.ListStore
 			store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_UINT, GObject.TYPE_UINT, GObject.TYPE_UINT)
 			store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
-			for record in container.get_contents(True):
+			for record in container.get_contents():
 				store.append((
 					record[0], # Name
 					record[2], # Offset

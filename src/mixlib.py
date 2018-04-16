@@ -20,43 +20,23 @@
 
 """Routines to access MIX files."""
 # TODO: Define public API in final version
-#__all__ = ["TYPE_TD", "TYPE_RA", "TYPE_TS", "MixFile", "genkey"]
+#__all__ = ["TYPE_TD", "TYPE_RA", "TYPE_TS", "MixRecord", "MixFile", "genkey"]
 
 import os
 import io
+import collections
 import binascii
 
 # Constants
 TYPE_TD = 0
 TYPE_RA = 1
 TYPE_TS = 2
+TYPE_R2 = 2
+TYPE_RG = 3 # Not implemented yet
 
 BLOCKSIZE = 2097152
 
 ENCODING = "cp1252"
-
-
-# Base exception class
-class MixError(Exception):
-	__slots__ = ()
-
-# Exception for errors in the MIX file
-class MixFileError(MixError):
-	__slots__ = ()
-
-# Exception raised in case of internal errors
-# such as key collisions
-class MixInternalError(MixError):
-	__slots__ = ()
-
-# Exception raised when a Filename is not valid
-class MixNameError(ValueError, MixError):
-	__slots__ = ()
-
-# Exception for Errors in MixIO
-class MixIOError(OSError, MixError):
-	__slots__ = ()
-
 
 # MixNodes are lightweight objects to store a defined set of index data
 class _MixNode(object):
@@ -79,10 +59,31 @@ class _MixNode(object):
 		)
 
 	def __delattr__(self, attr: str) -> None:
-		"""Raise TypeError."""
+		"""Raise `TypeError`."""
 		raise TypeError("Can't delete node attributes.")
 		
+
+# Base exception class
+class MixError(Exception):
+	__slots__ = ()
+
+# Exception for errors in the MIX file
+class MixFileError(MixError):
+	__slots__ = ()
+
+# Exception raised in case of internal errors
+# such as key collisions
+class MixInternalError(MixError):
+	__slots__ = ()
+
+# Exception for Errors in MixIO
+class MixIOError(OSError, MixError):
+	__slots__ = ()
+
 		
+# A named tuple for metadata returned to the user
+MixRecord = collections.namedtuple("MixRecord", ("name", "size", "offset", "alloc", "node_id"))
+
 # Instance representing a single MIX file
 # Think of this as a file system driver
 class MixFile(object):
@@ -91,30 +92,33 @@ class MixFile(object):
 	__slots__ = ("_dirty", "_stream", "_mixtype", "_index", "_contents", "has_checksum", "is_encrypted")
 
 	# Constructor parses MIX file
-	def __init__(self, stream: io.BufferedIOBase, new: int = None) -> None:
+	def __init__(self, stream: io.BufferedIOBase, new: int = -1) -> None:
 		"""Parse a MIX from `stream`, which must be a buffered file object.
 
-		If `new` is given, initialize an empty MIX of type `new` instead.
-		MixError ist raised on any parsing errors.
+		If `new` is positive, initialize an empty MIX of this type instead.
+		`ValueError` is raised if `new` is not a valid MIX type.
+		`MixFileError` ist raised on parsing errors.
 		"""
 		
-		self._dirty = False
-
 		# If stream is, for example, a raw I/O object, files could be destroyed
 		# without ever raising an error, so check this.
 		if not isinstance(stream, io.BufferedIOBase):
 			raise TypeError("`stream` must be an instance of `io.BufferedIOBase`.")
-			
+		
 		if not stream.readable():
 			raise ValueError("`stream` must be readable.")
-			
+		
 		if not stream.seekable():
 			raise ValueError("`stream` must be seekable.")
+		
+		# Initialize instance attributes
+		# FIXME: Extend
+		self._dirty = False
 
 		# For new files, initialize mixtype and return
-		if new is not None:
-			if new < TYPE_TD or new > TYPE_TS:
-				raise MixError("Unsupported MIX type")
+		if new > -1:
+			if not 0 <= new <= 2:
+				raise ValueError("Invalid MIX type.")
 
 			self._stream = stream
 			self._mixtype = int(new)
@@ -251,13 +255,25 @@ class MixFile(object):
 		self._contents = contents
 		self.has_checksum = has_checksum
 		self.is_encrypted = is_encrypted
+		
+	# Object abandon command
+	def detach(self):
+		"""!!! STUB !!!"""
+		# Close all contained files
+		# Call `self.write_index()` if in inconsistent state.
+		# Set `self._stream` to `None`
+		# Return the stream
+		raise NotImplementedError("Stub method")
 
 	# Dirty bit is only used to prevent file corruption,
 	# not for index-only changes like renames, etc.
 	def __del__(self) -> None:
-		"""Call `self.write_index()` if in inconsistent state."""
+		"""Call `self.write_index()` if in inconsistent state.
+		
+		Suppress any errors as they occur.
+		"""
 		try:
-			if self._dirty:
+			if self._dirty and self._stream is not None and not self._stream.closed():
 				self.write_index()
 		except Exception:
 			pass
@@ -325,17 +341,16 @@ class MixFile(object):
 	
 	
 	# Public method to list the MIX file's contents
-	def get_contents(self, extended: bool = False) -> list:
-		"""Return a list of tuples holding the name and size of each file.
+	def get_contents(self) -> list:
+		"""Return a list of tuples holding the attributes of each file."""
+		return [MixRecord(hex(key) if node.name is None else node.name, node.size, node.offset, node.alloc, id(node)) for key, node in self._index.items()]
 		
-		If 'extended' is True, add information on internal position and allocated space.
-		"""
-		
-		if extended:
-			return [(hex(key) if node.name is None else node.name, node.size, node.offset, node.alloc) for key, node in self._index.items()]
-		else:
-			return [(hex(key) if node.name is None else node.name, node.size) for key, node in self._index.items()]
-			
+	# Public method to stat a file
+	# Replaces get_inode() to the public
+	def get_info(self, name: str) -> MixRecord:
+		"""Return a tuple holding the attributes of the file called `name`."""
+		raise NotImplementedError("Stub method")
+	
 	
 	# Public method to get the filecount,
 	# so one doesn't need to run len(self.get_contents()).
@@ -375,6 +390,8 @@ class MixFile(object):
 		
 		!!! CURRENTLY BROKEN !!!
 		"""
+		
+		raise NotImplementedError("FUBAR")
 		
 		oldkey = self._get_key(old)
 		inode = self._index.get(old)
@@ -700,14 +717,14 @@ class MixFile(object):
 		return inode
 
 	# Insert a file from local filesystem
-	def insert(self, name, source):
-		"""Insert 'source' from the local file system as 'name' and return its inode.
+	def insert_file(self, path: str, name: str = None) -> None:
+		"""Insert 'path' from the local file system as 'name'.
 
-		'MixError' is raised if a file by that name already exists.
-		'MixNameError' is raised if 'name' is not valid.
+		`MixInternalError` is raised if a file by that name already exists.
+		`ValueError` is raised if 'name' is not valid.
 		"""
 		size = os.stat(source).st_size
-		inode = self.add_inode(name, size)
+		inode = self.allocate(name, size)
 		inode.size = size
 
 		full = size // BLOCKSIZE
@@ -723,13 +740,17 @@ class MixFile(object):
 			if rest:
 				buffer = InFile.read(rest)
 				self._stream.write(buffer)
-
-		return inode
+	
+	# Create a file out of bytes
+	def insert_bytes(self, data: bytes, name: str) -> None:
+		"""!!! STUB !!!"""
+		raise NotImplementedError("Stub method")
 
 	# Opens a file inside the MIX using MixIO
 	# Works like the build-in open function
-	def open(self, name, mode="r", buffering=-1, encoding=None, errors=None):
-		"!!! STUB !!!"
+	def open(self, name: str, mode: str = "r", buffering: int = -1, encoding: str = None, errors: str = None, newline: str = None):
+		"""!!! STUB !!!"""
+		raise NotImplementedError("Stub method")
 		
 		
 # MixIO instaces are used to work with contained files as if they were real
@@ -783,8 +804,8 @@ class MixIO(io.BufferedIOBase):
 	def closed(self):
 		"""True if the stream is closed."""
 		return self.__inode is None
-		
-		
+
+
 # Create MIX-Identifier from filename
 # Thanks to Olaf van der Spek for providing these functions
 def genkey(name: str, mixtype: int) -> int:
@@ -792,12 +813,13 @@ def genkey(name: str, mixtype: int) -> int:
 
 	This is a low-level function that rarely needs to be used directly.
 	"""
+	if not 0 <= mixtype <= 2:
+		raise ValueError("Invalid MIX type.")
 	
-	name = name.encode(ENCODING, "strict")
-	name = name.upper()
+	name = name.encode(ENCODING, "strict").upper()
 	len_ = len(name)
-
-	if mixtype < TYPE_TS:
+	
+	if mixtype < 2:
 		# Compute key for TD/RA MIXes
 		i   = 0
 		key = 0
