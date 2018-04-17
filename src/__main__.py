@@ -185,12 +185,8 @@ class Mixtool(Gtk.Application):
 		else:
 			# Remove current_file
 			self.current_file = None
-			self.gtk_builder.get_object("ContentList").set_model(self.gtk_builder.get_object("DummyStore"))
-			
-			# Switch to Quit button and disable ContentList
-			self.gtk_builder.get_object("Toolbar.Close").hide()
-			self.gtk_builder.get_object("Toolbar.Quit").show()
-			self.gtk_builder.get_object("ContentList").set_sensitive(False)
+		
+		self.update_gui()
 		
 		return True
 	
@@ -238,11 +234,7 @@ class Mixtool(Gtk.Application):
 			if isinstance(button, Gtk.RadioButton):
 				button.toggled() if button.get_active() else button.set_active(True)
 			
-				# Switch to Close button and enable ContentList
-				self.gtk_builder.get_object("Toolbar.Quit").hide()
-				self.gtk_builder.get_object("Toolbar.Close").show()
-				self.gtk_builder.get_object("ContentList").set_sensitive(True)
-			
+			self.update_gui()
 			self.unmark_busy()
 		
 		dialog.destroy()
@@ -308,6 +300,27 @@ class Mixtool(Gtk.Application):
 		
 		return True
 	
+	def update_gui(self) -> None:
+		"""Enable or disable GUI elements base on current state."""
+		if self.files:
+			# Switch to Close button and enable ContentList
+			self.gtk_builder.get_object("Toolbar.Quit").hide()
+			self.gtk_builder.get_object("Toolbar.Close").show()
+			self.gtk_builder.get_object("ContentList").set_sensitive(True)
+		else:
+			# Switch to Quit button and disable ContentList
+			self.gtk_builder.get_object("Toolbar.Close").hide()
+			self.gtk_builder.get_object("Toolbar.Quit").show()
+			self.gtk_builder.get_object("ContentList").set_sensitive(False)
+			self.gtk_builder.get_object("ContentList").set_model(self.gtk_builder.get_object("DummyStore"))
+			self.set_statusbar("")
+		
+		# Display tab bar only when two ore more files are open
+		if len(self.files) < 2:
+			self.gtk_builder.get_object("TabBar").hide()
+		else:
+			self.gtk_builder.get_object("TabBar").show()
+	
 	def set_statusbar(self, text: str) -> None:
 		self.gtk_builder.get_object("StatusBar").set_text(text)
 	
@@ -315,11 +328,9 @@ class Mixtool(Gtk.Application):
 	# Can be run multiple times on behalf of remote controllers.
 	def do_activate(self) -> None:
 		"""Create a new main window or present an existing one."""
-		# FIXME: Edit multiple files in tabs
 		if self.window is None:
 			self.window = self.gtk_builder.get_object("MainWindow")
 			self.add_window(self.window)
-			self.set_statusbar("This is alpha software. Use at your own risk!")
 			self.window.show()
 		else:
 			self.window.present()
@@ -340,11 +351,7 @@ class Mixtool(Gtk.Application):
 		if isinstance(button, Gtk.RadioButton):
 			button.toggled() if button.get_active() else button.set_active(True)
 		
-			# Switch to Close button and enable ContentList
-			self.gtk_builder.get_object("Toolbar.Quit").hide()
-			self.gtk_builder.get_object("Toolbar.Close").show()
-			self.gtk_builder.get_object("ContentList").set_sensitive(True)
-		
+		self.update_gui()
 		self.unmark_busy()
 	
 	def save_settings(self) -> None:

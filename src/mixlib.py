@@ -256,13 +256,13 @@ class MixFile(object):
 		self.has_checksum = has_checksum
 		self.is_encrypted = is_encrypted
 		
-	# Object abandon command
-	def detach(self):
+	# Object destruction command
+	def finalize(self):
 		"""!!! STUB !!!"""
 		# Close all contained files
 		# Call `self.write_index()` if in inconsistent state.
+		# Flush the buffer
 		# Set `self._stream` to `None`
-		# Return the stream
 		raise NotImplementedError("Stub method")
 
 	# Dirty bit is only used to prevent file corruption,
@@ -717,7 +717,7 @@ class MixFile(object):
 		return inode
 
 	# Insert a file from local filesystem
-	def insert_file(self, path: str, name: str = None) -> None:
+	def insert_file(self, path: str, name: str) -> None:
 		"""Insert 'path' from the local file system as 'name'.
 
 		`MixInternalError` is raised if a file by that name already exists.
