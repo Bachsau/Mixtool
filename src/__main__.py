@@ -230,6 +230,7 @@ class Mixtool(Gtk.Application):
 		dialog.set_filter(self.file_filter)
 		dialog.set_current_folder(lastdir)
 		response = dialog.run()
+		dialog.hide()
 		
 		if response == Gtk.ResponseType.ACCEPT:
 			# Save last used directory
@@ -250,6 +251,7 @@ class Mixtool(Gtk.Application):
 		`window` is used as the parent for error messages.
 		"""
 		errors = []
+		
 		self.mark_busy()
 		
 		for path in paths:
@@ -295,6 +297,9 @@ class Mixtool(Gtk.Application):
 					# Connect the signal
 					button.connect("toggled", self.switch_file, file)
 		
+		if len(paths) - len(errors) > 0:
+			self.update_gui()
+		
 		self.unmark_busy()
 		
 		# Now handle the errors
@@ -307,10 +312,6 @@ class Mixtool(Gtk.Application):
 					messagebox("Error loading MIX file:" ,"e", window, secondary=path)
 				else:
 					messagebox("An unknown error occured while trying to open:" ,"e", window, secondary=path)
-		
-		# TODO: If all files fail, this might still activate another tab
-		#       Stop this from happening!
-		self.update_gui()
 	
 	# Activate another tab
 	def switch_file(self, widget: Gtk.Widget, file: _FileRecord) -> bool:
