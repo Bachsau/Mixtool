@@ -11,7 +11,8 @@ Alpha 0.2 (Work in progress)
 * Completely functional GUI
 * Completely documented and annotated
 * MixLib automatically calls `write_index()` on object destruction.
-* MixLib is fully abstracted and distinguishes between public and private methods.
+* MixLib is fully abstracted and distinguishes between public and
+  private methods.
 
 
 Alpha 0.1
