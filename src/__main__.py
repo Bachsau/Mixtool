@@ -71,7 +71,6 @@ class Mixtool(Gtk.Application):
 		self.config_file = None
 		self.settings = None
 		self.gtk_builder = None
-		self.window = None
 		self.files = []
 		current_file = None
 	
@@ -208,8 +207,9 @@ class Mixtool(Gtk.Application):
 	# Callback to open files by using a dialog
 	def invoke_open_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a file chooser dialog and open selected files."""
+		window = widget.get_toplevel()
 		lastdir = parse.unquote(self.settings["Mixtool"]["lastdir"])
-		dialog = Gtk.FileChooserNative.new("Open MIX file", self.window, Gtk.FileChooserAction.OPEN, "_Open", "_Cancel")
+		dialog = Gtk.FileChooserNative.new("Open MIX file", window, Gtk.FileChooserAction.OPEN, "_Open", "_Cancel")
 		dialog.set_modal(True)
 		dialog.set_select_multiple(True)
 		dialog.add_filter(self.file_filter)
@@ -228,7 +228,7 @@ class Mixtool(Gtk.Application):
 			
 			# Open the files
 			for path in dialog.get_filenames():
-				button = self.open_file(path)
+				button = self.open_file(window, path)
 			
 			# Switch to last opened file
 			if isinstance(button, Gtk.RadioButton):
@@ -240,14 +240,17 @@ class Mixtool(Gtk.Application):
 		dialog.destroy()
 		return True
 	
-	def open_file(self, path: str) -> Gtk.RadioButton:
+	def open_file(self, window: Gtk.Window, path: str) -> Gtk.RadioButton:
 		"""Try to open the file at `path` and return the corresponding `Gtk.RadioButton`."""
+		# TODO: Return an error code instead of a radio button, so we don't need `window`
+		#       and can present all errors in just a single dialog box.
+		#       `self.update_gui()` can activate the button by getting it from `self.files`.
 		path = os.path.realpath(path)
 		
 		# Check if file is already open
 		for already_open in self.files:
 			if os.path.samefile(already_open.path, path):
-				messagebox("This file is already open and can only be opened once:", "e", self.window, secondary=path)
+				messagebox("This file is already open and can only be opened once:", "e", window, secondary=path)
 				return None
 		
 		try:
@@ -256,7 +259,7 @@ class Mixtool(Gtk.Application):
 			stream = open(path, "r+b")
 			container = mixlib.MixFile(stream)
 		except Exception:
-			messagebox("Error loading MIX file:" ,"e", self.window, secondary=path)
+			messagebox("Error loading MIX file:" ,"e", window, secondary=path)
 		else:
 			# Initialize a Gtk.ListStore
 			store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_UINT, GObject.TYPE_UINT, GObject.TYPE_UINT)
@@ -328,12 +331,13 @@ class Mixtool(Gtk.Application):
 	# Can be run multiple times on behalf of remote controllers.
 	def do_activate(self) -> None:
 		"""Create a new main window or present an existing one."""
-		if self.window is None:
-			self.window = self.gtk_builder.get_object("MainWindow")
-			self.add_window(self.window)
-			self.window.show()
+		window = self.get_active_window()
+		if window is None:
+			window = self.gtk_builder.get_object("MainWindow")
+			self.add_window(window)
+			window.show()
 		else:
-			self.window.present()
+			window.present()
 			print("Activated main window on behalf of remote controller.", file=sys.stderr)
 	
 	# Method run when the application is told
@@ -344,8 +348,9 @@ class Mixtool(Gtk.Application):
 		self.mark_busy()
 		
 		# Open the files
+		window = self.get_active_window()
 		for file in files:
-			button = self.open_file(file.get_path())
+			button = self.open_file(window, file.get_path())
 		
 		# Switch to last opened file
 		if isinstance(button, Gtk.RadioButton):
