@@ -210,86 +210,85 @@ class Mixtool(Gtk.Application):
 		response = dialog.run()
 		
 		if response == Gtk.ResponseType.ACCEPT:
-			self.mark_busy()
-			
-			# Save lastdir
+			# Save last used directory
 			newdir = dialog.get_current_folder()
 			if newdir != lastdir:
 				self.settings["Mixtool"]["lastdir"] = parse.quote(newdir)
 				self.save_settings()
 			
 			# Open the files
-			for path in dialog.get_filenames():
-				error = self.open_file(path)
-				
-				if error:
-					# We might end up with another function for this, but...
-					# outside the `for` loop! (Also change `self.do_open()`)
-					if error == 1:
-						messagebox("This file is already open and can only be opened once:", "e", window, secondary=path)
-					elif error == 2:
-						messagebox("Error loading MIX file:" ,"e", window, secondary=path)
-					else:
-						messagebox("An unknown error occured while trying to open:" ,"e", window, secondary=path)
-			
-			# TODO: If all files fail, this might still activate another tab
-			#       Stop this from happening! (Also change `self.do_open()`)
-			self.update_gui()
-			self.unmark_busy()
+			self.open_files(window, dialog.get_filenames())
 		
 		dialog.destroy()
 		return True
 	
-	def open_file(self, path: str) -> int:
-		"""Try to open the file at `path` and return an error code.
+	def open_files(self, window: Gtk.Window, paths: list) -> None:
+		"""Try to open the files in `paths`.
 		
-		0: Success
-		1: File already open
-		2: OS error or MixFileError
+		`window` is used as the parent for error messages.
 		"""
-		# TODO: Improve error code 2
-		path = os.path.realpath(path)
+		errors = []
+		self.mark_busy()
 		
-		# Check if file is already open
-		for already_open in self.files:
-			if os.path.samefile(already_open.path, path):
-				return 1
+		for path in paths:
+			path = os.path.realpath(path)
+			
+			# Check if file is already open
+			for already_open in self.files:
+				if os.path.samefile(already_open.path, path):
+					errors.append((1, path))
+					break
+			else:
+				try:
+					# TODO: Catch errors from mixlib.MixFile separately,
+					# so stream can be closed cleanly
+					stream = open(path, "r+b")
+					container = mixlib.MixFile(stream)
+				except Exception:
+					errors.append((2, path))
+				else:
+					# Initialize a Gtk.ListStore
+					store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_UINT, GObject.TYPE_UINT, GObject.TYPE_UINT)
+					store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
+					for record in container.get_contents():
+						store.append((
+							record[0], # Name
+							record[2], # Offset
+							record[1], # Size
+							record[3] - record[1] # Alloc - Size = Overhead
+						))
+					
+					# Add a button
+					button = Gtk.RadioButton.new_with_label_from_widget(already_open.button if self.files else None, os.path.basename(path))
+					button.set_mode(False)
+					button.get_child().set_ellipsize(Pango.EllipsizeMode.END)
+					button.set_tooltip_text(path)
+					self.gtk_builder.get_object("TabBar").pack_start(button, True, True, 0)
+					button.show()
+					
+					# Create the file record
+					file = _FileRecord(path, stream, container, store, button)
+					self.files.append(file)
+					
+					# Connect the signal
+					button.connect("toggled", self.switch_file, file)
 		
-		try:
-			# TODO: Catch errors from mixlib.MixFile separately,
-			# so stream can be closed cleanly
-			stream = open(path, "r+b")
-			container = mixlib.MixFile(stream)
-		except Exception:
-			return 2
+		self.unmark_busy()
 		
-		# Initialize a Gtk.ListStore
-		store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_UINT, GObject.TYPE_UINT, GObject.TYPE_UINT)
-		store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
-		for record in container.get_contents():
-			store.append((
-				record[0], # Name
-				record[2], # Offset
-				record[1], # Size
-				record[3] - record[1] # Alloc - Size = Overhead
-			))
+		# Now handle the errors
+		if errors:
+			for errno, path in errors:
+				# TODO: Show only one dialog per error or only one dialog at all.
+				if errno == 1:
+					messagebox("This file is already open and can only be opened once:", "e", window, secondary=path)
+				elif errno == 2:
+					messagebox("Error loading MIX file:" ,"e", window, secondary=path)
+				else:
+					messagebox("An unknown error occured while trying to open:" ,"e", window, secondary=path)
 		
-		# Add a button
-		button = Gtk.RadioButton.new_with_label_from_widget(already_open.button if self.files else None, os.path.basename(path))
-		button.set_mode(False)
-		button.get_child().set_ellipsize(Pango.EllipsizeMode.END)
-		button.set_tooltip_text(path)
-		self.gtk_builder.get_object("TabBar").pack_start(button, True, True, 0)
-		button.show()
-		
-		# Create the file record
-		file = _FileRecord(path, stream, container, store, button)
-		self.files.append(file)
-		
-		# Connect the signal
-		button.connect("toggled", self.switch_file, file)
-		
-		return 0
+		# TODO: If all files fail, this might still activate another tab
+		#       Stop this from happening!
+		self.update_gui()
 	
 	# Activate another tab
 	def switch_file(self, widget: Gtk.Widget, file: _FileRecord) -> bool:
@@ -351,29 +350,13 @@ class Mixtool(Gtk.Application):
 	def do_open(self, files: list, *args) -> None:
 		"""Open `files` and create a new tab for each of them."""
 		self.do_activate()
-		self.mark_busy()
+		window = self.get_active_window()
+		
+		# Get paths from the `Gio.GFile` objects
+		paths = [file.get_path() for file in files]
 		
 		# Open the files
-		window = self.get_active_window()
-		for file in files:
-			path = file.get_path()
-			error = self.open_file(path)
-			
-			if error:
-				# We might end up with another function for this, but...
-				# outside the `for` loop! (Also change `self.invoke_open_dialog()`)
-				if error == 1:
-					messagebox("This file is already open and can only be opened once:", "e", window, secondary=path)
-				elif error == 2:
-					messagebox("Error loading MIX file:" ,"e", window, secondary=path)
-				else:
-					messagebox("An unknown error occured while trying to open:" ,"e", window, secondary=path)
-		
-			
-		# TODO: If all files fail, this might still activate another tab
-		#       Stop this from happening! (Also change `self.invoke_open_dialog()`)
-		self.update_gui()
-		self.unmark_busy()
+		self.open_files(window, paths)
 	
 	def save_settings(self) -> None:
 		"""Save configuration to file"""
