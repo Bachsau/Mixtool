@@ -169,21 +169,13 @@ class Mixtool(Gtk.Application):
 		"""Close the currently active file."""
 		file = self.current_file
 		
-		# Remove from list of open files
-		self.files.remove(file)
-		
-		# Close stream
+		# Close the file
 		file.stream.close()
 		
-		# Remove the tab
+		# Remove all references
+		self.current_file = None
+		self.files.remove(file)
 		file.button.destroy()
-		
-		if self.files:
-			# Activate previous tab
-			self.files[-1].button.set_active(True)
-		else:
-			# Remove current_file
-			self.current_file = None
 		
 		self.update_gui()
 		
@@ -228,30 +220,40 @@ class Mixtool(Gtk.Application):
 			
 			# Open the files
 			for path in dialog.get_filenames():
-				button = self.open_file(window, path)
+				error = self.open_file(path)
+				
+				if error:
+					# We might end up with another function for this, but...
+					# outside the `for` loop! (Also change `self.do_open()`)
+					if error == 1:
+						messagebox("This file is already open and can only be opened once:", "e", window, secondary=path)
+					elif error == 2:
+						messagebox("Error loading MIX file:" ,"e", window, secondary=path)
+					else:
+						messagebox("An unknown error occured while trying to open:" ,"e", window, secondary=path)
 			
-			# Switch to last opened file
-			if isinstance(button, Gtk.RadioButton):
-				button.toggled() if button.get_active() else button.set_active(True)
-			
+			# TODO: If all files fail, this might still activate another tab
+			#       Stop this from happening! (Also change `self.do_open()`)
 			self.update_gui()
 			self.unmark_busy()
 		
 		dialog.destroy()
 		return True
 	
-	def open_file(self, window: Gtk.Window, path: str) -> Gtk.RadioButton:
-		"""Try to open the file at `path` and return the corresponding `Gtk.RadioButton`."""
-		# TODO: Return an error code instead of a radio button, so we don't need `window`
-		#       and can present all errors in just a single dialog box.
-		#       `self.update_gui()` can activate the button by getting it from `self.files`.
+	def open_file(self, path: str) -> int:
+		"""Try to open the file at `path` and return an error code.
+		
+		0: Success
+		1: File already open
+		2: OS error or MixFileError
+		"""
+		# TODO: Improve error code 2
 		path = os.path.realpath(path)
 		
 		# Check if file is already open
 		for already_open in self.files:
 			if os.path.samefile(already_open.path, path):
-				messagebox("This file is already open and can only be opened once:", "e", window, secondary=path)
-				return None
+				return 1
 		
 		try:
 			# TODO: Catch errors from mixlib.MixFile separately,
@@ -259,35 +261,35 @@ class Mixtool(Gtk.Application):
 			stream = open(path, "r+b")
 			container = mixlib.MixFile(stream)
 		except Exception:
-			messagebox("Error loading MIX file:" ,"e", window, secondary=path)
-		else:
-			# Initialize a Gtk.ListStore
-			store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_UINT, GObject.TYPE_UINT, GObject.TYPE_UINT)
-			store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
-			for record in container.get_contents():
-				store.append((
-					record[0], # Name
-					record[2], # Offset
-					record[1], # Size
-					record[3] - record[1] # Alloc - Size = Overhead
-				))
-			
-			# Add a button
-			button = Gtk.RadioButton.new_with_label_from_widget(already_open.button if self.files else None, os.path.basename(path))
-			button.set_mode(False)
-			button.get_child().set_ellipsize(Pango.EllipsizeMode.END)
-			button.set_tooltip_text(path)
-			self.gtk_builder.get_object("TabBar").pack_start(button, True, True, 0)
-			button.show()
-			
-			# Create the file record
-			file = _FileRecord(path, stream, container, store, button)
-			self.files.append(file)
-			
-			# Connect the signal
-			button.connect("toggled", self.switch_file, file)
+			return 2
 		
-			return button
+		# Initialize a Gtk.ListStore
+		store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_UINT, GObject.TYPE_UINT, GObject.TYPE_UINT)
+		store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
+		for record in container.get_contents():
+			store.append((
+				record[0], # Name
+				record[2], # Offset
+				record[1], # Size
+				record[3] - record[1] # Alloc - Size = Overhead
+			))
+		
+		# Add a button
+		button = Gtk.RadioButton.new_with_label_from_widget(already_open.button if self.files else None, os.path.basename(path))
+		button.set_mode(False)
+		button.get_child().set_ellipsize(Pango.EllipsizeMode.END)
+		button.set_tooltip_text(path)
+		self.gtk_builder.get_object("TabBar").pack_start(button, True, True, 0)
+		button.show()
+		
+		# Create the file record
+		file = _FileRecord(path, stream, container, store, button)
+		self.files.append(file)
+		
+		# Connect the signal
+		button.connect("toggled", self.switch_file, file)
+		
+		return 0
 	
 	# Activate another tab
 	def switch_file(self, widget: Gtk.Widget, file: _FileRecord) -> bool:
@@ -306,6 +308,10 @@ class Mixtool(Gtk.Application):
 	def update_gui(self) -> None:
 		"""Enable or disable GUI elements base on current state."""
 		if self.files:
+			# Switch to last open file
+			button = self.files[-1].button
+			button.toggled() if button.get_active() else button.set_active(True)
+			
 			# Switch to Close button and enable ContentList
 			self.gtk_builder.get_object("Toolbar.Quit").hide()
 			self.gtk_builder.get_object("Toolbar.Close").show()
@@ -350,12 +356,22 @@ class Mixtool(Gtk.Application):
 		# Open the files
 		window = self.get_active_window()
 		for file in files:
-			button = self.open_file(window, file.get_path())
+			path = file.get_path()
+			error = self.open_file(path)
+			
+			if error:
+				# We might end up with another function for this, but...
+				# outside the `for` loop! (Also change `self.invoke_open_dialog()`)
+				if error == 1:
+					messagebox("This file is already open and can only be opened once:", "e", window, secondary=path)
+				elif error == 2:
+					messagebox("Error loading MIX file:" ,"e", window, secondary=path)
+				else:
+					messagebox("An unknown error occured while trying to open:" ,"e", window, secondary=path)
 		
-		# Switch to last opened file
-		if isinstance(button, Gtk.RadioButton):
-			button.toggled() if button.get_active() else button.set_active(True)
-		
+			
+		# TODO: If all files fail, this might still activate another tab
+		#       Stop this from happening! (Also change `self.invoke_open_dialog()`)
 		self.update_gui()
 		self.unmark_busy()
 	
