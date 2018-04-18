@@ -33,8 +33,9 @@ from urllib import parse
 # Third party modules
 import gi
 gi.require_version("Pango", "1.0")
+gi.require_version("Gdk", "3.0")
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, GObject, Gio, Pango, Gtk
+from gi.repository import GLib, GObject, Gio, Pango, Gdk, Gtk
 
 # Local modules
 import mixlib
@@ -147,7 +148,7 @@ class Mixtool(Gtk.Application):
 		global legacy_controller
 		legacy_controller = OldWindowController(self)
 		callback_map = {
-			"quit_application": legacy_controller.close,
+			"close_window": self.close_window,
 			"invoke_new_dialog": legacy_controller.reset,
 			"invoke_open_dialog": self.invoke_open_dialog,
 			"optimize_mixfile": legacy_controller.optimize,
@@ -178,6 +179,22 @@ class Mixtool(Gtk.Application):
 		file.button.destroy()
 		
 		self.update_gui()
+		
+		return True
+		
+	# This method is labeled as "Quit" in the GUI,
+	# because it is the ultimate result.
+	def close_window(self, widget: Gtk.Widget, event: Gdk.Event = None) -> bool:
+		"""Close the application window."""
+		window = widget.get_toplevel()
+		
+		# TODO: Optimize this with its own method
+		while(self.files):
+			self.close_current_file(widget)
+		
+		# Hide and remove the window
+		window.hide()
+		self.remove_window(window)
 		
 		return True
 	
@@ -347,6 +364,9 @@ class Mixtool(Gtk.Application):
 	
 	# Method run when the application is told
 	# to open files from outside.
+	#
+	# The signature should be "do_open(self, files: list, hint: str)",
+	# but we get the number of files and some tuple instead.
 	def do_open(self, files: list, *args) -> None:
 		"""Open `files` and create a new tab for each of them."""
 		self.do_activate()
