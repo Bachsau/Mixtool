@@ -149,7 +149,7 @@ class Mixtool(Gtk.Application):
 		legacy_controller = OldWindowController(self)
 		callback_map = {
 			"close_window": self.close_window,
-			"invoke_new_dialog": legacy_controller.reset,
+			"invoke_new_dialog": self.invoke_new_dialog,
 			"invoke_open_dialog": self.invoke_open_dialog,
 			"optimize_mixfile": legacy_controller.optimize,
 			"invoke_insert_dialog": legacy_controller.insertdialog,
@@ -212,6 +212,11 @@ class Mixtool(Gtk.Application):
 		"""Open donation website in default browser."""
 		Gtk.show_uri_on_window(widget.get_toplevel(), "http://go.bachsau.com/mtdonate", Gtk.get_current_event_time())
 		return True
+		
+	# Callback to create a new file by using a dialog
+	def invoke_new_dialog(self, widget: Gtk.Widget) -> bool:
+		"""Show a file chooser dialog and create a new file."""
+		messagebox("Not implemented", "w", self.MainWindow, secondary="Call to `invoke_new_dialog()` method.")
 	
 	# Callback to open files by using a dialog
 	def invoke_open_dialog(self, widget: Gtk.Widget) -> bool:
@@ -390,16 +395,14 @@ class Mixtool(Gtk.Application):
 			print("Saved configuration file.", file=sys.stderr)
 
 
-# <old_code>
+# <!-- BEGIN Old code -->
 		
 class OldWindowController(object):
 	"""Legacy window controller"""
 	def __init__(self, application):
-	
 		self.Application = application
-
 		GtkBuilder = application.gtk_builder
-
+		
 		self.GtkBuilder          = GtkBuilder
 		self.MainWindow          = GtkBuilder.get_object("MainWindow")
 		self.SaveDialog          = GtkBuilder.get_object("SaveDialog")
@@ -415,54 +418,16 @@ class OldWindowController(object):
 		self.ContentStore        = GtkBuilder.get_object("ContentStore")
 		self.ContentSelector     = GtkBuilder.get_object("ContentSelector")
 		self.StatusBar           = GtkBuilder.get_object("StatusBar")
-
-	# Reset GUI and close file
-	def reset(self, *args):
-		self.MixFile   = None
-		self.filename  = "Untitled"
-		self.contents  = {}
-		self.ContentStore.clear()
-		self.set_titlebar(self.filename)
-		self.set_statusbar("This is alpha software. Use at your own risk!")
-		
+	
+			
 	def optimize(self, *args):
 		self.MixFile.write_index(True)
 		self.refresh()
 
-	# Load file
-	def loadfile(self, filename):
-		# TODO: Input sanitising, test for existence
-		try:
-			self.MixFile = mixlib.MixFile(open(filename, "r+b"))
-		except Exception as error:
-			messagebox("Error loading MIX file" ,"e", self.MainWindow)
-			raise
-
-		self.filename = os.path.basename(filename)
-		self.mixtype = ("TD", "RA", "TS")[self.MixFile.get_mixtype()]
-
-		self.set_titlebar(self.filename)
-		self.set_statusbar(" ".join((self.mixtype, "MIX contains", str(self.MixFile.get_filecount()), "files.")))
-
-		self.refresh()
 			
 	def refresh(self):
-		self.contents  = {}
-		self.ContentStore.clear()
+		messagebox("Not implemented", "w", self.MainWindow, secondary="Call to legacy `refresh()` method.")
 		
-		for inode in self.MixFile.get_contents(True):
-			# TODO: Stop using private methods
-			# 3rd party developers: Do NOT use MixFile._get_inode()!
-			# There will be better ways to identify a file.
-			rowid = id(self.MixFile._get_inode(inode[0]))
-			treeiter = self.ContentStore.append((
-				rowid,
-				inode[0], # Name
-				inode[2], # Offset
-				inode[1], # Size
-				inode[3] - inode[1] # Alloc - Size = Overhead
-			))
-			self.contents[rowid] = (treeiter, inode)
 
 	# Delete file(s) from mix
 	def delete_selected(self, *args):
@@ -577,7 +542,7 @@ class OldWindowController(object):
 			except AttributeError:
 				pass
 				
-# </old_code>
+# <!-- END Old code -->
 
 
 # Starter
