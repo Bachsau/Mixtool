@@ -11,5 +11,8 @@ ehthumbs.db
 __pycache__/
 *.py[cod]
 
+# Jekyll build directory
+/docs/_site/
+
 # Log files
 *.log
