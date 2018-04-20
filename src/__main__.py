@@ -66,13 +66,14 @@ class Mixtool(Gtk.Application):
 		Gtk.Application.__init__(self, application_id="com.bachsau.mixtool", flags=Gio.ApplicationFlags.HANDLES_OPEN)
 		
 		# Initialize instance attributes
+		self._save_settings = True
+		self._gtk_builder = None
+		self._files = []
+		self._current_file = None
 		self.home_dir = None
 		self.data_dir = None
 		self.config_file = None
 		self.settings = None
-		self.gtk_builder = None
-		self.files = []
-		current_file = None
 	
 	# This is run when Gtk.Application initializes the first instance.
 	# It is not run on any remote controllers.
@@ -86,11 +87,11 @@ class Mixtool(Gtk.Application):
 		if sys.platform.startswith("win"):
 			# Microsoft Windows
 			os_appdata = os.environ.get("APPDATA")
-			
 			if os_appdata is None:
 				self.data_dir = self.home_dir + "\\AppData\\Roaming\\Bachsau\\Mixtool"
 			else:
 				self.data_dir = os.path.realpath(os_appdata) + "\\Bachsau\\Mixtool"
+			del os_appdata
 		
 		elif sys.platform.startswith("darwin"):
 			# Apple macOS
@@ -99,18 +100,20 @@ class Mixtool(Gtk.Application):
 		else:
 			# Linux and others
 			os_appdata = os.environ.get("XDG_DATA_HOME")
-			
 			if os_appdata is None:
 				self.data_dir = self.home_dir + "/.local/share/bachsau/mixtool"
 			else:
 				self.data_dir = os.path.realpath(os_appdata) + "/bachsau/mixtool"
+			del os_appdata
 		
 		# Create non-existent directories
 		try:
 			if not os.path.isdir(self.data_dir):
 				os.makedirs(self.data_dir)
-		except OSError:
-			messagebox("Unable to create data directory:\n{0}\n\nYour settings will not be saved.".format(self.data_dir), "w")
+		except Exception as problem:
+			self._save_settings = False
+			messagebox("Mixtool is unable to create its data directory.", "w", secondary="{0}:\n\"{1}\"\n\n".
+				format(problem.strerror if isinstance(problem, OSError) else "Unknown", self.data_dir) + "Your settings will not be saved.")
 		
 		# Set location of configuration file
 		self.config_file = os.sep.join((self.data_dir, "settings.ini"))
@@ -129,20 +132,25 @@ class Mixtool(Gtk.Application):
 		self.settings.read_dict({"Mixtool": default_settings})
 		
 		# Parse configuration file
-		try:
-			config_stream = open(self.config_file, encoding="ascii")
-		except FileNotFoundError:
-			pass
-		except OSError as problem:
-			messagebox("Error reading configuration file:", "e", secondary=problem.strerror)
-		else:
-			# TODO: Add message boxes for parsing errors
-			self.settings.read_file(config_stream)
-			config_stream.close()
+		if self._save_settings:
+			try:
+				config_stream = open(self.config_file, encoding="ascii")
+			except FileNotFoundError:
+				pass
+			except OSError as problem:
+				self._save_settings = False
+				messagebox("Error reading configuration file:", "e", secondary=problem.strerror)
+			except Exception:
+				self._save_settings = False
+				messagebox("Error reading configuration file.", "e")
+			else:
+				# TODO: Add message boxes for parsing errors
+				self.settings.read_file(config_stream)
+				config_stream.close()
 		
 		# Parse GUI file
 		gui_file = os.sep.join((os.path.dirname(os.path.realpath(__file__)), "gui.glade"))
-		self.gtk_builder = Gtk.Builder.new_from_file(gui_file)
+		self._gtk_builder = Gtk.Builder.new_from_file(gui_file)
 
 		global legacy_controller
 		legacy_controller = OldWindowController(self)
@@ -162,19 +170,19 @@ class Mixtool(Gtk.Application):
 			"show_donate_uri": self.show_donate_uri,
 			"close_current_file": self.close_current_file
 		}
-		self.gtk_builder.connect_signals(callback_map)
+		self._gtk_builder.connect_signals(callback_map)
 	
 	# Close file in current tab
 	def close_current_file(self, widget: Gtk.Widget) -> bool:
 		"""Close the currently active file."""
-		file = self.current_file
+		file = self._current_file
 		
 		# Close the file
 		file.container.finalize().close()
 		
 		# Remove all references
-		self.current_file = None
-		self.files.remove(file)
+		self._current_file = None
+		self._files.remove(file)
 		file.button.destroy()
 		
 		self.update_gui()
@@ -188,7 +196,7 @@ class Mixtool(Gtk.Application):
 		window = widget.get_toplevel()
 		
 		# TODO: Optimize this with its own method
-		while(self.files):
+		while(self._files):
 			self.close_current_file(widget)
 		
 		# Hide and remove the window
@@ -200,7 +208,7 @@ class Mixtool(Gtk.Application):
 	# Show about dialog
 	def invoke_about_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a dialog with information on Mixtool."""
-		dialog = self.gtk_builder.get_object("AboutDialog")
+		dialog = self._gtk_builder.get_object("AboutDialog")
 		dialog.set_default_response(Gtk.ResponseType.DELETE_EVENT)
 		dialog.run()
 		dialog.hide()
@@ -223,7 +231,6 @@ class Mixtool(Gtk.Application):
 		window = widget.get_toplevel()
 		lastdir = parse.unquote(self.settings["Mixtool"]["lastdir"])
 		dialog = Gtk.FileChooserNative.new("Open MIX file", window, Gtk.FileChooserAction.OPEN, "_Open", "_Cancel")
-		dialog.set_modal(True)
 		dialog.set_select_multiple(True)
 		dialog.add_filter(self.file_filter)
 		dialog.set_filter(self.file_filter)
@@ -257,7 +264,7 @@ class Mixtool(Gtk.Application):
 			path = os.path.realpath(path)
 			
 			# Check if file is already open
-			for already_open in self.files:
+			for already_open in self._files:
 				if os.path.samefile(already_open.path, path):
 					errors.append((1, path))
 					break
@@ -282,16 +289,16 @@ class Mixtool(Gtk.Application):
 						))
 					
 					# Add a button
-					button = Gtk.RadioButton.new_with_label_from_widget(already_open.button if self.files else None, os.path.basename(path))
+					button = Gtk.RadioButton.new_with_label_from_widget(already_open.button if self._files else None, os.path.basename(path))
 					button.set_mode(False)
 					button.get_child().set_ellipsize(Pango.EllipsizeMode.END)
 					button.set_tooltip_text(path)
-					self.gtk_builder.get_object("TabBar").pack_start(button, True, True, 0)
+					self._gtk_builder.get_object("TabBar").pack_start(button, True, True, 0)
 					button.show()
 					
 					# Create the file record
 					file = _FileRecord(path, container, store, button)
-					self.files.append(file)
+					self._files.append(file)
 					
 					# Connect the signal
 					button.connect("toggled", self.switch_file, file)
@@ -318,8 +325,8 @@ class Mixtool(Gtk.Application):
 		if not widget.get_active():
 			return True
 		
-		self.current_file = file
-		self.gtk_builder.get_object("ContentList").set_model(file.store)
+		self._current_file = file
+		self._gtk_builder.get_object("ContentList").set_model(file.store)
 		
 		mixtype = ("TD", "RA", "TS")[file.container.get_mixtype()]
 		self.set_statusbar(" ".join((mixtype, "MIX contains", str(file.container.get_filecount()), "files.")))
@@ -328,31 +335,31 @@ class Mixtool(Gtk.Application):
 	
 	def update_gui(self) -> None:
 		"""Enable or disable GUI elements base on current state."""
-		if self.files:
+		if self._files:
 			# Switch to last open file
-			button = self.files[-1].button
+			button = self._files[-1].button
 			button.toggled() if button.get_active() else button.set_active(True)
 			
 			# Switch to Close button and enable ContentList
-			self.gtk_builder.get_object("Toolbar.Quit").hide()
-			self.gtk_builder.get_object("Toolbar.Close").show()
-			self.gtk_builder.get_object("ContentList").set_sensitive(True)
+			self._gtk_builder.get_object("Toolbar.Quit").hide()
+			self._gtk_builder.get_object("Toolbar.Close").show()
+			self._gtk_builder.get_object("ContentList").set_sensitive(True)
 		else:
 			# Switch to Quit button and disable ContentList
-			self.gtk_builder.get_object("Toolbar.Close").hide()
-			self.gtk_builder.get_object("Toolbar.Quit").show()
-			self.gtk_builder.get_object("ContentList").set_sensitive(False)
-			self.gtk_builder.get_object("ContentList").set_model(self.gtk_builder.get_object("DummyStore"))
+			self._gtk_builder.get_object("Toolbar.Close").hide()
+			self._gtk_builder.get_object("Toolbar.Quit").show()
+			self._gtk_builder.get_object("ContentList").set_sensitive(False)
+			self._gtk_builder.get_object("ContentList").set_model(self._gtk_builder.get_object("DummyStore"))
 			self.set_statusbar("")
 		
 		# Display tab bar only when two ore more files are open
-		if len(self.files) < 2:
-			self.gtk_builder.get_object("TabBar").hide()
+		if len(self._files) < 2:
+			self._gtk_builder.get_object("TabBar").hide()
 		else:
-			self.gtk_builder.get_object("TabBar").show()
+			self._gtk_builder.get_object("TabBar").show()
 	
 	def set_statusbar(self, text: str) -> None:
-		self.gtk_builder.get_object("StatusBar").set_text(text)
+		self._gtk_builder.get_object("StatusBar").set_text(text)
 	
 	# Method that creates a main window in the first instance.
 	# Can be run multiple times on behalf of remote controllers.
@@ -360,7 +367,7 @@ class Mixtool(Gtk.Application):
 		"""Create a new main window or present an existing one."""
 		window = self.get_active_window()
 		if window is None:
-			window = self.gtk_builder.get_object("MainWindow")
+			window = self._gtk_builder.get_object("MainWindow")
 			self.add_window(window)
 			window.show()
 		else:
@@ -384,15 +391,18 @@ class Mixtool(Gtk.Application):
 		self.open_files(window, paths)
 	
 	def save_settings(self) -> None:
-		"""Save configuration to file"""
-		try:
-			config_stream = open(self.config_file, "w", encoding="ascii")
-		except OSError as problem:
-			messagebox("Error writing configuration file:", "e", secondary=problem.strerror)
-		else:
-			self.settings.write(config_stream, True)
-			config_stream.close()
-			print("Saved configuration file.", file=sys.stderr)
+		"""Save configuration to file."""
+		if self._save_settings:
+			try:
+				config_stream = open(self.config_file, "w", encoding="ascii")
+			except OSError as problem:
+				messagebox("Error writing configuration file:", "e", secondary=problem.strerror)
+			except Exception:
+				messagebox("Error writing configuration file.", "e")
+			else:
+				self.settings.write(config_stream, True)
+				config_stream.close()
+				print("Saved configuration file.", file=sys.stderr)
 
 
 # <!-- BEGIN Old code -->
@@ -401,7 +411,7 @@ class OldWindowController(object):
 	"""Legacy window controller"""
 	def __init__(self, application):
 		self.Application = application
-		GtkBuilder = application.gtk_builder
+		GtkBuilder = application._gtk_builder
 		
 		self.GtkBuilder          = GtkBuilder
 		self.MainWindow          = GtkBuilder.get_object("MainWindow")
@@ -554,8 +564,8 @@ def main() -> int:
 	signal.signal(signal.SIGINT, signal.SIG_DFL)
 	
 	# FIXME: Remove in final version
-	print("Mixtool is running on Python {0[0]}.{0[1]} using PyGObject {1[0]}.{1[1]} and GTK+ {2[0]}.{2[1]}."
-		.format(sys.version_info, gi.version_info, (Gtk.get_major_version(), Gtk.get_minor_version())), file=sys.stderr)
+	print("Mixtool is running on Python {0[0]}.{0[1]} using PyGObject {1[0]}.{1[1]} and GTK+ {2[0]}.{2[1]}.".
+		format(sys.version_info, gi.version_info, (Gtk.get_major_version(), Gtk.get_minor_version())), file=sys.stderr)
 	
 	# Initialize GLib's treads capability
 	GLib.threads_init()
