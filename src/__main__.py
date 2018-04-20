@@ -113,7 +113,7 @@ class Mixtool(Gtk.Application):
 		except Exception as problem:
 			self._save_settings = False
 			messagebox("Mixtool is unable to create its data directory.", "w", secondary="{0}:\n\"{1}\"\n\n".
-				format(problem.strerror if isinstance(problem, OSError) else "Unknown", self.data_dir) + "Your settings will not be saved.")
+				format(problem.strerror if isinstance(problem, OSError) else "Undefinable problem", self.data_dir) + "Your settings will not be retained.")
 		
 		# Set location of configuration file
 		self.config_file = os.sep.join((self.data_dir, "settings.ini"))
@@ -137,15 +137,24 @@ class Mixtool(Gtk.Application):
 				config_stream = open(self.config_file, encoding="ascii")
 			except FileNotFoundError:
 				pass
-			except OSError as problem:
+			except Exception as problem:
 				self._save_settings = False
-				messagebox("Error reading configuration file:", "e", secondary=problem.strerror)
-			except Exception:
-				self._save_settings = False
-				messagebox("Error reading configuration file.", "e")
+				messagebox("Mixtool is unable to access its configuration file.", "w", secondary="{0}:\n\"{1}\"\n\n".
+					format(problem.strerror if isinstance(problem, OSError) else "Undefinable problem", self.config_file) + "Your settings will not be retained.")
 			else:
-				# TODO: Add message boxes for parsing errors
-				self.settings.read_file(config_stream)
+				try:
+					self.settings.read_file(config_stream)
+				except Exception as problem:
+					if isinstance(problem, UnicodeError):
+						problem_description = "Contains non-ASCII characters"
+					elif isinstance(problem, configparser.Error):
+						problem_description = "Contains incomprehensible structures"
+					else:
+						problem_description = "Undefinable problem"
+					
+					messagebox("Mixtool is unable to parse its configuration file.", "w", secondary="{0}:\n\"{1}\"\n\n".
+						format(problem_description, self.config_file) + "Your settings will be reset.")
+				
 				config_stream.close()
 		
 		# Parse GUI file
@@ -395,10 +404,10 @@ class Mixtool(Gtk.Application):
 		if self._save_settings:
 			try:
 				config_stream = open(self.config_file, "w", encoding="ascii")
-			except OSError as problem:
-				messagebox("Error writing configuration file:", "e", secondary=problem.strerror)
-			except Exception:
-				messagebox("Error writing configuration file.", "e")
+			except Exception as problem:
+				self._save_settings = False
+				messagebox("Mixtool is unable to save its configuration file.", "w", self.get_active_window(), secondary="{0}:\n\"{1}\"\n\n".
+					format(problem.strerror if isinstance(problem, OSError) else "Undefinable problem", self.config_file) + "Your settings will not be retained.")
 			else:
 				self.settings.write(config_stream, True)
 				config_stream.close()
