@@ -49,7 +49,7 @@ COLUMN_OVERHEAD = 3
 
 
 # FileRecord data type
-_FileRecord = collections.namedtuple("_FileRecord", ("path", "stream", "container", "store", "button"))
+_FileRecord = collections.namedtuple("_FileRecord", ("path", "container", "store", "button"))
 
 # Main application controller
 class Mixtool(Gtk.Application):
@@ -134,10 +134,10 @@ class Mixtool(Gtk.Application):
 			config_stream = open(self.config_file, encoding="ascii")
 		except FileNotFoundError:
 			pass
-		except OSError:
-			messagebox("Error reading configuration file.", "e")
+		except OSError as problem:
+			messagebox("Error reading configuration file:", "e", secondary=problem.strerror)
 		else:
-			# FIXME: Add message boxes for parsing errors
+			# TODO: Add message boxes for parsing errors
 			self.settings.read_file(config_stream)
 			config_stream.close()
 		
@@ -171,7 +171,7 @@ class Mixtool(Gtk.Application):
 		file = self.current_file
 		
 		# Close the file
-		file.stream.close()
+		file.container.finalize().close()
 		
 		# Remove all references
 		self.current_file = None
@@ -291,7 +291,7 @@ class Mixtool(Gtk.Application):
 					button.show()
 					
 					# Create the file record
-					file = _FileRecord(path, stream, container, store, button)
+					file = _FileRecord(path, container, store, button)
 					self.files.append(file)
 					
 					# Connect the signal
@@ -388,8 +388,8 @@ class Mixtool(Gtk.Application):
 		"""Save configuration to file"""
 		try:
 			config_stream = open(self.config_file, "w", encoding="ascii")
-		except OSError:
-			messagebox("Error writing configuration file.", "e")
+		except OSError as problem:
+			messagebox("Error writing configuration file:", "e", secondary=problem.strerror)
 		else:
 			self.settings.write(config_stream, True)
 			config_stream.close()

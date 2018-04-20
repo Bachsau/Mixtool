@@ -84,8 +84,8 @@ class MixIOError(OSError, MixError):
 # A named tuple for metadata returned to the user
 MixRecord = collections.namedtuple("MixRecord", ("name", "size", "offset", "alloc", "node_id"))
 
-# Instance representing a single MIX file
-# Think of this as a file system driver
+# Instances represent a single MIX file.
+# They are refered to as "containers".
 class MixFile(object):
 	"""Manage MIX files, one file per instance."""
 	
@@ -256,14 +256,17 @@ class MixFile(object):
 		self.has_checksum = has_checksum
 		self.is_encrypted = is_encrypted
 		
-	# Object destruction command
-	def finalize(self):
-		"""!!! STUB !!!"""
-		# Close all contained files
-		# Call `self.write_index()` if in inconsistent state.
-		# Flush the buffer
-		# Set `self._stream` to `None`
-		raise NotImplementedError("Stub method")
+	# Object destruction method
+	def finalize(self) -> io.BufferedIOBase:
+		"""Finalize the container and return its stream."""
+		# TODO: Close all contained files as soon as
+		#       `self.open()` gets implemented.
+		if self._dirty:
+				self.write_index()
+		stream = self._stream
+		self._stream = None
+		stream.seek(0)
+		return stream
 
 	# Dirty bit is only used to prevent file corruption,
 	# not for index-only changes like renames, etc.
@@ -379,16 +382,23 @@ class MixFile(object):
 		
 		return False if self._get_inode(name) is None else True
 		
-
-	# Rename a file in the MIX
-	# TODO: Repair
-	def rename(self, old_name, new_name):
-		"""Rename a file in the MIX.
-
-		'MixError' is raised if the file is not found or a file of 'new_name' already exists.
-		'MixNameError' is raised if a name is not valid.
+	
+	# Rename a file in the MIX (New method)
+	def rename(self, old_name: str, new_name: str) -> bool:
+		"""Rename a contained file and return `True` if there were any changes.
 		
-		!!! CURRENTLY BROKEN !!!
+		`ValueError` is raised if any name is not valid.
+		
+		`MixInternalError` is raised if `old_name` does not exist,
+		`new_name` already exists or a key collision occurs.
+		"""
+	
+	
+	# Rename a file in the MIX (FUBAR method)
+	def rename_old(self, old_name, new_name):
+		"""Rename a file in the MIX.
+		
+		!!! BROKEN !!!
 		"""
 		
 		raise NotImplementedError("FUBAR")
@@ -657,9 +667,6 @@ class MixFile(object):
 		size = inode.size
 		full = size // BLOCKSIZE
 		rest = size % BLOCKSIZE
-
-		# Alpha protection
-		assert not os.path.isfile(dest)
 
 		self._stream.seek(inode.offset)
 		with open(dest, "wb") as OutFile:
