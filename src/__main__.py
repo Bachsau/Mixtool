@@ -58,8 +58,7 @@ class Mixtool(Gtk.Application):
 	# The GtkFileFilter used by open/save dialogs
 	file_filter = Gtk.FileFilter()
 	file_filter.set_name("MIX files")
-	file_filter.add_pattern("*.mix")
-	file_filter.add_pattern("*.MIX")
+	file_filter.add_pattern("*.mix" if sys.platform.startswith(("win", "darwin")) else "*.[Mm][Ii][Xx]")
 	
 	# Object initializer
 	def __init__(self) -> None:
@@ -84,7 +83,7 @@ class Mixtool(Gtk.Application):
 		# Determine a platform-specific data directory
 		self.home_dir = os.path.realpath(os.path.expanduser("~"))
 		
-		if sys.platform.startswith('win'):
+		if sys.platform.startswith("win"):
 			# Microsoft Windows
 			os_appdata = os.environ.get("APPDATA")
 			
@@ -93,7 +92,7 @@ class Mixtool(Gtk.Application):
 			else:
 				self.data_dir = os.path.realpath(os_appdata) + "\\Bachsau\\Mixtool"
 		
-		elif sys.platform.startswith('darwin'):
+		elif sys.platform.startswith("darwin"):
 			# Apple macOS
 			self.data_dir = self.home_dir + "/Library/Application Support/Bachsau/Mixtool"
 		
