@@ -609,14 +609,20 @@ def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, second
 	
 	if parent is None:
 		flags = Gtk.DialogFlags(0)
-		position = Gtk.WindowPosition.CENTER
 	else:
 		flags = Gtk.DialogFlags.DESTROY_WITH_PARENT
-		position = Gtk.WindowPosition.CENTER_ON_PARENT
 	
 	dialog = Gtk.MessageDialog(parent, flags, message_type, Gtk.ButtonsType.OK, str(text))
 	dialog.set_title(title)
-	dialog.set_position(position)
+	
+	if parent is None:
+		dialog.set_position(Gtk.WindowPosition.CENTER)
+		dialog.set_skip_taskbar_hint(False)
+		dialog.set_skip_pager_hint(False)
+	else:
+		dialog.set_position(Gtk.WindowPosition.CENTER_ON_PARENT)
+		dialog.set_skip_taskbar_hint(True)
+		dialog.set_skip_pager_hint(True)
 	
 	if secondary is not None:
 		dialog.format_secondary_text(str(secondary))
