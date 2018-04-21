@@ -27,10 +27,20 @@
 			h1 {
 				text-align:center;
 			}
+			
+			ul {
+				margin-bottom:20px;
+				padding-left:1em;
+				list-style:square outside;
+			}
+			
+			ul li {
+				margin:0;
+			}
 		</style>
 	</head>
 	<body>
-		{{ content | strip }}
+{{ content | strip }}
 		<div style="margin-top:60px;text-align:center;">
 			<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_parent">
 				<input type="hidden" name="cmd" value="_s-xclick">

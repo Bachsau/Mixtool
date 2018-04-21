@@ -2,5 +2,8 @@
 title: MIX file format
 canonical: mix-format.html
 ---
-		<h1>MIX file format</h1>
-		<p>Coming soon… 😇</p>
+
+MIX file format
+================
+
+Coming soon… 😇
