@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<!--
+
+{% include copyright_{{ page.copyright }}.txt %}
+-->
+<html dir="ltr" lang="en">
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<script>
+			if (parent.location == self.location) self.location.replace("index.html");
+		</script>
+		<title>Mixtool – {{ page.title }}</title>
+		<base target="main">{% if page.canonical %}
+		<link rel="canonical" href="http://docs.bachsau.com/Mixtool/{{ page.canonical }}">{% endif %}
+		<link rel="icon" type="image/vnd.microsoft.icon" href="assets/favicon.ico">
+		<link rel="stylesheet" type="text/css" href="assets/general.css">
+		<style>
+			body {
+				background-position:0 0;
+			}
+			
+			a {
+				text-decoration:none;
+			}
+			
+			h1 {
+				text-align:center;
+			}
+		</style>
+	</head>
+	<body>
+		{{ content | strip }}
+		<div style="margin-top:60px;text-align:center;">
+			<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_parent">
+				<input type="hidden" name="cmd" value="_s-xclick">
+				<input type="hidden" name="hosted_button_id" value="8KPB96C786PKA">
+				<input type="image" src="assets/donate.gif" name="submit" alt="Donate">
+			</form>
+		</div>
+	</body>
+</html>

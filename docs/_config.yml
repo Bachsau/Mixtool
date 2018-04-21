@@ -10,3 +10,13 @@ strict_front_matter: true
 error_mode: strict
 strict_variables: true
 strict_filters: true
+
+# Front Matter defaults
+defaults:
+    -
+        scope:
+            path: ""
+        values:
+            layout: "page"
+            copyright: "bachsau"
+            canonical: null

@@ -1,33 +1,9 @@
-<!DOCTYPE html>
-<!--
-
-	Copyright (C) 2015-2018 Bachsau
-	Permission is granted to copy, distribute and/or modify this document
-	under the terms of the GNU Free Documentation License, Version 1.3
-	or any later version published by the Free Software Foundation;
-	with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
-	A copy of the license is included in the section entitled "GNU
-	Free Documentation License".
-
--->
-<html dir="ltr" lang="en">
-	<head>
-		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-		<meta http-equiv="X-UA-Compatible" content="IE=edge">
-		<script>
-			if (parent.location == self.location) self.location.replace("index.html#" + self.location.pathname);
-		</script>
-		<title>Mixtool – Using MixLib</title>
-		<base target="_parent">
-		<link rel="canonical" href="http://docs.bachsau.com/Mixtool/mixlib.html">
-		<link rel="icon" type="image/vnd.microsoft.icon" href="favicon.ico">
-		<link rel="stylesheet" type="text/css" href="media/general.css">
-	</head>
-	<body>
+---
+title: Using MixLib
+canonical: mixlib.html
+---
 		<h1>Using MixLib</h1>
 		<p>MixLib is the integral part of Mixtool which does all the background work of reading from and writing to MIX files. It is a Python 3 module developed together with Mixtool with reusability in mind. The plan is to move it to a separate package with the advent of Mixtool 1.0 and release it under the GNU Lesser General Public License, so it can be used by any other Python application that wants to work with MIX files.</p>
 		<p>I will try to keep MixLib as well documented as possible by using Python’s native capabilities like docstrings and function annotations, even for private methods. However, only the API described in this document and not prefixed with underscores should be considered public. Using private methods in third party applications is strongly discouraged and will most likely result in internal errors and corrupted files.</p>
 		<h2>Getting started</h2>
 		<p>Every MIX file is managed by an instance of mixlib.MixFile on top of a readable, buffered binary stream. This is what you get, when you call open() with one of the modes "rb" or "r+b".</p>
-	</body>
-</html>
