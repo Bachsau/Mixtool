@@ -160,22 +160,21 @@ class Mixtool(Gtk.Application):
 		# Parse GUI file
 		gui_file = os.sep.join((os.path.dirname(os.path.realpath(__file__)), "gui.glade"))
 		self._gtk_builder = Gtk.Builder.new_from_file(gui_file)
-
-		global legacy_controller
-		legacy_controller = OldWindowController(self)
+		
+		dummy_callback = lambda widget: True
 		callback_map = {
 			"close_window": self.close_window,
 			"invoke_new_dialog": self.invoke_new_dialog,
 			"invoke_open_dialog": self.invoke_open_dialog,
-			"optimize_mixfile": legacy_controller.optimize,
-			"invoke_insert_dialog": legacy_controller.insertdialog,
-			"delete_selected": legacy_controller.delete_selected,
-			"invoke_extract_dialog": legacy_controller.extractdialog,
-			"invoke_search_dialog": legacy_controller.searchdialog,
-			"invoke_properties_dialog": legacy_controller.propertiesdialog,
-			"invoke_settings_dialog": legacy_controller.settingsdialog,
+			"optimize_mixfile": dummy_callback,
+			"invoke_insert_dialog": dummy_callback,
+			"delete_selected": dummy_callback,
+			"invoke_extract_dialog": dummy_callback,
+			"invoke_search_dialog": dummy_callback,
+			"invoke_properties_dialog": dummy_callback,
+			"invoke_settings_dialog": dummy_callback,
 			"invoke_about_dialog": self.invoke_about_dialog,
-			"invoke_extract_dialog": legacy_controller.extractdialog,
+			"invoke_extract_dialog": dummy_callback,
 			"show_donate_uri": self.show_donate_uri,
 			"close_current_file": self.close_current_file
 		}
@@ -203,16 +202,28 @@ class Mixtool(Gtk.Application):
 	def close_window(self, widget: Gtk.Widget, event: Gdk.Event = None) -> bool:
 		"""Close the application window."""
 		window = widget.get_toplevel()
+		self._current_file = None
 		
-		# TODO: Optimize this with its own method
 		while(self._files):
-			self.close_current_file(widget)
+			file = self._files.pop()
+			file.container.finalize().close()
+			file.button.destroy()
+		
+		self.update_gui()
 		
 		# Hide and remove the window
 		window.hide()
 		self.remove_window(window)
 		
 		return True
+	
+	# Run on the primary instance immediately after the main loop terminates.
+	def do_shutdown(self) -> None:
+		"""Finalize the application."""
+		try:
+			self._gtk_builder.get_object("MainWindow").destroy()
+		finally:
+			Gtk.Application.do_shutdown(self)
 	
 	# Show about dialog
 	def invoke_about_dialog(self, widget: Gtk.Widget) -> bool:
