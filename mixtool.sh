@@ -1,6 +1,6 @@
 #!/bin/sh
 trap false INT
-appdir="$(dirname "$(realpath "$0")")"
+appdir=$(dirname "$(realpath "$0")")
 export LC_ALL=en_US.UTF-8
 export G_SLICE=debug-blocks
 printf '\n[%u] Launching Mixtool... %s\n' $$ "$(date '+%F %T %Z')" >>"$appdir/output.log"
