@@ -161,31 +161,38 @@ class Mixtool(Gtk.Application):
 		gui_file = os.sep.join((os.path.dirname(os.path.realpath(__file__)), "gui.glade"))
 		self._gtk_builder = Gtk.Builder.new_from_file(gui_file)
 		
+		# Adjustments
+		self._gtk_builder.get_object("AboutDialog").set_default_response(Gtk.ResponseType.DELETE_EVENT)
+		
 		dummy_callback = lambda widget: True
 		callback_map = {
+			"close_current_file": self.close_current_file,
 			"close_window": self.close_window,
-			"invoke_new_dialog": self.invoke_new_dialog,
-			"invoke_open_dialog": self.invoke_open_dialog,
-			"optimize_mixfile": dummy_callback,
-			"invoke_insert_dialog": dummy_callback,
 			"delete_selected": dummy_callback,
-			"invoke_extract_dialog": dummy_callback,
-			"invoke_search_dialog": dummy_callback,
-			"invoke_properties_dialog": self.invoke_properties_dialog,
-			"invoke_settings_dialog": self.invoke_settings_dialog,
 			"invoke_about_dialog": self.invoke_about_dialog,
 			"invoke_extract_dialog": dummy_callback,
-			"show_donate_uri": self.show_donate_uri,
-			"close_current_file": self.close_current_file
+			"invoke_extract_dialog": dummy_callback,
+			"invoke_insert_dialog": dummy_callback,
+			"invoke_new_dialog": self.invoke_new_dialog,
+			"invoke_open_dialog": self.invoke_open_dialog,
+			"invoke_properties_dialog": self.invoke_properties_dialog,
+			"invoke_search_dialog": dummy_callback,
+			"invoke_settings_dialog": self.invoke_settings_dialog,
+			"open_donation_website": self.open_donation_website,
+			"optimize_current_file": dummy_callback
 		}
 		self._gtk_builder.connect_signals(callback_map)
 	
 	def invoke_properties_dialog(self, widget: Gtk.Widget) -> bool:
+		"""Show a currently useless dialog."""
 		dialog = self._gtk_builder.get_object("PropertiesDialog")
-		dialog.run()
+		self._gtk_builder.get_object("PropertiesDialog.OK").grab_focus()
+		response = dialog.run()
 		dialog.hide()
+		return True
 	
 	def invoke_settings_dialog(self, widget: Gtk.Widget) -> bool:
+		"""Show a dialog with current settings and save any changes."""
 		dialog = self._gtk_builder.get_object("SettingsDialog")
 		checkboxes = [
 			(self._gtk_builder.get_object("Settings.SimpleNames"), "simplenames"),
@@ -202,6 +209,7 @@ class Mixtool(Gtk.Application):
 				pass
 		
 		# Show the dialog
+		self._gtk_builder.get_object("SettingsDialog.OK").grab_focus()
 		response = dialog.run()
 		dialog.hide()
 		
@@ -210,6 +218,8 @@ class Mixtool(Gtk.Application):
 			for checkbox, setting in checkboxes:
 				self.settings["Mixtool"][setting] = "yes" if checkbox.get_active() else "no"
 			self.save_settings()
+		
+		return True
 	
 	# Close file in current tab
 	def close_current_file(self, widget: Gtk.Widget) -> bool:
@@ -260,13 +270,13 @@ class Mixtool(Gtk.Application):
 	def invoke_about_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a dialog with information on Mixtool."""
 		dialog = self._gtk_builder.get_object("AboutDialog")
-		dialog.set_default_response(Gtk.ResponseType.DELETE_EVENT)
+		dialog.get_widget_for_response(Gtk.ResponseType.DELETE_EVENT).grab_focus()
 		dialog.run()
 		dialog.hide()
 		return True
 	
 	# Open donation website in default browser
-	def show_donate_uri(self, widget: Gtk.Widget) -> bool:
+	def open_donation_website(self, widget: Gtk.Widget) -> bool:
 		"""Open donation website in default browser."""
 		Gtk.show_uri_on_window(widget.get_toplevel(), "http://go.bachsau.com/mtdonate", Gtk.get_current_event_time())
 		return True
@@ -275,6 +285,7 @@ class Mixtool(Gtk.Application):
 	def invoke_new_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a file chooser dialog and create a new file."""
 		messagebox("Not implemented", "w", self.MainWindow, secondary="Call to `invoke_new_dialog()` method.")
+		return True
 	
 	# Callback to open files by using a dialog
 	def invoke_open_dialog(self, widget: Gtk.Widget) -> bool:
@@ -549,13 +560,6 @@ class OldWindowController(object):
 			rows.append(self.ContentStore[path])
 		return rows
 
-	def propertiesdialog(self, *args):
-		self.PropertiesDialog.run()
-		self.PropertiesDialog.hide()
-
-	def settingsdialog(self, *args):
-		self.SettingsDialog.run()
-		self.SettingsDialog.hide()
 
 
 	# Search current file for names
