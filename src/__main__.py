@@ -51,6 +51,19 @@ COLUMN_OVERHEAD = 3
 # FileRecord data type
 _FileRecord = collections.namedtuple("_FileRecord", ("path", "container", "store", "button"))
 
+# Settings controller
+class Configuration(object):
+	"""Application’s configuration manager"""
+	
+	__slots__ = ("_file", "_parser")
+	
+	def __init__(self, file: str) -> None:
+		"""Initialize the configuration manager"""
+		self._file = file
+		self._parser = configparser.ConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=(";",), strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
+	
+	
+
 # Main application controller
 class Mixtool(Gtk.Application):
 	"""Application management class"""
