@@ -835,6 +835,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">False</property>
+            <property name="active">True</property>
             <property name="draw_indicator">True</property>
           </object>
           <packing>
@@ -866,6 +867,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">False</property>
+            <property name="active">True</property>
             <property name="draw_indicator">True</property>
           </object>
           <packing>
@@ -897,6 +899,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">False</property>
+            <property name="active">True</property>
             <property name="draw_indicator">True</property>
           </object>
           <packing>

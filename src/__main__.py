@@ -187,8 +187,29 @@ class Mixtool(Gtk.Application):
 	
 	def invoke_settings_dialog(self, widget: Gtk.Widget) -> bool:
 		dialog = self._gtk_builder.get_object("SettingsDialog")
-		dialog.run()
+		checkboxes = [
+			(self._gtk_builder.get_object("Settings.SimpleNames"), "simplenames"),
+			(self._gtk_builder.get_object("Settings.InsertLower"), "insertlower"),
+			(self._gtk_builder.get_object("Settings.Decrypt"), "decrypt"),
+			(self._gtk_builder.get_object("Settings.Backup"), "backup"),
+		]
+		
+		# Push current settings to dialog
+		for checkbox, setting in checkboxes:
+			try:
+				checkbox.set_active(self.settings.getboolean("Mixtool", setting))
+			except:
+				pass
+		
+		# Show the dialog
+		response = dialog.run()
 		dialog.hide()
+		
+		if response == Gtk.ResponseType.OK:
+			# Save new settings
+			for checkbox, setting in checkboxes:
+				self.settings["Mixtool"][setting] = "yes" if checkbox.get_active() else "no"
+			self.save_settings()
 	
 	# Close file in current tab
 	def close_current_file(self, widget: Gtk.Widget) -> bool:
