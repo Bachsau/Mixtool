@@ -171,14 +171,24 @@ class Mixtool(Gtk.Application):
 			"delete_selected": dummy_callback,
 			"invoke_extract_dialog": dummy_callback,
 			"invoke_search_dialog": dummy_callback,
-			"invoke_properties_dialog": dummy_callback,
-			"invoke_settings_dialog": dummy_callback,
+			"invoke_properties_dialog": self.invoke_properties_dialog,
+			"invoke_settings_dialog": self.invoke_settings_dialog,
 			"invoke_about_dialog": self.invoke_about_dialog,
 			"invoke_extract_dialog": dummy_callback,
 			"show_donate_uri": self.show_donate_uri,
 			"close_current_file": self.close_current_file
 		}
 		self._gtk_builder.connect_signals(callback_map)
+	
+	def invoke_properties_dialog(self, widget: Gtk.Widget) -> bool:
+		dialog = self._gtk_builder.get_object("PropertiesDialog")
+		dialog.run()
+		dialog.hide()
+	
+	def invoke_settings_dialog(self, widget: Gtk.Widget) -> bool:
+		dialog = self._gtk_builder.get_object("SettingsDialog")
+		dialog.run()
+		dialog.hide()
 	
 	# Close file in current tab
 	def close_current_file(self, widget: Gtk.Widget) -> bool:
@@ -343,12 +353,14 @@ class Mixtool(Gtk.Application):
 	def switch_file(self, widget: Gtk.Widget, file: _FileRecord) -> bool:
 		"""Switch the currently displayed file to `path`."""
 		if widget.get_active():
+			mixtype = ("TD", "RA", "TS")[file.container.get_mixtype()]
+			status = " ".join((mixtype, "MIX contains", str(file.container.get_filecount()), "files."))
+			title = widget.get_label() + " – Mixtool (Alpha)"
+			
 			self._current_file = file
 			self._gtk_builder.get_object("ContentList").set_model(file.store)
-			
-			mixtype = ("TD", "RA", "TS")[file.container.get_mixtype()]
-			self.set_statusbar(" ".join((mixtype, "MIX contains", str(file.container.get_filecount()), "files.")))
-			self.set_titlebar(widget.get_label())
+			self._gtk_builder.get_object("StatusBar").set_text(status)
+			self._gtk_builder.get_object("MainWindow").set_title(title)
 		
 		return True
 	
@@ -369,23 +381,14 @@ class Mixtool(Gtk.Application):
 			self._gtk_builder.get_object("Toolbar.Quit").show()
 			self._gtk_builder.get_object("ContentList").set_sensitive(False)
 			self._gtk_builder.get_object("ContentList").set_model(self._gtk_builder.get_object("DummyStore"))
-			self.set_statusbar("")
-			self.set_titlebar("")
+			self._gtk_builder.get_object("StatusBar").set_text("")
+			self._gtk_builder.get_object("MainWindow").set_title("Mixtool (Alpha)")
 		
 		# Display tab bar only when two ore more files are open
 		if len(self._files) < 2:
 			self._gtk_builder.get_object("TabBar").hide()
 		else:
 			self._gtk_builder.get_object("TabBar").show()
-	
-	def set_statusbar(self, text: str) -> None:
-		self._gtk_builder.get_object("StatusBar").set_text(text)
-	
-	def set_titlebar(self, text: str) -> None:
-		if text == "":
-			self._gtk_builder.get_object("MainWindow").set_title("Mixtool (Alpha)")
-		else:
-			self._gtk_builder.get_object("MainWindow").set_title(text + " – Mixtool (Alpha)")
 	
 	# Method that creates a main window in the first instance.
 	# Can be run multiple times on behalf of remote controllers.
@@ -561,22 +564,6 @@ class OldWindowController(object):
 					messagebox("Found no file matching \"" + name + "\" in current mix", "i", self.MainWindow)
 		else:
 			messagebox("Search needs an open MIX file", "e", self.MainWindow)
-
-	def set_statusbar(self, text):
-		self.Application.set_statusbar(str(text))
-
-	def set_titlebar(self, text):
-		pass
-
-	# Close window
-	# Gtk.Application quits if this was the last one
-	def close(self, *args):
-		# Cleanup GtkBuilder
-		for obj in self.GtkBuilder.get_objects():
-			try:
-				obj.destroy()
-			except AttributeError:
-				pass
 				
 # <!-- END Old code -->
 
@@ -622,33 +609,35 @@ def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, second
 	appear bolder in that case.
 	"""
 	if type_ == "i":
-		title = "Notice"
 		message_type = Gtk.MessageType.INFO
+		title = "Notice"
+		icon = "gtk-dialog-info"
 	elif type_ == "e":
-		title = "Error"
 		message_type = Gtk.MessageType.ERROR
+		title = "Error"
+		icon = "gtk-dialog-error"
 	elif type_ == "w":
-		title = "Warning"
 		message_type = Gtk.MessageType.WARNING
+		title = "Warning"
+		icon = "gtk-dialog-warning"
 	else:
 		raise ValueError("Invalid message type.")
 	
 	if parent is None:
 		flags = Gtk.DialogFlags(0)
+		position = Gtk.WindowPosition.CENTER
+		skip_taskbar = False
 	else:
 		flags = Gtk.DialogFlags.DESTROY_WITH_PARENT
+		position = Gtk.WindowPosition.CENTER_ON_PARENT
+		skip_taskbar = True
 	
 	dialog = Gtk.MessageDialog(parent, flags, message_type, Gtk.ButtonsType.OK, str(text))
 	dialog.set_title(title)
-	
-	if parent is None:
-		dialog.set_position(Gtk.WindowPosition.CENTER)
-		dialog.set_skip_taskbar_hint(False)
-		dialog.set_skip_pager_hint(False)
-	else:
-		dialog.set_position(Gtk.WindowPosition.CENTER_ON_PARENT)
-		dialog.set_skip_taskbar_hint(True)
-		dialog.set_skip_pager_hint(True)
+	dialog.set_icon_name(icon)
+	dialog.set_position(position)
+	dialog.set_skip_taskbar_hint(skip_taskbar)
+	dialog.set_skip_pager_hint(skip_taskbar)
 	
 	if secondary is not None:
 		dialog.format_secondary_text(str(secondary))
