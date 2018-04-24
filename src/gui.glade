@@ -772,16 +772,16 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
       <placeholder/>
     </child>
     <child internal-child="vbox">
-      <object class="GtkBox" id="SettingsDialogBox">
+      <object class="GtkBox">
         <property name="can_focus">False</property>
         <property name="orientation">vertical</property>
         <property name="spacing">2</property>
         <child internal-child="action_area">
-          <object class="GtkButtonBox" id="SettingsDialogButtons">
+          <object class="GtkButtonBox">
             <property name="can_focus">False</property>
             <property name="layout_style">end</property>
             <child>
-              <object class="GtkButton" id="SettingsDialogCancel">
+              <object class="GtkButton" id="SettingsDialog.Cancel">
                 <property name="label">gtk-cancel</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
@@ -796,7 +796,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkButton" id="SettingsDialogOK">
+              <object class="GtkButton" id="SettingsDialog.OK">
                 <property name="label">gtk-ok</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
@@ -820,7 +820,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           </packing>
         </child>
         <child>
-          <object class="GtkCheckButton" id="SettingsForceSimpleNames">
+          <object class="GtkCheckButton" id="Settings.SimpleNames">
             <property name="label">Enforce simple file names (recommended)</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
@@ -834,7 +834,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           </packing>
         </child>
         <child>
-          <object class="GtkLabel" id="SettingsForceSimpleNamesDescription">
+          <object class="GtkLabel">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="margin_left">25</property>
@@ -850,7 +850,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           </packing>
         </child>
         <child>
-          <object class="GtkCheckButton" id="SettingsLowercaseCheckbox">
+          <object class="GtkCheckButton" id="Settings.InsertLower">
             <property name="label">Insert all-lowercase</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
@@ -864,7 +864,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           </packing>
         </child>
         <child>
-          <object class="GtkLabel" id="SettingsLowercaseDescription">
+          <object class="GtkLabel">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="margin_left">25</property>
@@ -880,7 +880,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           </packing>
         </child>
         <child>
-          <object class="GtkCheckButton" id="SettingsDisableEncryption">
+          <object class="GtkCheckButton" id="Settings.Decrypt">
             <property name="label">Disable encryption</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
@@ -894,7 +894,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           </packing>
         </child>
         <child>
-          <object class="GtkLabel" id="SettingsDisableEncryptionDescription">
+          <object class="GtkLabel">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="margin_left">25</property>
@@ -910,7 +910,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           </packing>
         </child>
         <child>
-          <object class="GtkCheckButton" id="SettingsBackupCheckbox">
+          <object class="GtkCheckButton" id="Settings.Backup">
             <property name="label">Backup old files</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
@@ -924,7 +924,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           </packing>
         </child>
         <child>
-          <object class="GtkLabel" id="SettingsBackupDescription">
+          <object class="GtkLabel">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="margin_left">25</property>
@@ -942,8 +942,8 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
       </object>
     </child>
     <action-widgets>
-      <action-widget response="-6">SettingsDialogCancel</action-widget>
-      <action-widget response="-5">SettingsDialogOK</action-widget>
+      <action-widget response="-6">SettingsDialog.Cancel</action-widget>
+      <action-widget response="-5">SettingsDialog.OK</action-widget>
     </action-widgets>
   </object>
 </interface>

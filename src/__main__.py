@@ -342,14 +342,13 @@ class Mixtool(Gtk.Application):
 	# Activate another tab
 	def switch_file(self, widget: Gtk.Widget, file: _FileRecord) -> bool:
 		"""Switch the currently displayed file to `path`."""
-		if not widget.get_active():
-			return True
-		
-		self._current_file = file
-		self._gtk_builder.get_object("ContentList").set_model(file.store)
-		
-		mixtype = ("TD", "RA", "TS")[file.container.get_mixtype()]
-		self.set_statusbar(" ".join((mixtype, "MIX contains", str(file.container.get_filecount()), "files.")))
+		if widget.get_active():
+			self._current_file = file
+			self._gtk_builder.get_object("ContentList").set_model(file.store)
+			
+			mixtype = ("TD", "RA", "TS")[file.container.get_mixtype()]
+			self.set_statusbar(" ".join((mixtype, "MIX contains", str(file.container.get_filecount()), "files.")))
+			self.set_titlebar(widget.get_label())
 		
 		return True
 	
@@ -371,6 +370,7 @@ class Mixtool(Gtk.Application):
 			self._gtk_builder.get_object("ContentList").set_sensitive(False)
 			self._gtk_builder.get_object("ContentList").set_model(self._gtk_builder.get_object("DummyStore"))
 			self.set_statusbar("")
+			self.set_titlebar("")
 		
 		# Display tab bar only when two ore more files are open
 		if len(self._files) < 2:
@@ -380,6 +380,12 @@ class Mixtool(Gtk.Application):
 	
 	def set_statusbar(self, text: str) -> None:
 		self._gtk_builder.get_object("StatusBar").set_text(text)
+	
+	def set_titlebar(self, text: str) -> None:
+		if text == "":
+			self._gtk_builder.get_object("MainWindow").set_title("Mixtool (Alpha)")
+		else:
+			self._gtk_builder.get_object("MainWindow").set_title(text + " – Mixtool (Alpha)")
 	
 	# Method that creates a main window in the first instance.
 	# Can be run multiple times on behalf of remote controllers.
