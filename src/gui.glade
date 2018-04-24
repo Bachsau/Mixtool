@@ -627,6 +627,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                   <item id="1">2 – RA</item>
                   <item id="2">3 – TS, RA2, YR</item>
                 </items>
+                <signal name="changed" handler="update_properties_dialog" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>

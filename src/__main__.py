@@ -179,16 +179,59 @@ class Mixtool(Gtk.Application):
 			"invoke_search_dialog": dummy_callback,
 			"invoke_settings_dialog": self.invoke_settings_dialog,
 			"open_donation_website": self.open_donation_website,
-			"optimize_current_file": dummy_callback
+			"optimize_current_file": dummy_callback,
+			"update_properties_dialog": self.update_properties_dialog
 		}
 		self._gtk_builder.connect_signals(callback_map)
 	
 	def invoke_properties_dialog(self, widget: Gtk.Widget) -> bool:
-		"""Show a currently useless dialog."""
-		dialog = self._gtk_builder.get_object("PropertiesDialog")
-		self._gtk_builder.get_object("PropertiesDialog.OK").grab_focus()
-		response = dialog.run()
-		dialog.hide()
+		"""Show a dialog to modify the current file’s properties."""
+		if self._current_file is None:
+			# TODO: Replace by disabling the button
+			messagebox("Properties can only be set for an open file.", "e", widget.get_toplevel())
+		else:
+			dialog = self._gtk_builder.get_object("PropertiesDialog")
+			mixtype_dropdown = self._gtk_builder.get_object("Properties.Type")
+			current_mixtype = self._current_file.container.get_type()
+			
+			mixtype_dropdown.set_active_id(str(current_mixtype))
+			self._gtk_builder.get_object("PropertiesDialog.OK").grab_focus()
+			response = dialog.run()
+			dialog.hide()
+			
+			if response == Gtk.ResponseType.OK:
+				selected_mixtype = int(mixtype_dropdown.get_active_id())
+				encrypt_checkbox = self._gtk_builder.get_object("Properties.Encrypted")
+				checksum_checkbox = self._gtk_builder.get_object("Properties.Checksum")
+				
+				if selected_mixtype != current_mixtype:
+					messagebox("Conversion is not implemented yet.", "e", widget.get_toplevel())
+				
+				self._current_file.container.is_encrypted = encrypt_checkbox.get_active()
+				self._current_file.container.has_checksum = checksum_checkbox.get_active()
+		
+		return True
+	
+	def update_properties_dialog(self, widget: Gtk.Widget) -> bool:
+		"""Update the properties dialog to reflect the choosen MIX type."""
+		mixtype = int(widget.get_active_id())
+		encrypt_checkbox = self._gtk_builder.get_object("Properties.Encrypted")
+		checksum_checkbox = self._gtk_builder.get_object("Properties.Checksum")
+		
+		if mixtype < 1 or self.settings.getboolean("Mixtool", "decrypt"):
+			encrypt_checkbox.set_sensitive(False)
+			encrypt_checkbox.set_active(False)
+		else:
+			encrypt_checkbox.set_sensitive(True)
+			encrypt_checkbox.set_active(self._current_file.container.is_encrypted)
+		
+		if mixtype < 1:
+			checksum_checkbox.set_sensitive(False)
+			checksum_checkbox.set_active(False)
+		else:
+			checksum_checkbox.set_sensitive(True)
+			checksum_checkbox.set_active(self._current_file.container.has_checksum)
+		
 		return True
 	
 	def invoke_settings_dialog(self, widget: Gtk.Widget) -> bool:
@@ -203,10 +246,7 @@ class Mixtool(Gtk.Application):
 		
 		# Push current settings to dialog
 		for checkbox, setting in checkboxes:
-			try:
-				checkbox.set_active(self.settings.getboolean("Mixtool", setting))
-			except:
-				pass
+			checkbox.set_active(self.settings.getboolean("Mixtool", setting))
 		
 		# Show the dialog
 		self._gtk_builder.get_object("SettingsDialog.OK").grab_focus()
@@ -218,6 +258,11 @@ class Mixtool(Gtk.Application):
 			for checkbox, setting in checkboxes:
 				self.settings["Mixtool"][setting] = "yes" if checkbox.get_active() else "no"
 			self.save_settings()
+			
+			# Apply decrypt setting
+			if self.settings.getboolean("Mixtool", "decrypt"):
+				for file in self._files:
+					file.container.is_encrypted = False
 		
 		return True
 	
@@ -385,7 +430,7 @@ class Mixtool(Gtk.Application):
 	def switch_file(self, widget: Gtk.Widget, file: _FileRecord) -> bool:
 		"""Switch the currently displayed file to `path`."""
 		if widget.get_active():
-			mixtype = ("TD", "RA", "TS")[file.container.get_mixtype()]
+			mixtype = ("TD", "RA", "TS")[file.container.get_type()]
 			status = " ".join((mixtype, "MIX contains", str(file.container.get_filecount()), "files."))
 			title = widget.get_label() + " – Mixtool (Alpha)"
 			
@@ -421,6 +466,9 @@ class Mixtool(Gtk.Application):
 			self._gtk_builder.get_object("TabBar").hide()
 		else:
 			self._gtk_builder.get_object("TabBar").show()
+	
+	def update_available_actions(self) -> None:
+		"""Depends on number of files in container."""
 	
 	# Method that creates a main window in the first instance.
 	# Can be run multiple times on behalf of remote controllers.
