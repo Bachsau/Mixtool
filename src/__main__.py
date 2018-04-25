@@ -52,17 +52,86 @@ COLUMN_OVERHEAD = 3
 _FileRecord = collections.namedtuple("_FileRecord", ("path", "container", "store", "button"))
 
 # Settings controller
-class Configuration(object):
+class Configuration(collections.abc.MutableMapping):
 	"""Application’s configuration manager"""
 	
-	__slots__ = ("_file", "_parser")
+	__slots__ = ("_file", "_defaults", "_parser", "_save_settings")
 	
 	def __init__(self, file: str) -> None:
 		"""Initialize the configuration manager"""
 		self._file = file
+		self._defaults = {}
 		self._parser = configparser.ConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=(";",), strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
+		_save_settings = True
+		
+		# Parse configuration file
+		if self._save_settings:
+			try:
+				config_stream = open(self.config_file, encoding="ascii")
+			except FileNotFoundError:
+				pass
+			except Exception as problem:
+				self._save_settings = False
+				messagebox("Mixtool is unable to access its configuration file.", "w", secondary="{0}:\n\"{1}\"\n\n".
+					format(problem.strerror if isinstance(problem, OSError) else "Undefinable problem", self.config_file) + "Your settings will not be retained.")
+			else:
+				try:
+					self.settings.read_file(config_stream)
+				except Exception as problem:
+					if isinstance(problem, UnicodeError):
+						problem_description = "Contains non-ASCII characters"
+					elif isinstance(problem, configparser.Error):
+						problem_description = "Contains incomprehensible structures"
+					else:
+						problem_description = "Undefinable problem"
+					
+					messagebox("Mixtool is unable to parse its configuration file.", "w", secondary="{0}:\n\"{1}\"\n\n".
+						format(problem_description, self.config_file) + "Your settings will be reset.")
+				
+				config_stream.close()
+	
+	def __len__(self):
+		return len(self._defaults)
+	
+	def __getitem__(self, item):
+		"""Return value of `item` or the registered default on errors."""
+		default = self._defaults[item]
+		try:
+			if isinstance(default, bool):
+				return self._parser.getboolean(item)
+			
+			if isinstance(default, str):
+				return parse.unquote(self._parser[item], "utf_8", "strict")
+			
+			if isinstance(default, int):
+				return self._parser.getint(item)
+			
+			if isinstance(default, float):
+				return self._parser.getfloat(item)
+			
+			if isinstance(default, bytes):
+				return parse.unquote_to_bytes(self._parser[item])
+		
+		except (KeyError, ValueError):
+			return default
 	
 	
+	def register_setting(self, identifier: str, default) -> None:
+		"""Register a setting and its `default`.
+		
+		The type of `default` also specifies the type
+		returned later and what can be assigned. 
+		"""
+		if identifier in self._defaults:
+			raise ValueError("Already registered.")
+		
+		if not isinstance(default, (bool, str, int, float, bytes, bytearray)):
+			raise TypeError("Unsupported type.")
+		
+		self._defaults[identifier] = bytes(default) if isinstance(default, bytearray) else default
+	
+	
+
 
 # Main application controller
 class Mixtool(Gtk.Application):
