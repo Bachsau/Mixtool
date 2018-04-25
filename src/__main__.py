@@ -96,36 +96,61 @@ class Configuration(collections.abc.MutableMapping):
 	def __len__(self):
 		return len(self._defaults)
 	
-	def __getitem__(self, item: str):
-		"""Return value of `item` or the registered default on errors."""
-		default = self._defaults[item]
+	def __getitem__(self, identifier: str):
+		"""Return value of `identifier` or the registered default on errors.
+		
+		`KeyError` is raised if there is no such identifier.
+		"""
+		default = self._defaults[identifier]
 		section = "Mixtool"
 		
-		try:
-			if isinstance(default, bool):
-				return self._parser.getboolean(section, item)
+		if self._parser.has_option(section, identifier):
+			try:
+				if type(default) is bool:
+					return self._parser.getboolean(section, identifier)
+				
+				if isinstance(default, int):
+					return self._parser.getint(section, identifier)
+				
+				if isinstance(default, float):
+					return self._parser.getfloat(section, identifier)
+				
+				if isinstance(default, str):
+					return parse.unquote(self._parser.get(section, identifier), errors="strict")
+				
+				if isinstance(default, bytes):
+					return parse.unquote_to_bytes(self._parser.get(section, identifier))
 			
-			if isinstance(default, str):
-				return parse.unquote(self._parser.get(section, item), "utf_8", "strict")
-			
-			if isinstance(default, int):
-				return self._parser.getint(section, item)
-			
-			if isinstance(default, float):
-				return self._parser.getfloat(section, item)
-			
-			if isinstance(default, bytes):
-				return parse.unquote_to_bytes(self._parser.get(section, item))
-		
-		except ValueError:
-			del self._parser[section][item]
+			except ValueError:
+				self._parser.remove_option(section, identifier)
+				return default
+		else:
 			return default
-		
-		except (configparser.NoOptionError):
-			return default
 			
-	def __setitem__(self, item: str, value):
-		pass
+	def __setitem__(self, identifier: str, value) -> None:
+		"""Set `identifier` to `value`.
+		
+		`KeyError` is raised if there is no such identifier.
+		`TypeError` is raised if `value` does not match the registered type.
+		"""
+		default = self._defaults[identifier]
+		section = "Mixtool"
+		
+		if type(default) is bool and type(value) is bool:
+			self._parser.set(section, identifier, "yes" if value else "no")
+		
+		elif isinstance(default, int) and isinstance(value, int)\
+		  or isinstance(default, float) and isinstance(value, float):
+			self._parser.set(section, identifier, str(value))
+		
+		elif isinstance(default, str) and isinstance(value, str):
+			self._parser.set(section, identifier, parse.quote(value))
+		
+		elif isinstance(default, bytes) and isinstance(value, (bytes, bytearray)):
+			self._parser.set(section, identifier, parse.quote_from_bytes(value))
+		
+		else:
+			raise TypeError("Not matching registered type.")
 		
 	def __delitem__(self):
 		pass
@@ -151,7 +176,7 @@ class Configuration(collections.abc.MutableMapping):
 		if identifier in self._defaults:
 			raise ValueError("Identifier already registered.")
 		
-		if not isinstance(default, (bool, str, int, float, bytes, bytearray)):
+		if not isinstance(default, (int, float, str, bytes, bytearray)):
 			raise TypeError("Unsupported `default` type.")
 		
 		self._defaults[identifier] = bytes(default) if isinstance(default, bytearray) else default
