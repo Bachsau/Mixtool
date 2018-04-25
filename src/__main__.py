@@ -52,6 +52,7 @@ COLUMN_OVERHEAD = 3
 _FileRecord = collections.namedtuple("_FileRecord", ("path", "container", "store", "button"))
 
 # Settings controller
+# https://docs.python.org/3/library/collections.abc.html
 class Configuration(collections.abc.MutableMapping):
 	"""Application’s configuration manager"""
 	
@@ -62,18 +63,18 @@ class Configuration(collections.abc.MutableMapping):
 		self._file = file
 		self._defaults = {}
 		self._parser = configparser.ConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=(";",), strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
-		_save_settings = True
+		self._save_settings = True
 		
 		# Parse configuration file
 		if self._save_settings:
 			try:
-				config_stream = open(self.config_file, encoding="ascii")
+				config_stream = open(self._file, encoding="ascii")
 			except FileNotFoundError:
 				pass
 			except Exception as problem:
 				self._save_settings = False
 				messagebox("Mixtool is unable to access its configuration file.", "w", secondary="{0}:\n\"{1}\"\n\n".
-					format(problem.strerror if isinstance(problem, OSError) else "Undefinable problem", self.config_file) + "Your settings will not be retained.")
+					format(problem.strerror if isinstance(problem, OSError) else "Undefinable problem", self._file) + "Your settings will not be retained.")
 			else:
 				try:
 					self.settings.read_file(config_stream)
@@ -86,16 +87,17 @@ class Configuration(collections.abc.MutableMapping):
 						problem_description = "Undefinable problem"
 					
 					messagebox("Mixtool is unable to parse its configuration file.", "w", secondary="{0}:\n\"{1}\"\n\n".
-						format(problem_description, self.config_file) + "Your settings will be reset.")
+						format(problem_description, self._file) + "Your settings will be reset.")
 				
 				config_stream.close()
 	
 	def __len__(self):
 		return len(self._defaults)
 	
-	def __getitem__(self, item):
+	def __getitem__(self, item: str):
 		"""Return value of `item` or the registered default on errors."""
 		default = self._defaults[item]
+		
 		try:
 			if isinstance(default, bool):
 				return self._parser.getboolean(item)
@@ -114,6 +116,15 @@ class Configuration(collections.abc.MutableMapping):
 		
 		except (KeyError, ValueError):
 			return default
+			
+	def __setitem__(self, item: str, value):
+		pass
+		
+	def __delitem__(self):
+		pass
+		
+	def __iter__(self):
+		pass
 	
 	
 	def register_setting(self, identifier: str, default) -> None:
@@ -129,8 +140,7 @@ class Configuration(collections.abc.MutableMapping):
 			raise TypeError("Unsupported type.")
 		
 		self._defaults[identifier] = bytes(default) if isinstance(default, bytearray) else default
-	
-	
+
 
 
 # Main application controller
