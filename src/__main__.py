@@ -58,11 +58,13 @@ class Configuration(collections.abc.MutableMapping):
 	
 	__slots__ = ("_file", "_defaults", "_parser", "_save_settings")
 	
+	key_chars = frozenset("_abcdefghijklmnopqrstuvwxyz")
+	
 	def __init__(self, file: str) -> None:
 		"""Initialize the configuration manager"""
 		self._file = file
 		self._defaults = {}
-		self._parser = configparser.ConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=(";",), strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
+		self._parser = configparser.RawConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=(";",), strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
 		self._save_settings = True
 		
 		# Parse configuration file
@@ -97,24 +99,29 @@ class Configuration(collections.abc.MutableMapping):
 	def __getitem__(self, item: str):
 		"""Return value of `item` or the registered default on errors."""
 		default = self._defaults[item]
+		section = "Mixtool"
 		
 		try:
 			if isinstance(default, bool):
-				return self._parser.getboolean(item)
+				return self._parser.getboolean(section, item)
 			
 			if isinstance(default, str):
-				return parse.unquote(self._parser[item], "utf_8", "strict")
+				return parse.unquote(self._parser.get(section, item), "utf_8", "strict")
 			
 			if isinstance(default, int):
-				return self._parser.getint(item)
+				return self._parser.getint(section, item)
 			
 			if isinstance(default, float):
-				return self._parser.getfloat(item)
+				return self._parser.getfloat(section, item)
 			
 			if isinstance(default, bytes):
-				return parse.unquote_to_bytes(self._parser[item])
+				return parse.unquote_to_bytes(self._parser.get(section, item))
 		
-		except (KeyError, ValueError):
+		except ValueError:
+			del self._parser[section][item]
+			return default
+		
+		except (configparser.NoOptionError):
 			return default
 			
 	def __setitem__(self, item: str, value):
@@ -130,14 +137,22 @@ class Configuration(collections.abc.MutableMapping):
 	def register_setting(self, identifier: str, default) -> None:
 		"""Register a setting and its `default`.
 		
-		The type of `default` also specifies the type
-		returned later and what can be assigned. 
+		Identifiers must consist of only lowercase letters and underscores.
+		
+		The type of `default` also specifies the type returned later and what can be assigned.
+		Supported types are `bool`, `str`, `int`, `float`, `bytes` and `bytearray`.
 		"""
+		if not isinstance(identifier, str):
+			raise TypeError("Identifiers must be strings.")
+		
+		if not not self.key_chars.issuperset(identifier):
+			raise ValueError("Identifiers must consist of only lowercase letters and underscores.")
+			
 		if identifier in self._defaults:
-			raise ValueError("Already registered.")
+			raise ValueError("Identifier already registered.")
 		
 		if not isinstance(default, (bool, str, int, float, bytes, bytearray)):
-			raise TypeError("Unsupported type.")
+			raise TypeError("Unsupported `default` type.")
 		
 		self._defaults[identifier] = bytes(default) if isinstance(default, bytearray) else default
 
