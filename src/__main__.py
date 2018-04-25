@@ -40,14 +40,6 @@ from gi.repository import GLib, GObject, Gio, Pango, Gdk, Gtk
 # Local modules
 import mixlib
 
-# Constants
-COLUMN_ROWID    = -1
-COLUMN_NAME     = 0
-COLUMN_OFFSET   = 1
-COLUMN_SIZE     = 2
-COLUMN_OVERHEAD = 3
-
-
 # FileRecord data type
 _FileRecord = collections.namedtuple("_FileRecord", ("path", "container", "store", "button"))
 
@@ -60,9 +52,9 @@ class Configuration(collections.abc.MutableMapping):
 	
 	key_chars = frozenset("_abcdefghijklmnopqrstuvwxyz")
 	
-	def __init__(self, file: str) -> None:
+	def __init__(self, data_dir: str) -> None:
 		"""Initialize the configuration manager"""
-		self._file = file
+		self._file = os.sep.join((data_dir, "settings.ini"))
 		self._defaults = {}
 		self._parser = configparser.RawConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=(";",), strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
 		self._save_settings = True
@@ -153,15 +145,15 @@ class Configuration(collections.abc.MutableMapping):
 			raise TypeError("Not matching registered type.")
 		
 	def __delitem__(self, identifier: str):
-		"""Unregister `identifier`."""
+		"""Unregister the setting."""
 		del self._defaults[identifier]
 		
 	def __iter__(self):
 		pass
 	
 	
-	def register_setting(self, identifier: str, default) -> None:
-		"""Register `identifier` and its `default`.
+	def register(self, identifier: str, default) -> None:
+		"""Register a setting and its default.
 		
 		Identifiers must consist of only lowercase letters and underscores.
 		
@@ -181,6 +173,9 @@ class Configuration(collections.abc.MutableMapping):
 			raise TypeError("Unsupported type.")
 		
 		self._defaults[identifier] = bytes(default) if isinstance(default, bytearray) else default
+	
+	def save(self) -> int:
+		"""Save the configuration."""
 
 
 
@@ -522,10 +517,10 @@ class Mixtool(Gtk.Application):
 					store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
 					for record in container.get_contents():
 						store.append((
-							record[0], # Name
-							record[2], # Offset
-							record[1], # Size
-							record[3] - record[1] # Alloc - Size = Overhead
+							record.name,
+							record.offset,
+							record.size,
+							record.alloc - record.size # = Overhead
 						))
 					
 					# Add a button
@@ -711,7 +706,7 @@ class OldWindowController(object):
 				Dialog = self.ExtractMultiDialog
 				Dialog.set_current_name(self.filename.replace(".", "_"))
 			else:
-				filename = rows[0][COLUMN_NAME]
+				filename = rows[0][0]
 				Dialog = self.ExtractSingleDialog
 				Dialog.set_current_name(filename)
 
@@ -730,7 +725,7 @@ class OldWindowController(object):
 
 					# Save every file with its original name
 					for row in rows:
-						filename = row[COLUMN_NAME]
+						filename = row[0]
 						self.MixFile.extract(filename, os.path.join(outpath, filename))
 				else:
 					self.MixFile.extract(filename, outpath)
@@ -762,7 +757,7 @@ class OldWindowController(object):
 
 				if inode is not None:
 					treeiter = self.contents[id(inode)][0]
-					self.ContentStore[treeiter][COLUMN_NAME] = inode.name
+					self.ContentStore[treeiter][0] = inode.name
 
 					path = self.ContentStore.get_path(treeiter)
 					self.ContentList.set_cursor(path)
