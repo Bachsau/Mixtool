@@ -152,32 +152,33 @@ class Configuration(collections.abc.MutableMapping):
 		else:
 			raise TypeError("Not matching registered type.")
 		
-	def __delitem__(self):
-		pass
+	def __delitem__(self, identifier: str):
+		"""Unregister `identifier`."""
+		del self._defaults[identifier]
 		
 	def __iter__(self):
 		pass
 	
 	
 	def register_setting(self, identifier: str, default) -> None:
-		"""Register a setting and its `default`.
+		"""Register `identifier` and its `default`.
 		
 		Identifiers must consist of only lowercase letters and underscores.
 		
 		The type of `default` also specifies the type returned later and what can be assigned.
-		Supported types are `bool`, `str`, `int`, `float`, `bytes` and `bytearray`.
+		Supported types are `bool`, `int`, `float`, `str`, `bytes` and `bytearray`.
 		"""
 		if not isinstance(identifier, str):
 			raise TypeError("Identifiers must be strings.")
 		
 		if not not self.key_chars.issuperset(identifier):
-			raise ValueError("Identifiers must consist of only lowercase letters and underscores.")
+			raise ValueError("Identifier contains invalid characters.")
 			
 		if identifier in self._defaults:
 			raise ValueError("Identifier already registered.")
 		
 		if not isinstance(default, (int, float, str, bytes, bytearray)):
-			raise TypeError("Unsupported `default` type.")
+			raise TypeError("Unsupported type.")
 		
 		self._defaults[identifier] = bytes(default) if isinstance(default, bytearray) else default
 
