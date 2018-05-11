@@ -27,6 +27,7 @@ import sys
 import os
 import signal
 import collections
+import collections.abc
 import configparser
 from urllib import parse
 
@@ -48,45 +49,27 @@ _FileRecord = collections.namedtuple("_FileRecord", ("path", "container", "store
 class Configuration(collections.abc.MutableMapping):
 	"""Application’s configuration manager"""
 	
-	__slots__ = ("_file", "_defaults", "_parser", "_save_settings")
+	__slots__ = ("_file", "_defaults", "_parser")
 	
 	key_chars = frozenset("_abcdefghijklmnopqrstuvwxyz")
 	
-	def __init__(self, data_dir: str) -> None:
+	def __init__(self, file: str) -> None:
 		"""Initialize the configuration manager"""
-		self._file = os.sep.join((data_dir, "settings.ini"))
+		self._file = file
 		self._defaults = {}
 		self._parser = configparser.RawConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=(";",), strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
-		self._save_settings = True
+		self._parser.add_section("Mixtool")
 		
 		# Parse configuration file
-		if self._save_settings:
+		try:
+			config_stream = open(self._file, encoding="ascii")
+		except FileNotFoundError:
+			pass
+		else:
 			try:
-				config_stream = open(self._file, encoding="ascii")
-			except FileNotFoundError:
-				pass
-			except Exception as problem:
-				self._save_settings = False
-				messagebox("Mixtool is unable to access its configuration file.", "w", secondary="{0}:\n\"{1}\"\n\n".
-					format(problem.strerror if isinstance(problem, OSError) else "Undefinable problem", self._file) + "Your settings will not be retained.")
-			else:
-				try:
-					self.settings.read_file(config_stream)
-				except Exception as problem:
-					if isinstance(problem, UnicodeError):
-						problem_description = "Contains non-ASCII characters"
-					elif isinstance(problem, configparser.Error):
-						problem_description = "Contains incomprehensible structures"
-					else:
-						problem_description = "Undefinable problem"
-					
-					messagebox("Mixtool is unable to parse its configuration file.", "w", secondary="{0}:\n\"{1}\"\n\n".
-						format(problem_description, self._file) + "Your settings will be reset.")
-				
+				self._parser.read_file(config_stream)
+			finally:
 				config_stream.close()
-	
-	def __len__(self):
-		return len(self._defaults)
 	
 	def __getitem__(self, identifier: str):
 		"""Return value of `identifier` or the registered default on errors.
@@ -118,7 +101,7 @@ class Configuration(collections.abc.MutableMapping):
 				return default
 		else:
 			return default
-			
+	
 	def __setitem__(self, identifier: str, value) -> None:
 		"""Set `identifier` to `value`.
 		
@@ -143,14 +126,18 @@ class Configuration(collections.abc.MutableMapping):
 		
 		else:
 			raise TypeError("Not matching registered type.")
-		
+	
 	def __delitem__(self, identifier: str):
 		"""Unregister the setting."""
 		del self._defaults[identifier]
-		
-	def __iter__(self):
-		pass
 	
+	def __iter__(self):
+		"""Return an iterator over all registered identifiers."""
+		return iter(self._defaults)
+	
+	def __len__(self):
+		"""Return the number of registered settings."""
+		return len(self._defaults)
 	
 	def register(self, identifier: str, default) -> None:
 		"""Register a setting and its default.
@@ -163,7 +150,7 @@ class Configuration(collections.abc.MutableMapping):
 		if not isinstance(identifier, str):
 			raise TypeError("Identifiers must be strings.")
 		
-		if not not self.key_chars.issuperset(identifier):
+		if not self.key_chars.issuperset(identifier):
 			raise ValueError("Identifier contains invalid characters.")
 			
 		if identifier in self._defaults:
@@ -176,7 +163,9 @@ class Configuration(collections.abc.MutableMapping):
 	
 	def save(self) -> int:
 		"""Save the configuration."""
-
+		config_stream = open(self._file, "w", encoding="ascii")
+		self._parser.write(config_stream, True)
+		config_stream.close()
 
 
 # Main application controller
@@ -246,44 +235,31 @@ class Mixtool(Gtk.Application):
 		# Set location of configuration file
 		self.config_file = os.sep.join((self.data_dir, "settings.ini"))
 		
-		# Default settings, as saved in the configuration file
-		default_settings = {
-			"simplenames": "yes",
-			"insertlower": "yes",
-			"decrypt": "yes",
-			"backup": "no",
-			"lastdir": parse.quote(self.home_dir)
-		}
-		
-		# Initialize ConfigParser
-		self.settings = configparser.ConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=(";",), strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
-		self.settings.read_dict({"Mixtool": default_settings})
-		
-		# Parse configuration file
-		if self._save_settings:
-			try:
-				config_stream = open(self.config_file, encoding="ascii")
-			except FileNotFoundError:
-				pass
-			except Exception as problem:
-				self._save_settings = False
-				messagebox("Mixtool is unable to access its configuration file.", "w", secondary="{0}:\n\"{1}\"\n\n".
-					format(problem.strerror if isinstance(problem, OSError) else "Undefinable problem", self.config_file) + "Your settings will not be retained.")
-			else:
-				try:
-					self.settings.read_file(config_stream)
-				except Exception as problem:
-					if isinstance(problem, UnicodeError):
-						problem_description = "Contains non-ASCII characters"
-					elif isinstance(problem, configparser.Error):
-						problem_description = "Contains incomprehensible structures"
-					else:
-						problem_description = "Undefinable problem"
-					
-					messagebox("Mixtool is unable to parse its configuration file.", "w", secondary="{0}:\n\"{1}\"\n\n".
-						format(problem_description, self.config_file) + "Your settings will be reset.")
+		# Initialize configuration manager
+		try:
+			self.settings = Configuration(self.config_file)
+		except Exception as problem:
+			if self._save_settings:
+				if isinstance(problem, OSError):
+					problem_description = problem.strerror
+				if isinstance(problem, UnicodeError):
+					problem_description = "Contains non-ASCII characters"
+				elif isinstance(problem, configparser.Error):
+					problem_description = "Contains incomprehensible structures"
+				else:
+					problem_description = "Undefinable problem"
 				
-				config_stream.close()
+				messagebox("Mixtool is unable to read its configuration file.", "w", secondary="{0}:\n\"{1}\"\n\n".
+					format(problem_description, self.config_file) + "Your settings will be reset.")
+			
+			self._save_settings = False
+		
+		# Register default settings
+		self.settings.register("simplenames", True)
+		self.settings.register("insertlower", True)
+		self.settings.register("decrypt", True)
+		self.settings.register("backup", False)
+		self.settings.register("lastdir", self.home_dir)
 		
 		# Parse GUI file
 		gui_file = os.sep.join((os.path.dirname(os.path.realpath(__file__)), "gui.glade"))
@@ -346,7 +322,7 @@ class Mixtool(Gtk.Application):
 		encrypt_checkbox = self._gtk_builder.get_object("Properties.Encrypted")
 		checksum_checkbox = self._gtk_builder.get_object("Properties.Checksum")
 		
-		if mixtype < 1 or self.settings.getboolean("Mixtool", "decrypt"):
+		if mixtype < 1 or self.settings["decrypt"]:
 			encrypt_checkbox.set_sensitive(False)
 			encrypt_checkbox.set_active(False)
 		else:
@@ -369,12 +345,12 @@ class Mixtool(Gtk.Application):
 			(self._gtk_builder.get_object("Settings.SimpleNames"), "simplenames"),
 			(self._gtk_builder.get_object("Settings.InsertLower"), "insertlower"),
 			(self._gtk_builder.get_object("Settings.Decrypt"), "decrypt"),
-			(self._gtk_builder.get_object("Settings.Backup"), "backup"),
+			(self._gtk_builder.get_object("Settings.Backup"), "backup")
 		]
 		
 		# Push current settings to dialog
 		for checkbox, setting in checkboxes:
-			checkbox.set_active(self.settings.getboolean("Mixtool", setting))
+			checkbox.set_active(self.settings[setting])
 		
 		# Show the dialog
 		self._gtk_builder.get_object("SettingsDialog.OK").grab_focus()
@@ -384,11 +360,11 @@ class Mixtool(Gtk.Application):
 		if response == Gtk.ResponseType.OK:
 			# Save new settings
 			for checkbox, setting in checkboxes:
-				self.settings["Mixtool"][setting] = "yes" if checkbox.get_active() else "no"
+				self.settings[setting] = checkbox.get_active()
 			self.save_settings()
 			
 			# Apply decrypt setting
-			if self.settings.getboolean("Mixtool", "decrypt"):
+			if self.settings["decrypt"]:
 				for file in self._files:
 					file.container.is_encrypted = False
 		
@@ -464,7 +440,7 @@ class Mixtool(Gtk.Application):
 	def invoke_open_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a file chooser dialog and open selected files."""
 		window = widget.get_toplevel()
-		lastdir = parse.unquote(self.settings["Mixtool"]["lastdir"])
+		lastdir = self.settings["lastdir"]
 		dialog = Gtk.FileChooserNative.new("Open MIX file", window, Gtk.FileChooserAction.OPEN, "_Open", "_Cancel")
 		dialog.set_select_multiple(True)
 		dialog.add_filter(self.file_filter)
@@ -477,7 +453,7 @@ class Mixtool(Gtk.Application):
 			# Save last used directory
 			newdir = dialog.get_current_folder()
 			if newdir != lastdir:
-				self.settings["Mixtool"]["lastdir"] = parse.quote(newdir)
+				self.settings["lastdir"] = newdir
 				self.save_settings()
 			
 			# Open the files
@@ -631,14 +607,12 @@ class Mixtool(Gtk.Application):
 		"""Save configuration to file."""
 		if self._save_settings:
 			try:
-				config_stream = open(self.config_file, "w", encoding="ascii")
+				self.settings.save()
 			except Exception as problem:
 				self._save_settings = False
 				messagebox("Mixtool is unable to save its configuration file.", "w", self.get_active_window(), secondary="{0}:\n\"{1}\"\n\n".
 					format(problem.strerror if isinstance(problem, OSError) else "Undefinable problem", self.config_file) + "Your settings will not be retained.")
 			else:
-				self.settings.write(config_stream, True)
-				config_stream.close()
 				print("Saved configuration file.", file=sys.stderr)
 
 
