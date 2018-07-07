@@ -3,6 +3,7 @@ trap false INT
 appdir=$(dirname "$(realpath "$0")")
 export LC_ALL=en_US.UTF-8
 export G_SLICE=debug-blocks
+#export G_RESOURCE_OVERLAYS=/com/bachsau/mixtool=$appdir/src/res
 printf '\n[%u] Launching Mixtool... %s\n' $$ "$(date '+%F %T %Z')" >>"$appdir/output.log"
 python3 -BEsu "$appdir/src/__main__.py" "$@" >>"$appdir/output.log" 2>&1
 status=$?

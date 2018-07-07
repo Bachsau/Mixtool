@@ -1,12 +1,12 @@
-# Global Configuration
+# Global configuration
 encoding: UTF-8
 timezone: Etc/UTC
 theme: null
 
-# Build Command Options
+# Build Command options
 strict_front_matter: true
 
-# Liquid Options
+# Liquid options
 error_mode: strict
 strict_variables: true
 strict_filters: true
