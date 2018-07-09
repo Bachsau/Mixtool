@@ -47,17 +47,17 @@ _FileRecord = collections.namedtuple("_FileRecord", ("path", "container", "store
 # Settings controller
 # https://docs.python.org/3/library/collections.abc.html
 class Configuration(collections.abc.MutableMapping):
-	"""Application’s configuration manager"""
+	"""INI file based configuration manager"""
 	
 	__slots__ = ("_file", "_defaults", "_parser")
 	
-	key_chars = frozenset("_abcdefghijklmnopqrstuvwxyz")
+	key_chars = frozenset("0123456789_abcdefghijklmnopqrstuvwxyz")
 	
 	def __init__(self, file: str) -> None:
-		"""Initialize the configuration manager"""
+		"""Initialize the configuration manager."""
 		self._file = file
 		self._defaults = {}
-		self._parser = configparser.RawConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=(";",), strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
+		self._parser = configparser.RawConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=None, strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
 		self._parser.add_section("Mixtool")
 		
 		# Parse configuration file
@@ -76,24 +76,25 @@ class Configuration(collections.abc.MutableMapping):
 		
 		`KeyError` is raised if there is no such identifier.
 		"""
-		default = self._defaults[identifier]
 		section = "Mixtool"
+		default = self._defaults[identifier]
+		dtype = type(default)
 		
 		if self._parser.has_option(section, identifier):
 			try:
-				if type(default) is bool:
+				if dtype is bool:
 					return self._parser.getboolean(section, identifier)
 				
-				if isinstance(default, int):
+				if dtype is int:
 					return self._parser.getint(section, identifier)
 				
-				if isinstance(default, float):
+				if dtype is float:
 					return self._parser.getfloat(section, identifier)
 				
-				if isinstance(default, str):
+				if dtype is str:
 					return parse.unquote(self._parser.get(section, identifier), errors="strict")
 				
-				if isinstance(default, bytes):
+				if dtype is bytes:
 					return parse.unquote_to_bytes(self._parser.get(section, identifier))
 			
 			except ValueError:
@@ -108,20 +109,20 @@ class Configuration(collections.abc.MutableMapping):
 		`KeyError` is raised if there is no such identifier.
 		`TypeError` is raised if `value` does not match the registered type.
 		"""
-		default = self._defaults[identifier]
 		section = "Mixtool"
+		dtype = type(self._defaults[identifier])
 		
-		if type(default) is bool and type(value) is bool:
+		if dtype is bool and type(value) is bool:
 			self._parser.set(section, identifier, "yes" if value else "no")
 		
-		elif isinstance(default, int) and isinstance(value, int)\
-		  or isinstance(default, float) and isinstance(value, float):
+		elif dtype is int and type(value) is int\
+		  or dtype is float and type(value) is float:
 			self._parser.set(section, identifier, str(value))
 		
-		elif isinstance(default, str) and isinstance(value, str):
+		elif dtype is str and type(value) is str:
 			self._parser.set(section, identifier, parse.quote(value))
 		
-		elif isinstance(default, bytes) and isinstance(value, (bytes, bytearray)):
+		elif dtype is bytes and type(value) is bytes:
 			self._parser.set(section, identifier, parse.quote_from_bytes(value))
 		
 		else:
@@ -142,12 +143,12 @@ class Configuration(collections.abc.MutableMapping):
 	def register(self, identifier: str, default) -> None:
 		"""Register a setting and its default.
 		
-		Identifiers must consist of only lowercase letters and underscores.
+		Identifiers must consist of only lowercase letters, digits and underscores.
 		
 		The type of `default` also specifies the type returned later and what can be assigned.
-		Supported types are `bool`, `int`, `float`, `str`, `bytes` and `bytearray`.
+		Supported types are `bool`, `int`, `float`, `str` and `bytes`.
 		"""
-		if not isinstance(identifier, str):
+		if type(identifier) is not str:
 			raise TypeError("Identifiers must be strings.")
 		
 		if not self.key_chars.issuperset(identifier):
@@ -156,10 +157,17 @@ class Configuration(collections.abc.MutableMapping):
 		if identifier in self._defaults:
 			raise ValueError("Identifier already registered.")
 		
-		if not isinstance(default, (int, float, str, bytes, bytearray)):
+		if type(default) not in (bool, int, float, str, bytes):
 			raise TypeError("Unsupported type.")
 		
-		self._defaults[identifier] = bytes(default) if isinstance(default, bytearray) else default
+		self._defaults[identifier] = default
+	
+	def get_default(self, identifier: str):
+		"""Return default value of `identifier`.
+		
+		`KeyError` is raised if there is no such identifier.
+		"""
+		return self._defaults[identifier]
 	
 	def save(self) -> int:
 		"""Save the configuration."""
@@ -178,9 +186,9 @@ class Mixtool(Gtk.Application):
 	file_filter.add_pattern("*.mix" if sys.platform.startswith(("win", "darwin")) else "*.[Mm][Ii][Xx]")
 	
 	# Object initializer
-	def __init__(self) -> None:
+	def __init__(self, application_id: str, flags: Gio.ApplicationFlags) -> None:
 		"""Initialize the Mixtool instance"""
-		Gtk.Application.__init__(self, application_id="com.bachsau.mixtool", flags=Gio.ApplicationFlags.HANDLES_OPEN)
+		Gtk.Application.__init__(self, application_id=application_id, flags=flags)
 		
 		# Initialize instance attributes
 		self._save_settings = True
@@ -212,15 +220,15 @@ class Mixtool(Gtk.Application):
 		
 		elif sys.platform.startswith("darwin"):
 			# Apple macOS
-			self.data_dir = self.home_dir + "/Library/Application Support/Bachsau/Mixtool"
+			self.data_dir = self.home_dir + "/Library/Application Support/com.bachsau.mixtool"
 		
 		else:
 			# Linux and others
 			os_appdata = os.environ.get("XDG_DATA_HOME")
 			if os_appdata is None:
-				self.data_dir = self.home_dir + "/.local/share/bachsau/mixtool"
+				self.data_dir = self.home_dir + "/.local/share/mixtool"
 			else:
-				self.data_dir = os.path.realpath(os_appdata) + "/bachsau/mixtool"
+				self.data_dir = os.path.realpath(os_appdata) + "/mixtool"
 			del os_appdata
 		
 		# Create non-existent directories
@@ -761,7 +769,7 @@ def main() -> int:
 	# Initialize Application
 	GLib.set_prgname("mixtool")
 	GLib.set_application_name("Mixtool")
-	application = Mixtool()
+	application = Mixtool("com.bachsau.mixtool", Gio.ApplicationFlags.HANDLES_OPEN)
 	
 	# Start GUI
 	# FIXME: All exceptions raised from inside are caught by GTK!
