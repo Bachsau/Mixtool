@@ -49,27 +49,15 @@ _FileRecord = collections.namedtuple("_FileRecord", ("path", "container", "store
 class Configuration(collections.abc.MutableMapping):
 	"""INI file based configuration manager"""
 	
-	__slots__ = ("_file", "_defaults", "_parser")
+	__slots__ = ("_defaults", "_parser")
 	
 	key_chars = frozenset("0123456789_abcdefghijklmnopqrstuvwxyz")
 	
-	def __init__(self, file: str) -> None:
+	def __init__(self) -> None:
 		"""Initialize the configuration manager."""
-		self._file = file
 		self._defaults = {}
 		self._parser = configparser.RawConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=None, strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
 		self._parser.add_section("Mixtool")
-		
-		# Parse configuration file
-		try:
-			config_stream = open(self._file, encoding="ascii")
-		except FileNotFoundError:
-			pass
-		else:
-			try:
-				self._parser.read_file(config_stream)
-			finally:
-				config_stream.close()
 	
 	def __getitem__(self, identifier: str):
 		"""Return value of `identifier` or the registered default on errors.
@@ -128,7 +116,7 @@ class Configuration(collections.abc.MutableMapping):
 		else:
 			raise TypeError("Not matching registered type.")
 	
-	def __delitem__(self, identifier: str):
+	def __delitem__(self, identifier: str) -> None:
 		"""Unregister the setting."""
 		del self._defaults[identifier]
 	
@@ -136,7 +124,7 @@ class Configuration(collections.abc.MutableMapping):
 		"""Return an iterator over all registered identifiers."""
 		return iter(self._defaults)
 	
-	def __len__(self):
+	def __len__(self) -> int:
 		"""Return the number of registered settings."""
 		return len(self._defaults)
 	
@@ -169,11 +157,15 @@ class Configuration(collections.abc.MutableMapping):
 		"""
 		return self._defaults[identifier]
 	
-	def save(self) -> int:
+	def read_file(self, file: str) -> None:
+		"""Read and parse a configuration file."""
+		with open(file, encoding="ascii") as config_stream:
+			self._parser.read_file(config_stream)
+	
+	def write_file(self, file: str) -> None:
 		"""Save the configuration."""
-		config_stream = open(self._file, "w", encoding="ascii")
-		self._parser.write(config_stream, True)
-		config_stream.close()
+		with open(file, "w", encoding="ascii") as config_stream:
+			self._parser.write(config_stream, True)
 
 
 # Main application controller
@@ -191,7 +183,7 @@ class Mixtool(Gtk.Application):
 		Gtk.Application.__init__(self, application_id=application_id, flags=flags)
 		
 		# Initialize instance attributes
-		self._save_settings = True
+		self._settings_failed = False
 		self._gtk_builder = None
 		self._files = []
 		self._current_file = None
@@ -236,7 +228,7 @@ class Mixtool(Gtk.Application):
 			if not os.path.isdir(self.data_dir):
 				os.makedirs(self.data_dir)
 		except Exception as problem:
-			self._save_settings = False
+			self._settings_failed = True
 			messagebox("Mixtool is unable to create its data directory.", "w", secondary="{0}:\n\"{1}\"\n\n".
 				format(problem.strerror if isinstance(problem, OSError) else "Undefinable problem", self.data_dir) + "Your settings will not be retained.")
 		
@@ -244,13 +236,16 @@ class Mixtool(Gtk.Application):
 		self.config_file = os.sep.join((self.data_dir, "settings.ini"))
 		
 		# Initialize configuration manager
+		self.settings = Configuration()
 		try:
-			self.settings = Configuration(self.config_file)
+			self.settings.read_file(self.config_file)
+		except FileNotFoundError:
+			pass
 		except Exception as problem:
-			if self._save_settings:
+			if not self._settings_failed:
 				if isinstance(problem, OSError):
 					problem_description = problem.strerror
-				if isinstance(problem, UnicodeError):
+				elif isinstance(problem, UnicodeError):
 					problem_description = "Contains non-ASCII characters"
 				elif isinstance(problem, configparser.Error):
 					problem_description = "Contains incomprehensible structures"
@@ -259,8 +254,6 @@ class Mixtool(Gtk.Application):
 				
 				messagebox("Mixtool is unable to read its configuration file.", "w", secondary="{0}:\n\"{1}\"\n\n".
 					format(problem_description, self.config_file) + "Your settings will be reset.")
-			
-			self._save_settings = False
 		
 		# Register default settings
 		self.settings.register("simplenames", True)
@@ -613,11 +606,11 @@ class Mixtool(Gtk.Application):
 	
 	def save_settings(self) -> None:
 		"""Save configuration to file."""
-		if self._save_settings:
+		if not self._settings_failed:
 			try:
-				self.settings.save()
+				self.settings.write_file(self.config_file)
 			except Exception as problem:
-				self._save_settings = False
+				self._settings_failed = True
 				messagebox("Mixtool is unable to save its configuration file.", "w", self.get_active_window(), secondary="{0}:\n\"{1}\"\n\n".
 					format(problem.strerror if isinstance(problem, OSError) else "Undefinable problem", self.config_file) + "Your settings will not be retained.")
 			else:
