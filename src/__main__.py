@@ -41,11 +41,15 @@ from gi.repository import GLib, GObject, Gio, Pango, Gdk, Gtk
 # Local modules
 import mixlib
 
-# FileRecord data type
+# The data type used to keep track of open files
 _FileRecord = collections.namedtuple("_FileRecord", ("path", "container", "store", "button"))
 
-# Settings controller
-# https://docs.python.org/3/library/collections.abc.html
+# A simple abstraction for Python's ConfigParser.
+# It features implicit type conversion and defaults through prior
+# registration of settings. It can used to save and read settings
+# without bothering about the specifics of ConfigParser or the INI files
+# themselves. It could also serve as a starting point to abstract
+# platform-specific saving methods through its general API.
 class Configuration(collections.abc.MutableMapping):
 	"""INI file based configuration manager"""
 	
@@ -56,15 +60,24 @@ class Configuration(collections.abc.MutableMapping):
 	def __init__(self) -> None:
 		"""Initialize the configuration manager."""
 		self._defaults = {}
-		self._parser = configparser.RawConfigParser(None, dict, False, delimiters=("=",), comment_prefixes=(";",), inline_comment_prefixes=None, strict=True, empty_lines_in_values=False, default_section=None, interpolation=None)
-		self._parser.add_section("Mixtool")
+		self._parser = configparser.RawConfigParser(
+			None, dict, False,
+			delimiters=("=",),
+			comment_prefixes=(";",),
+			inline_comment_prefixes=None,
+			strict=True,
+			empty_lines_in_values=False,
+			default_section=None,
+			interpolation=None
+		)
+		self._parser.add_section("Settings")
 	
 	def __getitem__(self, identifier: str):
 		"""Return value of `identifier` or the registered default on errors.
 		
 		`KeyError` is raised if there is no such identifier.
 		"""
-		section = "Mixtool"
+		section = "Settings"
 		default = self._defaults[identifier]
 		dtype = type(default)
 		
@@ -94,10 +107,10 @@ class Configuration(collections.abc.MutableMapping):
 	def __setitem__(self, identifier: str, value) -> None:
 		"""Set `identifier` to `value`.
 		
-		`KeyError` is raised if there is no such identifier.
+		`KeyError` is raised if `identifier` was not registered.
 		`TypeError` is raised if `value` does not match the registered type.
 		"""
-		section = "Mixtool"
+		section = "Settings"
 		dtype = type(self._defaults[identifier])
 		
 		if dtype is bool and type(value) is bool:
@@ -117,23 +130,32 @@ class Configuration(collections.abc.MutableMapping):
 			raise TypeError("Not matching registered type.")
 	
 	def __delitem__(self, identifier: str) -> None:
-		"""Unregister the setting."""
-		del self._defaults[identifier]
+		"""Remove customized value of `identifier`.
+		
+		Nothing is done if the value was not customized,
+		but `KeyError` is raised if `identifier` was not registered."""
+		if identifier in self._defaults:
+			self._parser.remove_option("Settings", identifier)
+		else:
+			raise KeyError(identifier)
 	
 	def __iter__(self):
 		"""Return an iterator over all registered identifiers."""
 		return iter(self._defaults)
 	
 	def __len__(self) -> int:
-		"""Return the number of registered settings."""
+		"""Return the number of registered identifiers."""
 		return len(self._defaults)
 	
 	def register(self, identifier: str, default) -> None:
-		"""Register a setting and its default.
+		"""Register a setting and its default value.
 		
-		Identifiers must consist of only lowercase letters, digits and underscores.
+		Identifiers must consist of only lowercase letters,
+		digits and underscores.
 		
-		The type of `default` also specifies the type returned later and what can be assigned.
+		The type of `default` also specifies the type returned later
+		and what can be assigned.
+		
 		Supported types are `bool`, `int`, `float`, `str` and `bytes`.
 		"""
 		if type(identifier) is not str:
@@ -151,7 +173,7 @@ class Configuration(collections.abc.MutableMapping):
 		self._defaults[identifier] = default
 	
 	def get_default(self, identifier: str):
-		"""Return default value of `identifier`.
+		"""Return the default value of `identifier`.
 		
 		`KeyError` is raised if there is no such identifier.
 		"""
