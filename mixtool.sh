@@ -12,7 +12,7 @@ find_path() {
 	fullpath=$(echo $1 |grep /)
 	if [ -z "$fullpath" ]; then
 		oIFS=$IFS
-		IFS=:
+		IFS=':'
 		for path in $PATH; do
 			if [ -x "$path/$1" ]; then
 				if [ -z "$path" ]; then
@@ -35,20 +35,24 @@ find_path() {
 }
 
 trap false INT
-appdir=$(find_path "$0")
 export LC_ALL=en_US.UTF-8
 export G_SLICE=debug-blocks
 export GTK_THEME=Adwaita
-#export G_RESOURCE_OVERLAYS=/com/bachsau/mixtool=$appdir/src/res
-printf '\n[%u] Launching Mixtool... %s\n' $$ "$(date '+%F %T %Z')" >>"$appdir/output.log"
-python3 -BEsuWd "$appdir/src/__main__.py" "$@" >>"$appdir/output.log" 2>&1
+#export G_RESOURCE_OVERLAYS=/com/bachsau/mixtool=res
+appdir=$(find_path "$0")
+cd "$appdir"
+mkdir -p 'logs'
+olog='logs/output.log'
+elog=$(date '+logs/errors_%y%m%d-%H%M%S.log')
+date '+Launching Mixtool... %F %T %Z%n' >"$elog"
+python3 -BEsuWd 'src/__main__.py' "$@" >>"$olog" 2>>"$elog"
 status=$?
-printf '[%u] Mixtool has quit with EXIT CODE %u.\n\n' $$ $status >>"$appdir/output.log"
+printf '\nMixtool has quit with EXIT CODE %u.\n\n' $status >>"$elog"
 unset LC_ALL G_SLICE GTK_THEME
 if [ $status -ne 0 ]; then
 	if [ -n "$(command -v xdg-open)" ]; then
-		exec xdg-open "$appdir/output.log"
+		exec xdg-open "$elog"
 	elif [ -n "$(command -v open)" ]; then
-		exec open "$appdir/output.log"
+		exec open "$elog"
 	fi
 fi
