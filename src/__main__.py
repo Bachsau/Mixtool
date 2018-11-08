@@ -300,7 +300,7 @@ class Mixtool(Gtk.Application):
 		self.settings.register("deletion_warning", True)
 		
 		# Parse GUI file
-		gui_file = os.sep.join((os.path.dirname(os.path.realpath(__file__)), "gui.glade"))
+		gui_file = os.sep.join(("res", "main.glade"))
 		self._builder = Gtk.Builder.new_from_file(gui_file)
 		
 		# Adjustments
@@ -802,6 +802,8 @@ def main() -> int:
 	# FIXME: Remove in final version
 	print("Mixtool is running on Python {0[0]}.{0[1]} using PyGObject {1[0]}.{1[1]} and GTK+ {2[0]}.{2[1]}.".
 		format(sys.version_info, gi.version_info, (Gtk.get_major_version(), Gtk.get_minor_version())), file=sys.stderr)
+	
+	os.chdir(os.path.dirname(os.path.realpath(__file__)))
 	
 	# Initialize Application
 	GLib.set_prgname("mixtool")
