@@ -15,4 +15,4 @@ __pycache__/
 /docs/_site/
 
 # Log files
-*.log
+/logs/
