@@ -25,28 +25,29 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
   <!-- interface-name Mixtool -->
   <!-- interface-description An editor for Westwood Studios' MIX files -->
   <!-- interface-copyright 2015-2018 Sven Heinemann (Bachsau) -->
-  <object class="GtkListStore" id="DummyStore">
+  <object class="GtkListStore" id="ContentStore">
     <columns>
       <!-- column-name Name -->
       <column type="gchararray"/>
-      <!-- column-name Offset -->
-      <column type="guint"/>
       <!-- column-name Size -->
-      <column type="guint"/>
+      <column type="gulong"/>
+      <!-- column-name Offset -->
+      <column type="gulong"/>
       <!-- column-name Overhead -->
-      <column type="guint"/>
+      <column type="gulong"/>
     </columns>
   </object>
   <object class="GtkApplicationWindow" id="MainWindow">
+    <property name="width_request">267</property>
     <property name="height_request">200</property>
     <property name="can_focus">False</property>
-    <property name="title">Mixtool (Alpha)</property>
+    <property name="title">Mixtool</property>
     <property name="role">main</property>
     <property name="window_position">center</property>
     <property name="default_height">500</property>
-    <property name="icon">icon.png</property>
+    <property name="icon">res/icons/mixtool.png</property>
     <property name="show_menubar">False</property>
-    <signal name="delete-event" handler="close_window" swapped="no"/>
+    <signal name="delete-event" handler="on_quit_clicked" swapped="no"/>
     <child>
       <placeholder/>
     </child>
@@ -65,9 +66,10 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="label">New</property>
-                <property name="stock_id">gtk-new</property>
-                <signal name="clicked" handler="invoke_new_dialog" swapped="no"/>
+                <property name="label">_New</property>
+                <property name="use_underline">True</property>
+                <property name="icon_name">document-new</property>
+                <signal name="clicked" handler="on_new_clicked" swapped="no"/>
                 <accelerator key="n" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
@@ -79,10 +81,27 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               <object class="GtkToolButton" id="Toolbar.Open">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label">Open</property>
-                <property name="stock_id">gtk-open</property>
-                <signal name="clicked" handler="invoke_open_dialog" swapped="no"/>
+                <property name="label">_Open</property>
+                <property name="use_underline">True</property>
+                <property name="icon_name">document-open</property>
+                <signal name="clicked" handler="on_open_clicked" swapped="no"/>
                 <accelerator key="o" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToolButton" id="Toolbar.Properties">
+                <property name="visible">True</property>
+                <property name="sensitive">False</property>
+                <property name="can_focus">False</property>
+                <property name="tooltip_text">View or change the MIX file's properties</property>
+                <property name="label">_Properties</property>
+                <property name="use_underline">True</property>
+                <property name="icon_name">document-properties</property>
+                <signal name="clicked" handler="on_properties_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -94,10 +113,11 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="tooltip_text">Optimize MIX for distribution</property>
-                <property name="label">Optimize</property>
-                <property name="stock_id">gtk-convert</property>
-                <signal name="clicked" handler="optimize_current_file" swapped="no"/>
+                <property name="tooltip_text">Optimize MIX for distribution by removing all overhead</property>
+                <property name="label">O_ptimize</property>
+                <property name="use_underline">True</property>
+                <property name="icon_name">gtk-convert</property>
+                <signal name="clicked" handler="on_optimize_clicked" swapped="no"/>
                 <accelerator key="s" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
@@ -120,9 +140,11 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="label">Insert</property>
-                <property name="stock_id">gtk-add</property>
-                <signal name="clicked" handler="invoke_insert_dialog" swapped="no"/>
+                <property name="tooltip_text" translatable="yes">Add files to the MIX by using a file chooser</property>
+                <property name="label">_Add</property>
+                <property name="use_underline">True</property>
+                <property name="icon_name">list-add</property>
+                <signal name="clicked" handler="on_insert_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -134,9 +156,11 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="label">Delete</property>
-                <property name="stock_id">gtk-remove</property>
-                <signal name="clicked" handler="delete_selected" swapped="no"/>
+                <property name="tooltip_text">Permanently remove selected files from the MIX</property>
+                <property name="label">_Remove</property>
+                <property name="use_underline">True</property>
+                <property name="icon_name">list-remove</property>
+                <signal name="clicked" handler="on_delete_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -148,24 +172,10 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="label">Extract</property>
-                <property name="stock_id">gtk-revert-to-saved</property>
-                <signal name="clicked" handler="invoke_extract_dialog" swapped="no"/>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="homogeneous">True</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkToolButton" id="Toolbar.Search">
-                <property name="visible">True</property>
-                <property name="sensitive">False</property>
-                <property name="can_focus">False</property>
-                <property name="label">Search</property>
-                <property name="stock_id">gtk-find</property>
-                <signal name="clicked" handler="invoke_search_dialog" swapped="no"/>
-                <accelerator key="f" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
+                <property name="label">_Extract</property>
+                <property name="use_underline">True</property>
+                <property name="icon_name">extract-archive</property>
+                <signal name="clicked" handler="on_extract_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -183,26 +193,13 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="Toolbar.Properties">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label">Properties</property>
-                <property name="stock_id">gtk-properties</property>
-                <signal name="clicked" handler="invoke_properties_dialog" swapped="no"/>
-                <accelerator key="p" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="homogeneous">True</property>
-              </packing>
-            </child>
-            <child>
               <object class="GtkToolButton" id="Toolbar.Settings">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label">Settings</property>
-                <property name="stock_id">gtk-preferences</property>
-                <signal name="clicked" handler="invoke_settings_dialog" swapped="no"/>
+                <property name="label">_Settings</property>
+                <property name="use_underline">True</property>
+                <property name="icon_name">preferences-other</property>
+                <signal name="clicked" handler="on_settings_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -213,9 +210,10 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               <object class="GtkToolButton" id="Toolbar.About">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label">About</property>
-                <property name="stock_id">gtk-info</property>
-                <signal name="clicked" handler="invoke_about_dialog" swapped="no"/>
+                <property name="label">A_bout</property>
+                <property name="use_underline">True</property>
+                <property name="icon_name">dialog-information</property>
+                <signal name="clicked" handler="on_about_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -225,9 +223,10 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <child>
               <object class="GtkToolButton" id="Toolbar.Close">
                 <property name="can_focus">False</property>
-                <property name="label">Close</property>
-                <property name="stock_id">gtk-close</property>
-                <signal name="clicked" handler="close_current_file" swapped="no"/>
+                <property name="label">_Close</property>
+                <property name="use_underline">True</property>
+                <property name="icon_name">window-close</property>
+                <signal name="clicked" handler="on_close_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -238,9 +237,10 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               <object class="GtkToolButton" id="Toolbar.Quit">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label">Quit</property>
-                <property name="stock_id">gtk-quit</property>
-                <signal name="clicked" handler="close_window" swapped="no"/>
+                <property name="label">_Quit</property>
+                <property name="use_underline">True</property>
+                <property name="icon_name">application-exit</property>
+                <signal name="clicked" handler="on_quit_clicked" swapped="no"/>
                 <accelerator key="q" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
@@ -283,15 +283,13 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="hscroll_policy">natural</property>
-                <property name="vscroll_policy">natural</property>
-                <property name="model">DummyStore</property>
+                <property name="model">ContentStore</property>
                 <property name="search_column">0</property>
                 <property name="fixed_height_mode">True</property>
                 <property name="show_expanders">False</property>
                 <property name="rubber_banding">True</property>
                 <property name="enable_grid_lines">vertical</property>
-                <signal name="row-activated" handler="invoke_extract_dialog" swapped="no"/>
+                <signal name="row-activated" handler="on_extract_clicked" swapped="no"/>
                 <child internal-child="selection">
                   <object class="GtkTreeSelection" id="ContentSelector">
                     <property name="mode">multiple</property>
@@ -304,6 +302,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                     <property name="fixed_width">300</property>
                     <property name="min_width">30</property>
                     <property name="title">Name</property>
+                    <property name="expand">True</property>
                     <property name="clickable">True</property>
                     <property name="sort_column_id">0</property>
                     <child>
@@ -317,17 +316,17 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                   </object>
                 </child>
                 <child>
-                  <object class="GtkTreeViewColumn" id="ContentList.Offset">
+                  <object class="GtkTreeViewColumn" id="ContentList.Size">
                     <property name="resizable">True</property>
                     <property name="sizing">fixed</property>
                     <property name="fixed_width">150</property>
                     <property name="min_width">30</property>
-                    <property name="title">Offset</property>
+                    <property name="title">Size</property>
                     <property name="clickable">True</property>
                     <property name="alignment">1</property>
                     <property name="sort_column_id">1</property>
                     <child>
-                      <object class="GtkCellRendererText" id="ContentList.Offset.Renderer">
+                      <object class="GtkCellRendererText" id="ContentList.Size.Renderer">
                         <property name="xalign">1</property>
                       </object>
                       <attributes>
@@ -337,17 +336,17 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                   </object>
                 </child>
                 <child>
-                  <object class="GtkTreeViewColumn" id="ContentList.Size">
+                  <object class="GtkTreeViewColumn" id="ContentList.Offset">
                     <property name="resizable">True</property>
                     <property name="sizing">fixed</property>
                     <property name="fixed_width">150</property>
                     <property name="min_width">30</property>
-                    <property name="title">Size</property>
+                    <property name="title">Offset</property>
                     <property name="clickable">True</property>
                     <property name="alignment">1</property>
                     <property name="sort_column_id">2</property>
                     <child>
-                      <object class="GtkCellRendererText" id="ContentList.Size.Renderer">
+                      <object class="GtkCellRendererText" id="ContentList.Offset.Renderer">
                         <property name="xalign">1</property>
                       </object>
                       <attributes>
@@ -371,16 +370,10 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                         <property name="xalign">1</property>
                       </object>
                       <attributes>
+                        <attribute name="visible">2</attribute>
                         <attribute name="text">3</attribute>
                       </attributes>
                     </child>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkTreeViewColumn" id="ContentList.Spacer">
-                    <property name="sizing">fixed</property>
-                    <property name="fixed_width">0</property>
-                    <property name="expand">True</property>
                   </object>
                 </child>
               </object>
@@ -400,7 +393,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <property name="margin_right">10</property>
             <property name="margin_top">6</property>
             <property name="margin_bottom">6</property>
-            <property name="label">This is alpha software. Use at your own risk!</property>
+            <property name="label">Ready</property>
             <property name="ellipsize">end</property>
             <property name="single_line_mode">True</property>
             <property name="track_visited_links">False</property>
@@ -418,13 +411,14 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
   </object>
   <object class="GtkAboutDialog" id="AboutDialog">
     <property name="can_focus">False</property>
+    <property name="border_width">5</property>
     <property name="title">About Mixtool</property>
     <property name="resizable">False</property>
     <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
-    <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>
     <property name="skip_taskbar_hint">True</property>
+    <property name="skip_pager_hint">True</property>
     <property name="transient_for">MainWindow</property>
     <property name="program_name">Mixtool</property>
     <property name="version">Alpha 0.2</property>
@@ -432,7 +426,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="comments">An editor for Westwood Studios’ MIX files</property>
     <property name="website">http://go.bachsau.com/mixtool</property>
     <property name="website_label">Visit Mixtool website</property>
-    <property name="logo">icon.png</property>
+    <property name="logo">res/icons/mixtool.png</property>
     <property name="license_type">gpl-3-0</property>
     <child>
       <placeholder/>
@@ -442,26 +436,27 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <property name="orientation">vertical</property>
-        <property name="spacing">2</property>
+        <property name="spacing">5</property>
         <child internal-child="action_area">
           <object class="GtkButtonBox">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="layout_style">end</property>
             <child>
               <object class="GtkButton">
                 <property name="label">_Donate</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="can_default">True</property>
                 <property name="receives_default">True</property>
                 <property name="use_underline">True</property>
-                <signal name="clicked" handler="open_donation_website" swapped="no"/>
+                <signal name="clicked" handler="on_donate_clicked" swapped="no"/>
+                <style>
+                  <class name="suggested-action"/>
+                </style>
               </object>
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">2</property>
+                <property name="position">0</property>
               </packing>
             </child>
           </object>
@@ -474,8 +469,207 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
       </object>
     </child>
   </object>
+  <object class="GtkDialog" id="AlphaWarning">
+    <property name="can_focus">False</property>
+    <property name="border_width">5</property>
+    <property name="title" translatable="yes">Alpha version</property>
+    <property name="resizable">False</property>
+    <property name="window_position">center-on-parent</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="type_hint">dialog</property>
+    <property name="skip_taskbar_hint">True</property>
+    <property name="skip_pager_hint">True</property>
+    <property name="transient_for">MainWindow</property>
+    <child>
+      <placeholder/>
+    </child>
+    <child internal-child="vbox">
+      <object class="GtkBox">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">5</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <child>
+              <object class="GtkButton" id="AlphaWarning.OK">
+                <property name="label">_OK</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="has_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_underline">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkImage">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="icon_name">dialog-warning</property>
+            <property name="icon_size">6</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label">You are testing software in alpha development state. It might destroy any files you open with it. Its behaviour and user interface are subject to massive changes. Use at your own risk!</property>
+            <property name="use_markup">True</property>
+            <property name="wrap">True</property>
+            <property name="max_width_chars">50</property>
+            <property name="xalign">0</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkCheckButton" id="AlphaWarning.Disable">
+            <property name="label">Do not display this warning again</property>
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">False</property>
+            <property name="draw_indicator">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">2</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+    <action-widgets>
+      <action-widget response="-5">AlphaWarning.OK</action-widget>
+    </action-widgets>
+  </object>
+  <object class="GtkDialog" id="DeletionWarning">
+    <property name="can_focus">False</property>
+    <property name="border_width">5</property>
+    <property name="title" translatable="yes">Delete files…</property>
+    <property name="resizable">False</property>
+    <property name="window_position">center-on-parent</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="type_hint">dialog</property>
+    <property name="skip_taskbar_hint">True</property>
+    <property name="skip_pager_hint">True</property>
+    <property name="transient_for">MainWindow</property>
+    <child>
+      <placeholder/>
+    </child>
+    <child internal-child="vbox">
+      <object class="GtkBox">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">5</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <child>
+              <object class="GtkButton" id="DeletionWarning.No">
+                <property name="label">_No</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_underline">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="DeletionWarning.Yes">
+                <property name="label">_Yes</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="has_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_underline">True</property>
+                <style>
+                  <class name="destructive-action"/>
+                </style>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label">You are about to permanently delete the selected files and their data from the MIX file. The action is carried out immediately and can not be revised.
+
+Mixtool can be configured to automatically create backups of the original MIX files by its settings dialog.
+
+Do you want to continue?</property>
+            <property name="wrap">True</property>
+            <property name="max_width_chars">50</property>
+            <property name="xalign">0</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkCheckButton" id="RemoveDialog.Disable">
+            <property name="label">Do not display this warning again</property>
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">False</property>
+            <property name="draw_indicator">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+    <action-widgets>
+      <action-widget response="-9">DeletionWarning.No</action-widget>
+      <action-widget response="-8">DeletionWarning.Yes</action-widget>
+    </action-widgets>
+  </object>
   <object class="GtkDialog" id="PropertiesDialog">
     <property name="can_focus">False</property>
+    <property name="border_width">5</property>
     <property name="title">Properties</property>
     <property name="resizable">False</property>
     <property name="window_position">center-on-parent</property>
@@ -492,20 +686,18 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <property name="orientation">vertical</property>
-        <property name="spacing">2</property>
+        <property name="spacing">5</property>
         <child internal-child="action_area">
           <object class="GtkButtonBox">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="layout_style">end</property>
             <child>
               <object class="GtkButton" id="PropertiesDialog.Cancel">
-                <property name="label">gtk-cancel</property>
+                <property name="label">_Cancel</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="can_default">True</property>
                 <property name="receives_default">True</property>
-                <property name="use_stock">True</property>
+                <property name="use_underline">True</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -515,15 +707,12 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             </child>
             <child>
               <object class="GtkButton" id="PropertiesDialog.OK">
-                <property name="label">gtk-ok</property>
+                <property name="label">_OK</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="has_focus">True</property>
-                <property name="is_focus">True</property>
-                <property name="can_default">True</property>
-                <property name="has_default">True</property>
                 <property name="receives_default">True</property>
-                <property name="use_stock">True</property>
+                <property name="use_underline">True</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -535,7 +724,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           <packing>
             <property name="expand">False</property>
             <property name="fill">True</property>
-            <property name="position">1</property>
+            <property name="position">0</property>
           </packing>
         </child>
         <child>
@@ -548,13 +737,31 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               <object class="GtkLabel">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label">MIX _type:</property>
+                <property name="label">MIX _version:</property>
                 <property name="use_underline">True</property>
-                <property name="mnemonic_widget">Properties.Type</property>
+                <property name="mnemonic_widget">Properties.Version</property>
+                <property name="single_line_mode">True</property>
                 <property name="xalign">1</property>
               </object>
               <packing>
                 <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkComboBoxText" id="Properties.Version">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="hexpand">True</property>
+                <items>
+                  <item id="0">1 – TD</item>
+                  <item id="1">2 – RA</item>
+                  <item id="2">3 – TS, RA2, YR</item>
+                </items>
+                <signal name="changed" handler="update_properties_dialog" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>
@@ -564,6 +771,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="can_focus">False</property>
                 <property name="margin_top">3</property>
                 <property name="label">Specifications:</property>
+                <property name="single_line_mode">True</property>
                 <property name="xalign">1</property>
                 <property name="yalign">0</property>
               </object>
@@ -573,14 +781,11 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkButtonBox">
+              <object class="GtkBox">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="halign">start</property>
                 <property name="hexpand">True</property>
                 <property name="orientation">vertical</property>
-                <property name="homogeneous">True</property>
-                <property name="layout_style">start</property>
                 <child>
                   <object class="GtkCheckButton" id="Properties.Encrypted">
                     <property name="label">_Encrypt header</property>
@@ -617,23 +822,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="top_attach">1</property>
               </packing>
             </child>
-            <child>
-              <object class="GtkComboBoxText" id="Properties.Type">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="hexpand">True</property>
-                <items>
-                  <item id="0">1 – TD</item>
-                  <item id="1">2 – RA</item>
-                  <item id="2">3 – TS, RA2, YR</item>
-                </items>
-                <signal name="changed" handler="update_properties_dialog" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -648,125 +836,9 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
       <action-widget response="-5">PropertiesDialog.OK</action-widget>
     </action-widgets>
   </object>
-  <object class="GtkDialog" id="SearchDialog">
-    <property name="can_focus">False</property>
-    <property name="title">Search filename</property>
-    <property name="resizable">False</property>
-    <property name="window_position">center-on-parent</property>
-    <property name="destroy_with_parent">True</property>
-    <property name="type_hint">dialog</property>
-    <property name="skip_taskbar_hint">True</property>
-    <property name="skip_pager_hint">True</property>
-    <property name="transient_for">MainWindow</property>
-    <child>
-      <placeholder/>
-    </child>
-    <child internal-child="vbox">
-      <object class="GtkBox">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="orientation">vertical</property>
-        <property name="spacing">2</property>
-        <child internal-child="action_area">
-          <object class="GtkButtonBox">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="layout_style">end</property>
-            <child>
-              <object class="GtkButton" id="SearchDialog.Cancel">
-                <property name="label">gtk-cancel</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="can_default">True</property>
-                <property name="receives_default">True</property>
-                <property name="use_stock">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="SearchDialog.OK">
-                <property name="label">gtk-find</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="can_default">True</property>
-                <property name="has_default">True</property>
-                <property name="receives_default">True</property>
-                <property name="use_stock">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">1</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkBox">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="border_width">5</property>
-            <property name="spacing">5</property>
-            <child>
-              <object class="GtkLabel">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label">_Name:</property>
-                <property name="use_underline">True</property>
-                <property name="mnemonic_widget">SearchDialog.Entry</property>
-                <property name="single_line_mode">True</property>
-                <property name="lines">1</property>
-                <property name="xalign">0</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkEntry" id="SearchDialog.Entry">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="has_focus">True</property>
-                <property name="is_focus">True</property>
-                <property name="hexpand">True</property>
-                <property name="max_length">255</property>
-                <property name="activates_default">True</property>
-                <property name="width_chars">24</property>
-                <property name="truncate_multiline">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">0</property>
-          </packing>
-        </child>
-      </object>
-    </child>
-    <action-widgets>
-      <action-widget response="-6">SearchDialog.Cancel</action-widget>
-      <action-widget response="-5">SearchDialog.OK</action-widget>
-    </action-widgets>
-  </object>
   <object class="GtkDialog" id="SettingsDialog">
     <property name="can_focus">False</property>
+    <property name="border_width">5</property>
     <property name="title">Mixtool settings</property>
     <property name="resizable">False</property>
     <property name="window_position">center-on-parent</property>
@@ -783,20 +855,18 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <property name="orientation">vertical</property>
-        <property name="spacing">2</property>
+        <property name="spacing">5</property>
         <child internal-child="action_area">
           <object class="GtkButtonBox">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="layout_style">end</property>
             <child>
               <object class="GtkButton" id="SettingsDialog.Cancel">
-                <property name="label">gtk-cancel</property>
+                <property name="label">_Cancel</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="can_default">True</property>
                 <property name="receives_default">True</property>
-                <property name="use_stock">True</property>
+                <property name="use_underline">True</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -806,15 +876,12 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             </child>
             <child>
               <object class="GtkButton" id="SettingsDialog.OK">
-                <property name="label">gtk-ok</property>
+                <property name="label">_OK</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="has_focus">True</property>
-                <property name="is_focus">True</property>
-                <property name="can_default">True</property>
-                <property name="has_default">True</property>
                 <property name="receives_default">True</property>
-                <property name="use_stock">True</property>
+                <property name="use_underline">True</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -822,21 +889,22 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="position">1</property>
               </packing>
             </child>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">8</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkCheckButton" id="Settings.SimpleNames">
-            <property name="label">Enforce _simple file names (recommended)</property>
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="receives_default">False</property>
-            <property name="use_underline">True</property>
-            <property name="draw_indicator">True</property>
+            <child>
+              <object class="GtkButton">
+                <property name="label">Defaults</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="tooltip_text">Reset all settings to build-in defaults. Nothing is applied until you click the “OK” button.</property>
+                <signal name="clicked" handler="restore_default_settings" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">2</property>
+                <property name="secondary">True</property>
+              </packing>
+            </child>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -845,116 +913,280 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           </packing>
         </child>
         <child>
-          <object class="GtkLabel">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="margin_left">25</property>
-            <property name="margin_bottom">10</property>
-            <property name="label">Accept only letters from A-z, digits from 0-9 and "-._" in file names for maximum compatibility.</property>
-            <property name="wrap">True</property>
-            <property name="max_width_chars">63</property>
-            <property name="xalign">0</property>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">1</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkCheckButton" id="Settings.InsertLower">
-            <property name="label">Insert all-_lowercase</property>
+          <object class="GtkNotebook">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
-            <property name="receives_default">False</property>
-            <property name="use_underline">True</property>
-            <property name="draw_indicator">True</property>
+            <child>
+              <object class="GtkBox">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="border_width">5</property>
+                <property name="orientation">vertical</property>
+                <child>
+                  <object class="GtkCheckButton" id="Settings.SimpleNames">
+                    <property name="label">Enforce _simple file names (recommended)</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">False</property>
+                    <property name="use_underline">True</property>
+                    <property name="draw_indicator">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="margin_left">25</property>
+                    <property name="margin_bottom">10</property>
+                    <property name="label">Accept only letters from A to Z, digits and “-._” in file names for maximum compatibility.</property>
+                    <property name="wrap">True</property>
+                    <property name="max_width_chars">63</property>
+                    <property name="xalign">0</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkCheckButton" id="Settings.InsertLower">
+                    <property name="label">Insert all-_lowercase</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">False</property>
+                    <property name="use_underline">True</property>
+                    <property name="draw_indicator">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">2</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="margin_left">25</property>
+                    <property name="margin_bottom">10</property>
+                    <property name="label">By default, casing is retained on insert and rename operations, but due to the inner workings of MIX files, access is case insensitive for letters from A to Z only, while being case sensitive for all other characters. That might be confusing, so you can force Mixtool to always use lowercase on insert and rename operations.</property>
+                    <property name="wrap">True</property>
+                    <property name="max_width_chars">63</property>
+                    <property name="xalign">0</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">3</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkCheckButton" id="Settings.Decrypt">
+                    <property name="label">Disable _encryption</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">False</property>
+                    <property name="use_underline">True</property>
+                    <property name="draw_indicator">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">4</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="margin_left">25</property>
+                    <property name="margin_bottom">10</property>
+                    <property name="label">Encrypted headers are a useless feature found in some MIX files distributed by Westwood Studios. Setting this option will automatically disable that feature for every file saved by Mixtool.</property>
+                    <property name="wrap">True</property>
+                    <property name="max_width_chars">63</property>
+                    <property name="xalign">0</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">5</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkCheckButton" id="Settings.Backup">
+                    <property name="label">_Backup old files</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">False</property>
+                    <property name="use_underline">True</property>
+                    <property name="draw_indicator">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">6</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="margin_left">25</property>
+                    <property name="margin_bottom">10</property>
+                    <property name="label">When this option is set, Mixtool will automatically create backups of modified files. Backups will be saved by the original filename suffixed by "~". No backup is made if such a file already exists.</property>
+                    <property name="wrap">True</property>
+                    <property name="max_width_chars">63</property>
+                    <property name="xalign">0</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">7</property>
+                  </packing>
+                </child>
+              </object>
+            </child>
+            <child type="tab">
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label">File handling</property>
+                <property name="single_line_mode">True</property>
+              </object>
+              <packing>
+                <property name="tab_fill">False</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="border_width">5</property>
+                <property name="orientation">vertical</property>
+                <child>
+                  <object class="GtkCheckButton" id="Settings.ResetWarnings">
+                    <property name="label">Reset _warnings</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">False</property>
+                    <property name="use_underline">True</property>
+                    <property name="draw_indicator">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="margin_left">25</property>
+                    <property name="margin_bottom">10</property>
+                    <property name="label">Re-enable all warning messages you told Mixtool to not display again.</property>
+                    <property name="wrap">True</property>
+                    <property name="max_width_chars">63</property>
+                    <property name="xalign">0</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkCheckButton" id="Settings.DisableMOTD">
+                    <property name="label">Disable _MOTD</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">False</property>
+                    <property name="use_underline">True</property>
+                    <property name="draw_indicator">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">2</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="tooltip_text">Settings are great. Let’s have more of them.</property>
+                    <property name="margin_left">25</property>
+                    <property name="margin_bottom">10</property>
+                    <property name="label">If you don’t want fancy shit to appear in the status bar, you can disable it here. Every useless feature needs a useless setting.</property>
+                    <property name="wrap">True</property>
+                    <property name="max_width_chars">63</property>
+                    <property name="xalign">0</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">3</property>
+                  </packing>
+                </child>
+              </object>
+              <packing>
+                <property name="position">1</property>
+              </packing>
+            </child>
+            <child type="tab">
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label">Appearance</property>
+                <property name="single_line_mode">True</property>
+              </object>
+              <packing>
+                <property name="position">1</property>
+                <property name="tab_fill">False</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkAlignment">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="border_width">5</property>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="sensitive">False</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">Not implemented yet</property>
+                    <property name="wrap">True</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="position">2</property>
+              </packing>
+            </child>
+            <child type="tab">
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label">Online settings</property>
+                <property name="single_line_mode">True</property>
+              </object>
+              <packing>
+                <property name="position">2</property>
+                <property name="tab_fill">False</property>
+              </packing>
+            </child>
           </object>
           <packing>
             <property name="expand">False</property>
             <property name="fill">True</property>
-            <property name="position">2</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkLabel">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="margin_left">25</property>
-            <property name="margin_bottom">10</property>
-            <property name="label">By default, casing is retained on insert and rename operations, but due to the inner workings of MIX files, access is case insensitive for letters from A to Z only, while being case sensitive for all other characters. That might be confusing, so you can force Mixtool to always use lowercase on insert and rename operations.</property>
-            <property name="wrap">True</property>
-            <property name="max_width_chars">63</property>
-            <property name="xalign">0</property>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">3</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkCheckButton" id="Settings.Decrypt">
-            <property name="label">Disable _encryption</property>
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="receives_default">False</property>
-            <property name="use_underline">True</property>
-            <property name="draw_indicator">True</property>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">4</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkLabel">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="margin_left">25</property>
-            <property name="margin_bottom">10</property>
-            <property name="label">Encrypted headers are a useless feature found in some MIX files distributed by Westwood Studios. Setting this option will automatically disable that feature for every file saved by Mixtool.</property>
-            <property name="wrap">True</property>
-            <property name="max_width_chars">63</property>
-            <property name="xalign">0</property>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">5</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkCheckButton" id="Settings.Backup">
-            <property name="label">_Backup old files</property>
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="receives_default">False</property>
-            <property name="use_underline">True</property>
-            <property name="draw_indicator">True</property>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">6</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkLabel">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="margin_left">25</property>
-            <property name="margin_bottom">10</property>
-            <property name="label">When this option is set, Mixtool will automatically create backups of modified files. Backups will be saved by the original filename suffixed by "~". No backup is made if such a file already exists.</property>
-            <property name="wrap">True</property>
-            <property name="max_width_chars">63</property>
-            <property name="xalign">0</property>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">7</property>
+            <property name="position">0</property>
           </packing>
         </child>
       </object>

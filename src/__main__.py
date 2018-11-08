@@ -26,6 +26,7 @@ __version__ = "0.2.0-volatile"
 import sys
 import os
 import signal
+import random
 import collections
 import collections.abc
 import configparser
@@ -206,19 +207,31 @@ class Mixtool(Gtk.Application):
 		
 		# Initialize instance attributes
 		self._settings_failed = False
-		self._gtk_builder = None
+		self._builder = None
 		self._files = []
 		self._current_file = None
 		self.home_dir = None
 		self.data_dir = None
 		self.config_file = None
 		self.settings = None
+		self.motd = None
 	
 	# This is run when Gtk.Application initializes the first instance.
 	# It is not run on any remote controllers.
 	def do_startup(self) -> None:
 		"""Initialize the main instance"""
 		Gtk.Application.do_startup(self)
+		
+		self.motd = random.choice((
+			"CABAL is order",
+			"Don’t throw stones in glass houses without proper protection",
+			"For Kane",
+			"If I am cut, do I not bleed?",
+			"Kane lives in death",
+			"The technology of peace",
+			"Tiberium is the way and the life",
+			"You can’t kill the Messiah"
+		))
 		
 		# Determine a platform-specific data directory
 		self.home_dir = os.path.realpath(os.path.expanduser("~"))
@@ -283,33 +296,34 @@ class Mixtool(Gtk.Application):
 		self.settings.register("decrypt", True)
 		self.settings.register("backup", False)
 		self.settings.register("lastdir", self.home_dir)
+		self.settings.register("alpha_warning", True)
+		self.settings.register("deletion_warning", True)
 		
 		# Parse GUI file
 		gui_file = os.sep.join((os.path.dirname(os.path.realpath(__file__)), "gui.glade"))
-		self._gtk_builder = Gtk.Builder.new_from_file(gui_file)
+		self._builder = Gtk.Builder.new_from_file(gui_file)
 		
 		# Adjustments
-		self._gtk_builder.get_object("AboutDialog").set_default_response(Gtk.ResponseType.DELETE_EVENT)
+		self._builder.get_object("AboutDialog").set_default_response(Gtk.ResponseType.DELETE_EVENT)
 		
 		dummy_callback = lambda widget: True
 		callback_map = {
-			"close_current_file": self.close_current_file,
-			"close_window": self.close_window,
-			"delete_selected": dummy_callback,
-			"invoke_about_dialog": self.invoke_about_dialog,
-			"invoke_extract_dialog": dummy_callback,
-			"invoke_extract_dialog": dummy_callback,
-			"invoke_insert_dialog": dummy_callback,
-			"invoke_new_dialog": self.invoke_new_dialog,
-			"invoke_open_dialog": self.invoke_open_dialog,
-			"invoke_properties_dialog": self.invoke_properties_dialog,
-			"invoke_search_dialog": dummy_callback,
-			"invoke_settings_dialog": self.invoke_settings_dialog,
-			"open_donation_website": self.open_donation_website,
-			"optimize_current_file": dummy_callback,
-			"update_properties_dialog": self.update_properties_dialog
+			"on_new_clicked": dummy_callback,
+			"on_open_clicked": self.invoke_open_dialog,
+			"on_properties_clicked": self.invoke_properties_dialog,
+			"on_optimize_clicked": dummy_callback,
+			"on_insert_clicked": dummy_callback,
+			"on_delete_clicked": dummy_callback,
+			"on_extract_clicked": dummy_callback,
+			"on_settings_clicked": self.invoke_settings_dialog,
+			"on_about_clicked": self.invoke_about_dialog,
+			"on_close_clicked": self.close_current_file,
+			"on_quit_clicked": self.close_window,
+			"on_donate_clicked": self.open_donation_website,
+			"update_properties_dialog": self.update_properties_dialog,
+			"restore_default_settings": dummy_callback
 		}
-		self._gtk_builder.connect_signals(callback_map)
+		self._builder.connect_signals(callback_map)
 	
 	def invoke_properties_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a dialog to modify the current file’s properties."""
@@ -317,19 +331,19 @@ class Mixtool(Gtk.Application):
 			# TODO: Replace by disabling the button
 			messagebox("Properties can only be set for an open file.", "e", widget.get_toplevel())
 		else:
-			dialog = self._gtk_builder.get_object("PropertiesDialog")
-			mixtype_dropdown = self._gtk_builder.get_object("Properties.Type")
+			dialog = self._builder.get_object("PropertiesDialog")
+			mixtype_dropdown = self._builder.get_object("Properties.Type")
 			current_mixtype = self._current_file.container.get_type()
 			
 			mixtype_dropdown.set_active_id(str(current_mixtype))
-			self._gtk_builder.get_object("PropertiesDialog.OK").grab_focus()
+			self._builder.get_object("PropertiesDialog.OK").grab_focus()
 			response = dialog.run()
 			dialog.hide()
 			
 			if response == Gtk.ResponseType.OK:
 				selected_mixtype = int(mixtype_dropdown.get_active_id())
-				encrypt_checkbox = self._gtk_builder.get_object("Properties.Encrypted")
-				checksum_checkbox = self._gtk_builder.get_object("Properties.Checksum")
+				encrypt_checkbox = self._builder.get_object("Properties.Encrypted")
+				checksum_checkbox = self._builder.get_object("Properties.Checksum")
 				
 				if selected_mixtype != current_mixtype:
 					messagebox("Conversion is not implemented yet.", "e", widget.get_toplevel())
@@ -342,8 +356,8 @@ class Mixtool(Gtk.Application):
 	def update_properties_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Update the properties dialog to reflect the choosen MIX type."""
 		mixtype = int(widget.get_active_id())
-		encrypt_checkbox = self._gtk_builder.get_object("Properties.Encrypted")
-		checksum_checkbox = self._gtk_builder.get_object("Properties.Checksum")
+		encrypt_checkbox = self._builder.get_object("Properties.Encrypted")
+		checksum_checkbox = self._builder.get_object("Properties.Checksum")
 		
 		if mixtype < 1 or self.settings["decrypt"]:
 			encrypt_checkbox.set_sensitive(False)
@@ -363,20 +377,20 @@ class Mixtool(Gtk.Application):
 	
 	def invoke_settings_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a dialog with current settings and save any changes."""
-		dialog = self._gtk_builder.get_object("SettingsDialog")
-		checkboxes = [
-			(self._gtk_builder.get_object("Settings.SimpleNames"), "simplenames"),
-			(self._gtk_builder.get_object("Settings.InsertLower"), "insertlower"),
-			(self._gtk_builder.get_object("Settings.Decrypt"), "decrypt"),
-			(self._gtk_builder.get_object("Settings.Backup"), "backup")
-		]
+		dialog = self._builder.get_object("SettingsDialog")
+		checkboxes = (
+			(self._builder.get_object("Settings.SimpleNames"), "simplenames"),
+			(self._builder.get_object("Settings.InsertLower"), "insertlower"),
+			(self._builder.get_object("Settings.Decrypt"), "decrypt"),
+			(self._builder.get_object("Settings.Backup"), "backup")
+		)
 		
 		# Push current settings to dialog
 		for checkbox, setting in checkboxes:
 			checkbox.set_active(self.settings[setting])
 		
 		# Show the dialog
-		self._gtk_builder.get_object("SettingsDialog.OK").grab_focus()
+		self._builder.get_object("SettingsDialog.OK").grab_focus()
 		response = dialog.run()
 		dialog.hide()
 		
@@ -384,6 +398,8 @@ class Mixtool(Gtk.Application):
 			# Save new settings
 			for checkbox, setting in checkboxes:
 				self.settings[setting] = checkbox.get_active()
+			if self._builder.get_object("Settings.ResetWarnings").get_active():
+				del self.settings["alpha_warning"], self.settings["deletion_warning"]
 			self.save_settings()
 			
 			# Apply decrypt setting
@@ -434,14 +450,14 @@ class Mixtool(Gtk.Application):
 	def do_shutdown(self) -> None:
 		"""Finalize the application."""
 		try:
-			self._gtk_builder.get_object("MainWindow").destroy()
+			self._builder.get_object("MainWindow").destroy()
 		finally:
 			Gtk.Application.do_shutdown(self)
 	
 	# Show about dialog
 	def invoke_about_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a dialog with information on Mixtool."""
-		dialog = self._gtk_builder.get_object("AboutDialog")
+		dialog = self._builder.get_object("AboutDialog")
 		dialog.get_widget_for_response(Gtk.ResponseType.DELETE_EVENT).grab_focus()
 		dialog.run()
 		dialog.hide()
@@ -512,14 +528,14 @@ class Mixtool(Gtk.Application):
 					errors.append((2, path))
 				else:
 					# Initialize a Gtk.ListStore
-					store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_UINT, GObject.TYPE_UINT, GObject.TYPE_UINT)
+					store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_ULONG, GObject.TYPE_ULONG, GObject.TYPE_ULONG)
 					store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
 					for record in container.get_contents():
 						store.append((
 							record.name,
-							record.offset,
 							record.size,
-							record.alloc - record.size # = Overhead
+							record.offset,
+							record.alloc - record.size  # = Overhead
 						))
 					
 					# Add a button
@@ -527,7 +543,7 @@ class Mixtool(Gtk.Application):
 					button.set_mode(False)
 					button.get_child().set_ellipsize(Pango.EllipsizeMode.END)
 					button.set_tooltip_text(path)
-					self._gtk_builder.get_object("TabBar").pack_start(button, True, True, 0)
+					self._builder.get_object("TabBar").pack_start(button, True, True, 0)
 					button.show()
 					
 					# Create the file record
@@ -553,7 +569,7 @@ class Mixtool(Gtk.Application):
 				else:
 					messagebox("An unknown error occured while trying to open:" ,"e", window, secondary=path)
 	
-	# Activate another tab
+	# Switch to another tab
 	def switch_file(self, widget: Gtk.Widget, file: _FileRecord) -> bool:
 		"""Switch the currently displayed file to `path`."""
 		if widget.get_active():
@@ -562,9 +578,9 @@ class Mixtool(Gtk.Application):
 			title = widget.get_label() + " – Mixtool (Alpha)"
 			
 			self._current_file = file
-			self._gtk_builder.get_object("ContentList").set_model(file.store)
-			self._gtk_builder.get_object("StatusBar").set_text(status)
-			self._gtk_builder.get_object("MainWindow").set_title(title)
+			self._builder.get_object("ContentList").set_model(file.store)
+			self._builder.get_object("StatusBar").set_text(status)
+			self._builder.get_object("MainWindow").set_title(title)
 		
 		return True
 	
@@ -576,23 +592,23 @@ class Mixtool(Gtk.Application):
 			button.toggled() if button.get_active() else button.set_active(True)
 			
 			# Switch to Close button and enable ContentList
-			self._gtk_builder.get_object("Toolbar.Quit").hide()
-			self._gtk_builder.get_object("Toolbar.Close").show()
-			self._gtk_builder.get_object("ContentList").set_sensitive(True)
+			self._builder.get_object("Toolbar.Quit").hide()
+			self._builder.get_object("Toolbar.Close").show()
+			self._builder.get_object("ContentList").set_sensitive(True)
 		else:
 			# Switch to Quit button and disable ContentList
-			self._gtk_builder.get_object("Toolbar.Close").hide()
-			self._gtk_builder.get_object("Toolbar.Quit").show()
-			self._gtk_builder.get_object("ContentList").set_sensitive(False)
-			self._gtk_builder.get_object("ContentList").set_model(self._gtk_builder.get_object("DummyStore"))
-			self._gtk_builder.get_object("StatusBar").set_text("")
-			self._gtk_builder.get_object("MainWindow").set_title("Mixtool (Alpha)")
+			self._builder.get_object("Toolbar.Close").hide()
+			self._builder.get_object("Toolbar.Quit").show()
+			self._builder.get_object("ContentList").set_sensitive(False)
+			self._builder.get_object("ContentList").set_model(self._builder.get_object("ContentStore"))
+			self._builder.get_object("StatusBar").set_text(self.motd)
+			self._builder.get_object("MainWindow").set_title("Mixtool")
 		
 		# Display tab bar only when two ore more files are open
 		if len(self._files) < 2:
-			self._gtk_builder.get_object("TabBar").hide()
+			self._builder.get_object("TabBar").hide()
 		else:
-			self._gtk_builder.get_object("TabBar").show()
+			self._builder.get_object("TabBar").show()
 	
 	def update_available_actions(self) -> None:
 		"""Depends on number of files in container."""
@@ -603,9 +619,18 @@ class Mixtool(Gtk.Application):
 		"""Create a new main window or present an existing one."""
 		window = self.get_active_window()
 		if window is None:
-			window = self._gtk_builder.get_object("MainWindow")
+			window = self._builder.get_object("MainWindow")
+			self._builder.get_object("StatusBar").set_text(self.motd)
 			self.add_window(window)
 			window.show()
+			
+			if self.settings["alpha_warning"]:
+				dialog = self._builder.get_object("AlphaWarning")
+				dialog.run()
+				dialog.hide()
+				if self._builder.get_object("AlphaWarning.Disable").get_active():
+					self.settings["alpha_warning"] = False
+					self.save_settings()
 		else:
 			window.present()
 			print("Activated main window on behalf of remote controller.", file=sys.stderr)
@@ -645,7 +670,7 @@ class OldWindowController(object):
 	"""Legacy window controller"""
 	def __init__(self, application):
 		self.Application = application
-		GtkBuilder = application._gtk_builder
+		GtkBuilder = application._builder
 		
 		self.GtkBuilder          = GtkBuilder
 		self.MainWindow          = GtkBuilder.get_object("MainWindow")
@@ -778,9 +803,6 @@ def main() -> int:
 	print("Mixtool is running on Python {0[0]}.{0[1]} using PyGObject {1[0]}.{1[1]} and GTK+ {2[0]}.{2[1]}.".
 		format(sys.version_info, gi.version_info, (Gtk.get_major_version(), Gtk.get_minor_version())), file=sys.stderr)
 	
-	# Initialize GLib's treads capability
-	GLib.threads_init()
-	
 	# Initialize Application
 	GLib.set_prgname("mixtool")
 	GLib.set_application_name("Mixtool")
@@ -822,20 +844,24 @@ def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, second
 		raise ValueError("Invalid message type.")
 	
 	if parent is None:
-		flags = Gtk.DialogFlags(0)
 		position = Gtk.WindowPosition.CENTER
-		skip_taskbar = False
+		skip_hint = False
 	else:
-		flags = Gtk.DialogFlags.DESTROY_WITH_PARENT
 		position = Gtk.WindowPosition.CENTER_ON_PARENT
-		skip_taskbar = True
+		skip_hint = True
 	
-	dialog = Gtk.MessageDialog(parent, flags, message_type, Gtk.ButtonsType.OK, str(text))
-	dialog.set_title(title)
-	dialog.set_icon_name(icon)
-	dialog.set_position(position)
-	dialog.set_skip_taskbar_hint(skip_taskbar)
-	dialog.set_skip_pager_hint(skip_taskbar)
+	dialog = Gtk.MessageDialog(
+		message_type=message_type,
+		buttons=Gtk.ButtonsType.OK,
+		text=str(text),
+		title=title,
+		icon_name=icon,
+		window_position=position,
+		skip_taskbar_hint=skip_hint,
+		skip_pager_hint=skip_hint,
+		transient_for=parent,
+		border_width=5
+	)
 	
 	if secondary is not None:
 		dialog.format_secondary_text(str(secondary))
