@@ -300,7 +300,8 @@ class Mixtool(Gtk.Application):
 		self.settings.register("deletion_warning", True)
 		
 		# Parse GUI file
-		gui_file = os.sep.join(("res", "main.glade"))
+		app_dir = os.path.dirname(os.path.realpath(__file__))
+		gui_file = os.sep.join((app_dir, "res", "main.glade"))
 		self._builder = Gtk.Builder.new_from_file(gui_file)
 		
 		# Adjustments
@@ -496,22 +497,20 @@ class Mixtool(Gtk.Application):
 				self.save_settings()
 			
 			# Open the files
-			self.open_files(window, dialog.get_filenames())
+			self.open_files(dialog.get_files())
 		
 		dialog.destroy()
 		return True
 	
-	def open_files(self, window: Gtk.Window, paths: list) -> None:
-		"""Try to open the files in `paths`.
-		
-		`window` is used as the parent for error messages.
-		"""
+	def open_files(self, files: list) -> None:
+		"""Try to open all files in `files`."""
+		window = self.get_active_window()
 		errors = []
 		
 		self.mark_busy()
 		
-		for path in paths:
-			path = os.path.realpath(path)
+		for file in files:
+			path = os.path.realpath(file.get_path())
 			
 			# Check if file is already open
 			for already_open in self._files:
@@ -553,7 +552,7 @@ class Mixtool(Gtk.Application):
 					# Connect the signal
 					button.connect("toggled", self.switch_file, file)
 		
-		if len(paths) - len(errors) > 0:
+		if len(files) - len(errors) > 0:
 			self.update_gui()
 		
 		self.unmark_busy()
@@ -642,14 +641,8 @@ class Mixtool(Gtk.Application):
 	# but we get the number of files and some tuple instead.
 	def do_open(self, files: list, *args) -> None:
 		"""Open `files` and create a new tab for each of them."""
-		self.do_activate()
-		window = self.get_active_window()
-		
-		# Get paths from the `Gio.GFile` objects
-		paths = [file.get_path() for file in files]
-		
-		# Open the files
-		self.open_files(window, paths)
+		self.activate()
+		self.open_files(files)
 	
 	def save_settings(self) -> None:
 		"""Save configuration to file."""
@@ -802,8 +795,6 @@ def main() -> int:
 	# FIXME: Remove in final version
 	print("Mixtool is running on Python {0[0]}.{0[1]} using PyGObject {1[0]}.{1[1]} and GTK+ {2[0]}.{2[1]}.".
 		format(sys.version_info, gi.version_info, (Gtk.get_major_version(), Gtk.get_minor_version())), file=sys.stderr)
-	
-	os.chdir(os.path.dirname(os.path.realpath(__file__)))
 	
 	# Initialize Application
 	GLib.set_prgname("mixtool")

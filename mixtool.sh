@@ -40,12 +40,11 @@ export G_SLICE=debug-blocks
 export GTK_THEME=Adwaita
 #export G_RESOURCE_OVERLAYS=/com/bachsau/mixtool=res
 appdir=$(find_path "$0")
-cd "$appdir"
-mkdir -p 'logs'
-olog='logs/output.log'
-elog=$(date '+logs/errors_%y%m%d-%H%M%S.log')
+mkdir -p "$appdir/logs"
+olog=$appdir/logs/output.log
+elog=$appdir/logs/$(date '+errors_%y%m%d-%H%M%S.log')
 date '+Launching Mixtool... %F %T %Z%n' >"$elog"
-python3 -BEsuWd 'src/__main__.py' "$@" >>"$olog" 2>>"$elog"
+python3 -BEsuWd "$appdir/src/__main__.py" "$@" >>"$olog" 2>>"$elog"
 status=$?
 printf '\nMixtool has quit with EXIT CODE %u.\n\n' $status >>"$elog"
 unset LC_ALL G_SLICE GTK_THEME
