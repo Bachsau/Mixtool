@@ -198,7 +198,7 @@ class Mixtool(Gtk.Application):
 	# The GtkFileFilter used by open/save dialogs
 	file_filter = Gtk.FileFilter()
 	file_filter.set_name("MIX files")
-	file_filter.add_pattern("*.mix" if sys.platform.startswith(("win", "darwin")) else "*.[Mm][Ii][Xx]")
+	file_filter.add_pattern("*.[Mm][Ii][Xx]")
 	
 	# Object initializer
 	def __init__(self, application_id: str, flags: Gio.ApplicationFlags) -> None:
@@ -455,16 +455,14 @@ class Mixtool(Gtk.Application):
 		finally:
 			Gtk.Application.do_shutdown(self)
 	
-	# Show about dialog
 	def invoke_about_dialog(self, widget: Gtk.Widget) -> bool:
-		"""Show a dialog with information on Mixtool."""
+		"""Display a dialog with information on Mixtool."""
 		dialog = self._builder.get_object("AboutDialog")
 		dialog.get_widget_for_response(Gtk.ResponseType.DELETE_EVENT).grab_focus()
 		dialog.run()
 		dialog.hide()
 		return True
 	
-	# Open donation website in default browser
 	def open_donation_website(self, widget: Gtk.Widget) -> bool:
 		"""Open donation website in default browser."""
 		Gtk.show_uri_on_window(widget.get_toplevel(), "http://go.bachsau.com/mtdonate", Gtk.get_current_event_time())
@@ -481,29 +479,36 @@ class Mixtool(Gtk.Application):
 		"""Show a file chooser dialog and open selected files."""
 		window = widget.get_toplevel()
 		lastdir = self.settings["lastdir"]
-		dialog = Gtk.FileChooserNative.new("Open MIX file", window, Gtk.FileChooserAction.OPEN, "_Open", "_Cancel")
+		dialog = Gtk.FileChooserDialog(
+			title="Open MIX file",
+			transient_for=window,
+			action=Gtk.FileChooserAction.OPEN
+		)
+		dialog.add_buttons(
+			"_Cancel", Gtk.ResponseType.CANCEL,
+			"_Open", Gtk.ResponseType.ACCEPT
+		)
 		dialog.set_select_multiple(True)
-		dialog.add_filter(self.file_filter)
 		dialog.set_filter(self.file_filter)
 		dialog.set_current_folder(lastdir)
 		response = dialog.run()
 		dialog.hide()
-		
-		if response == Gtk.ResponseType.ACCEPT:
-			# Save last used directory
-			newdir = dialog.get_current_folder()
-			if newdir != lastdir:
-				self.settings["lastdir"] = newdir
-				self.save_settings()
-			
-			# Open the files
-			self.open_files(dialog.get_files())
-		
-		dialog.destroy()
+		try:
+			if response == Gtk.ResponseType.ACCEPT:
+				# Save last used directory
+				newdir = dialog.get_current_folder()
+				if newdir != lastdir:
+					self.settings["lastdir"] = newdir
+					self.save_settings()
+				
+				# Open the files
+				self.open_files(dialog.get_files())
+		finally:
+			dialog.destroy()
 		return True
 	
 	def open_files(self, files: list) -> None:
-		"""Try to open all files in `files`."""
+		"""Open `files` and create a new tab for each one."""
 		window = self.get_active_window()
 		errors = []
 		
@@ -574,7 +579,7 @@ class Mixtool(Gtk.Application):
 		if widget.get_active():
 			mixtype = ("TD", "RA", "TS")[file.container.get_type()]
 			status = " ".join((mixtype, "MIX contains", str(file.container.get_filecount()), "files."))
-			title = widget.get_label() + " – Mixtool (Alpha)"
+			title = widget.get_label() + " – Mixtool"
 			
 			self._current_file = file
 			self._builder.get_object("ContentList").set_model(file.store)
@@ -612,9 +617,9 @@ class Mixtool(Gtk.Application):
 	def update_available_actions(self) -> None:
 		"""Depends on number of files in container."""
 	
-	# Method that creates a main window in the first instance.
-	# Can be run multiple times on behalf of remote controllers.
-	def do_activate(self) -> None:
+	# Method run on the primary instance whenever the application
+	# is invoked without parameters.
+	def do_activate(self) -> bool:
 		"""Create a new main window or present an existing one."""
 		window = self.get_active_window()
 		if window is None:
@@ -633,16 +638,15 @@ class Mixtool(Gtk.Application):
 		else:
 			window.present()
 			print("Activated main window on behalf of remote controller.", file=sys.stderr)
+		return True
 	
-	# Method run when the application is told
-	# to open files from outside.
-	#
-	# The signature should be "do_open(self, files: list, hint: str)",
-	# but we get the number of files and some tuple instead.
-	def do_open(self, files: list, *args) -> None:
-		"""Open `files` and create a new tab for each of them."""
+	# Method run on the primary instance whenever the application
+	# is told to open files from outside.
+	def do_open(self, files: list, *args) -> bool:
+		"""Open `files` in a new or existing main window."""
 		self.activate()
 		self.open_files(files)
+		return True
 	
 	def save_settings(self) -> None:
 		"""Save configuration to file."""
