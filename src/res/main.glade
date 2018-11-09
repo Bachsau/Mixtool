@@ -136,7 +136,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="Toolbar.Insert">
+              <object class="GtkToolButton" id="Toolbar.Add">
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
@@ -144,7 +144,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="label">_Add</property>
                 <property name="use_underline">True</property>
                 <property name="icon_name">list-add</property>
-                <signal name="clicked" handler="on_insert_clicked" swapped="no"/>
+                <signal name="clicked" handler="on_add_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -152,7 +152,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="Toolbar.Delete">
+              <object class="GtkToolButton" id="Toolbar.Remove">
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
@@ -160,7 +160,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="label">_Remove</property>
                 <property name="use_underline">True</property>
                 <property name="icon_name">list-remove</property>
-                <signal name="clicked" handler="on_delete_clicked" swapped="no"/>
+                <signal name="clicked" handler="on_remove_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -519,6 +519,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           <object class="GtkImage">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="pixel_size">48</property>
             <property name="icon_name">dialog-warning</property>
             <property name="icon_size">6</property>
           </object>
@@ -890,7 +891,7 @@ Do you want to continue?</property>
               </packing>
             </child>
             <child>
-              <object class="GtkButton">
+              <object class="GtkButton" id="SettingsDialog.Defaults">
                 <property name="label">Defaults</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>

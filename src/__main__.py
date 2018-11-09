@@ -180,12 +180,12 @@ class Configuration(collections.abc.MutableMapping):
 		"""
 		return self._defaults[identifier]
 	
-	def read_file(self, file: str) -> None:
+	def load(self, file: str) -> None:
 		"""Read and parse a configuration file."""
 		with open(file, encoding="ascii") as config_stream:
 			self._parser.read_file(config_stream)
 	
-	def write_file(self, file: str) -> None:
+	def save(self, file: str) -> None:
 		"""Save the configuration."""
 		with open(file, "w", encoding="ascii") as config_stream:
 			self._parser.write(config_stream, True)
@@ -270,10 +270,18 @@ class Mixtool(Gtk.Application):
 		# Set location of configuration file
 		self.config_file = os.sep.join((self.data_dir, "settings.ini"))
 		
-		# Initialize configuration manager
+		# Initialize the configuration manager
 		self.settings = Configuration()
+		self.settings.register("simplenames", True)
+		self.settings.register("insertlower", True)
+		self.settings.register("decrypt", True)
+		self.settings.register("backup", False)
+		self.settings.register("nomotd", False)
+		self.settings.register("lastdir", self.home_dir)
+		self.settings.register("alpha_warning", True)
+		self.settings.register("deletion_warning", True)
 		try:
-			self.settings.read_file(self.config_file)
+			self.settings.load(self.config_file)
 		except FileNotFoundError:
 			pass
 		except Exception as problem:
@@ -290,22 +298,10 @@ class Mixtool(Gtk.Application):
 				messagebox("Mixtool is unable to read its configuration file.", "w", secondary="{0}:\n\"{1}\"\n\n".
 					format(problem_description, self.config_file) + "Your settings will be reset.")
 		
-		# Register default settings
-		self.settings.register("simplenames", True)
-		self.settings.register("insertlower", True)
-		self.settings.register("decrypt", True)
-		self.settings.register("backup", False)
-		self.settings.register("lastdir", self.home_dir)
-		self.settings.register("alpha_warning", True)
-		self.settings.register("deletion_warning", True)
-		
 		# Parse GUI file
 		app_dir = os.path.dirname(os.path.realpath(__file__))
 		gui_file = os.sep.join((app_dir, "res", "main.glade"))
 		self._builder = Gtk.Builder.new_from_file(gui_file)
-		
-		# Adjustments
-		self._builder.get_object("AboutDialog").set_default_response(Gtk.ResponseType.DELETE_EVENT)
 		
 		dummy_callback = lambda widget: True
 		callback_map = {
@@ -313,8 +309,8 @@ class Mixtool(Gtk.Application):
 			"on_open_clicked": self.invoke_open_dialog,
 			"on_properties_clicked": self.invoke_properties_dialog,
 			"on_optimize_clicked": dummy_callback,
-			"on_insert_clicked": dummy_callback,
-			"on_delete_clicked": dummy_callback,
+			"on_add_clicked": dummy_callback,
+			"on_remove_clicked": dummy_callback,
 			"on_extract_clicked": dummy_callback,
 			"on_settings_clicked": self.invoke_settings_dialog,
 			"on_about_clicked": self.invoke_about_dialog,
@@ -322,7 +318,7 @@ class Mixtool(Gtk.Application):
 			"on_quit_clicked": self.close_window,
 			"on_donate_clicked": self.open_donation_website,
 			"update_properties_dialog": self.update_properties_dialog,
-			"restore_default_settings": dummy_callback
+			"restore_default_settings": self.restore_default_settings
 		}
 		self._builder.connect_signals(callback_map)
 	
@@ -379,16 +375,10 @@ class Mixtool(Gtk.Application):
 	def invoke_settings_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a dialog with current settings and save any changes."""
 		dialog = self._builder.get_object("SettingsDialog")
-		checkboxes = (
-			(self._builder.get_object("Settings.SimpleNames"), "simplenames"),
-			(self._builder.get_object("Settings.InsertLower"), "insertlower"),
-			(self._builder.get_object("Settings.Decrypt"), "decrypt"),
-			(self._builder.get_object("Settings.Backup"), "backup")
-		)
 		
-		# Push current settings to dialog
-		for checkbox, setting in checkboxes:
-			checkbox.set_active(self.settings[setting])
+		# The updater returns a tuple of checkboxes to not repeat
+		# ourselfs when it comes to saving
+		checkboxes = self._update_settings_dialog(dialog, False)
 		
 		# Show the dialog
 		self._builder.get_object("SettingsDialog.OK").grab_focus()
@@ -403,14 +393,42 @@ class Mixtool(Gtk.Application):
 				del self.settings["alpha_warning"], self.settings["deletion_warning"]
 			self.save_settings()
 			
-			# Apply decrypt setting
-			if self.settings["decrypt"]:
-				for file in self._files:
-					file.container.is_encrypted = False
+			if not self._files:
+				self._builder.get_object("StatusBar").set_text(
+					"Ready" if self.settings["nomotd"] else self.motd
+				)
 		
 		return True
 	
-	# Close file in current tab
+	def restore_default_settings(self, widget: Gtk.Widget) -> bool:
+		"""Set all widgets in the settings dialog to reflect the defaults."""
+		dialog = self._builder.get_object("SettingsDialog")
+		self._update_settings_dialog(dialog, True)
+		return True
+	
+	def _update_settings_dialog(self, dialog, defaults: bool) -> tuple:
+		"""Populate `dialog` with the current or default settings."""
+		checkboxes = (
+			(self._builder.get_object("Settings.SimpleNames"), "simplenames"),
+			(self._builder.get_object("Settings.InsertLower"), "insertlower"),
+			(self._builder.get_object("Settings.Decrypt"), "decrypt"),
+			(self._builder.get_object("Settings.Backup"), "backup"),
+			(self._builder.get_object("Settings.DisableMOTD"), "nomotd")
+		)
+		
+		# Push current settings to dialog
+		if defaults:
+			for checkbox, setting in checkboxes:
+				checkbox.set_active(self.settings.get_default(setting))
+			self._builder.get_object("Settings.ResetWarnings").set_active(True)
+		else:
+			for checkbox, setting in checkboxes:
+				checkbox.set_active(self.settings[setting])
+			self._builder.get_object("Settings.ResetWarnings").set_active(False)
+		
+		# Return the tuple of checkboxes to be used for saving
+		return checkboxes
+	
 	def close_current_file(self, widget: Gtk.Widget) -> bool:
 		"""Close the currently active file."""
 		file = self._current_file
@@ -426,7 +444,7 @@ class Mixtool(Gtk.Application):
 		self.update_gui()
 		
 		return True
-		
+	
 	# This method is labeled as "Quit" in the GUI,
 	# because it is the ultimate result.
 	def close_window(self, widget: Gtk.Widget, event: Gdk.Event = None) -> bool:
@@ -484,16 +502,16 @@ class Mixtool(Gtk.Application):
 			transient_for=window,
 			action=Gtk.FileChooserAction.OPEN
 		)
-		dialog.add_buttons(
-			"_Cancel", Gtk.ResponseType.CANCEL,
-			"_Open", Gtk.ResponseType.ACCEPT
-		)
-		dialog.set_select_multiple(True)
-		dialog.set_filter(self.file_filter)
-		dialog.set_current_folder(lastdir)
-		response = dialog.run()
-		dialog.hide()
 		try:
+			dialog.add_buttons(
+				"_Cancel", Gtk.ResponseType.CANCEL,
+				"_Open", Gtk.ResponseType.ACCEPT
+			)
+			dialog.set_select_multiple(True)
+			dialog.set_filter(self.file_filter)
+			dialog.set_current_folder(lastdir)
+			response = dialog.run()
+			dialog.hide()
 			if response == Gtk.ResponseType.ACCEPT:
 				# Save last used directory
 				newdir = dialog.get_current_folder()
@@ -502,12 +520,12 @@ class Mixtool(Gtk.Application):
 					self.save_settings()
 				
 				# Open the files
-				self.open_files(dialog.get_files())
+				self._open_files(dialog.get_files())
 		finally:
 			dialog.destroy()
 		return True
 	
-	def open_files(self, files: list) -> None:
+	def _open_files(self, files: list) -> None:
 		"""Open `files` and create a new tab for each one."""
 		window = self.get_active_window()
 		errors = []
@@ -601,12 +619,14 @@ class Mixtool(Gtk.Application):
 			self._builder.get_object("ContentList").set_sensitive(True)
 		else:
 			# Switch to Quit button and disable ContentList
+			self._builder.get_object("MainWindow").set_title("Mixtool")
+			self._builder.get_object("StatusBar").set_text(
+				"Ready" if self.settings["nomotd"] else self.motd
+			)
 			self._builder.get_object("Toolbar.Close").hide()
 			self._builder.get_object("Toolbar.Quit").show()
 			self._builder.get_object("ContentList").set_sensitive(False)
 			self._builder.get_object("ContentList").set_model(self._builder.get_object("ContentStore"))
-			self._builder.get_object("StatusBar").set_text(self.motd)
-			self._builder.get_object("MainWindow").set_title("Mixtool")
 		
 		# Display tab bar only when two ore more files are open
 		if len(self._files) < 2:
@@ -623,8 +643,9 @@ class Mixtool(Gtk.Application):
 		"""Create a new main window or present an existing one."""
 		window = self.get_active_window()
 		if window is None:
+			if not self.settings["nomotd"]:
+				self._builder.get_object("StatusBar").set_text(self.motd)
 			window = self._builder.get_object("MainWindow")
-			self._builder.get_object("StatusBar").set_text(self.motd)
 			self.add_window(window)
 			window.show()
 			
@@ -645,14 +666,14 @@ class Mixtool(Gtk.Application):
 	def do_open(self, files: list, *args) -> bool:
 		"""Open `files` in a new or existing main window."""
 		self.activate()
-		self.open_files(files)
+		self._open_files(files)
 		return True
 	
 	def save_settings(self) -> None:
 		"""Save configuration to file."""
 		if not self._settings_failed:
 			try:
-				self.settings.write_file(self.config_file)
+				self.settings.save(self.config_file)
 			except Exception as problem:
 				self._settings_failed = True
 				messagebox("Mixtool is unable to save its configuration file.", "w", self.get_active_window(), secondary="{0}:\n\"{1}\"\n\n".
