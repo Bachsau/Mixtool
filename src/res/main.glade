@@ -476,7 +476,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="skip_pager_hint">True</property>
     <property name="transient_for">MainWindow</property>
     <property name="program_name">Mixtool</property>
-    <property name="version">Alpha 0.2</property>
+    <property name="version">Alpha 0.2 (volatile)</property>
     <property name="copyright">Copyright © 2015–2018 Sven Heinemann (Bachsau)</property>
     <property name="comments">An editor for Westwood Studios’ MIX files</property>
     <property name="website">http://go.bachsau.com/mixtool</property>

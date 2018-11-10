@@ -9,7 +9,7 @@ Welcome to Mixtool!
 Mixtool is a platform independent editor for Westwood Studios' MIX files.  
 These files are used in classic Command & Conquer games.
 
-<a href="assets/screenshot.png" rel="lightbox" title="Mixtool Alpha 0.1"><img src="assets/screenshot_small.png" alt="Mixtool Alpha 0.1" width="300" height="199"></a>
+<a href="assets/screenshot.png" rel="lightbox" title="Mixtool Alpha 0.2 (volatile)"><img src="assets/screenshot_small.png" alt="Mixtool Alpha 0.2 (volatile)" width="300" height="147"></a>
 
 At the current development state, the software is able to extract from, insert into and list the contents of unecrypted MIX files for TD, RA, TS, RA2 and YR. It is not ready for productive use. Support for encrypted files and RG will be added later.
 
