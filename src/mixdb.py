@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # coding=utf_8
 
-# Copyright (C) 2015-2018 Bachsau
+# Copyright (C) 2015-2018 Sven Heinemann (Bachsau)
 #
 # This file is part of Mixtool.
 #
@@ -19,26 +19,24 @@
 # along with Mixtool.  If not, see <https://www.gnu.org/licenses/>.
 
 """Mixtool's names database module"""
+
+# Standard modules
 import sqlite3 as SQLite3
 
-from mixlib import genkey
-
-# Constants
-TYPES = "td", "ts"
-
 # A global MIX Database interface
-class MixDB:
-	def __init__(self, dbfile=':memory:'):
+class MixDB(object):
+	def __init__(self, data_path, installation_id):
 		self.__closed = False
 		
+		dbfile = os.sep.join((data_path, "cache.db"))
 		self.DB = SQLite3.connect(dbfile)
 		self.DBQuery = self.DB.cursor()
 		
 		self.DBQuery.execute("PRAGMA encoding = 'UTF-8';")
 		
 		try:
-			for type_ in TYPES:
-				self.DBQuery.execute("CREATE TABLE IF NOT EXISTS `names_{0}` (`key_{0}` INT PRIMARY KEY NOT NULL CHECK(TYPEOF(`key_{0}`) = 'integer'), `name` CHAR NOT NULL CHECK(TYPEOF(`name`) = 'text')) WITHOUT ROWID;".format(type_))
+			for v in (1, 3):
+				self.DBQuery.execute("CREATE TABLE IF NOT EXISTS `names_v{0}` (`key` INT PRIMARY KEY NOT NULL CHECK(TYPEOF(`key`) = 'integer'), `name` CHAR NOT NULL CHECK(TYPEOF(`name`) = 'text')) WITHOUT ROWID;".format(v))
 		except SQLite3.Error as e:
 			self.DB.rollback()
 			raise MixDBError("SQLite3:", e.args[0])

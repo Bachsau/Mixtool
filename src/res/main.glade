@@ -119,7 +119,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <child>
               <object class="GtkToolButton" id="Toolbar.New">
                 <property name="visible">True</property>
-                <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
                 <property name="label">_New</property>
                 <property name="use_underline">True</property>
@@ -1175,7 +1174,6 @@ Do you want to continue?</property>
                   <object class="GtkLabel">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="tooltip_text">Settings are great. Let’s have more of them.</property>
                     <property name="margin_left">25</property>
                     <property name="margin_bottom">10</property>
                     <property name="label">If you don’t want fancy shit to appear in the status bar, you can disable it here. Every useless feature needs a useless setting.</property>

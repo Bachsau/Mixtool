@@ -27,6 +27,7 @@ import sys
 import os
 import signal
 import random
+import uuid
 import collections
 import collections.abc
 import configparser
@@ -47,7 +48,7 @@ _FileRecord = collections.namedtuple("_FileRecord", ("path", "container", "store
 
 # A simple abstraction for Python's ConfigParser.
 # It features implicit type conversion and defaults through prior
-# registration of settings. It can used to save and read settings
+# registration of settings. It can be used to save and read settings
 # without bothering about the specifics of ConfigParser or the INI files
 # themselves. It could also serve as a starting point to abstract
 # platform-specific saving methods through its general API.
@@ -80,9 +81,9 @@ class Configuration(collections.abc.MutableMapping):
 		"""
 		section = "Settings"
 		default = self._defaults[identifier]
-		dtype = type(default)
 		
 		if self._parser.has_option(section, identifier):
+			dtype = type(default)
 			try:
 				if dtype is bool:
 					return self._parser.getboolean(section, identifier)
@@ -142,11 +143,25 @@ class Configuration(collections.abc.MutableMapping):
 	
 	def __iter__(self):
 		"""Return an iterator over all registered identifiers."""
-		return iter(self._defaults)
+		return iter(self._defaults.keys())
 	
 	def __len__(self) -> int:
-		"""Return the number of registered identifiers."""
+		"""Return the number of registered settings."""
 		return len(self._defaults)
+	
+	def __contains__(self, identifier) -> bool:
+		"""Return True if `identifier` is registered, else False."""
+		return identifier in self._defaults
+	
+	def keys(self):
+		"""Return a set-like object providing a view on registered identifiers."""
+		return self._defaults.keys()
+	
+	def clear(self) -> None:
+		"""Remove all customized values, reverting to the registered defaults."""
+		section = "Settings"
+		for identifier in self._defaults.keys():
+			self._parser.remove_option(section, identifier)
 	
 	def register(self, identifier: str, default) -> None:
 		"""Register a setting and its default value.
@@ -188,7 +203,7 @@ class Configuration(collections.abc.MutableMapping):
 	def save(self, file: str) -> None:
 		"""Save the configuration."""
 		with open(file, "w", encoding="ascii") as config_stream:
-			self._parser.write(config_stream, True)
+			self._parser.write(config_stream, False)
 
 
 # Main application controller
@@ -204,14 +219,16 @@ class Mixtool(Gtk.Application):
 	def __init__(self, application_id: str, flags: Gio.ApplicationFlags) -> None:
 		"""Initialize the Mixtool instance"""
 		Gtk.Application.__init__(self, application_id=application_id, flags=flags)
+		self.set_resource_base_path(None)
 		
 		# Initialize instance attributes
-		self._settings_failed = False
+		self._data_path_blocked = False
 		self._builder = None
 		self._files = []
 		self._current_file = None
-		self.home_dir = None
-		self.data_dir = None
+		self.installation_id = None
+		self.home_path = None
+		self.data_path = None
 		self.config_file = None
 		self.settings = None
 		self.motd = None
@@ -219,7 +236,7 @@ class Mixtool(Gtk.Application):
 	# This is run when Gtk.Application initializes the first instance.
 	# It is not run on any remote controllers.
 	def do_startup(self) -> None:
-		"""Initialize the main instance"""
+		"""Initialize the main instance."""
 		Gtk.Application.do_startup(self)
 		
 		self.motd = random.choice((
@@ -233,59 +250,66 @@ class Mixtool(Gtk.Application):
 			"You can’t kill the Messiah"
 		))
 		
-		# Determine a platform-specific data directory
-		self.home_dir = os.path.realpath(os.path.expanduser("~"))
+		# Determine the platform-specific data directory
+		self.home_path = os.path.realpath(os.path.expanduser("~"))
 		
 		if sys.platform.startswith("win"):
 			# Microsoft Windows
 			os_appdata = os.environ.get("APPDATA")
 			if os_appdata is None:
-				self.data_dir = self.home_dir + "\\AppData\\Roaming\\Bachsau\\Mixtool"
+				self.data_path = self.home_path + "\\AppData\\Roaming\\Bachsau\\Mixtool"
 			else:
-				self.data_dir = os.path.realpath(os_appdata) + "\\Bachsau\\Mixtool"
+				self.data_path = os.path.realpath(os_appdata) + "\\Bachsau\\Mixtool"
 			del os_appdata
-		
 		elif sys.platform.startswith("darwin"):
 			# Apple macOS
-			self.data_dir = self.home_dir + "/Library/Application Support/com.bachsau.mixtool"
-		
+			self.data_path = self.home_path + "/Library/Application Support/com.bachsau.mixtool"
 		else:
 			# Linux and others
 			os_appdata = os.environ.get("XDG_DATA_HOME")
 			if os_appdata is None:
-				self.data_dir = self.home_dir + "/.local/share/mixtool"
+				self.data_path = self.home_path + "/.local/share/mixtool"
 			else:
-				self.data_dir = os.path.realpath(os_appdata) + "/mixtool"
+				self.data_path = os.path.realpath(os_appdata) + "/mixtool"
 			del os_appdata
 		
 		# Create non-existent directories
-		try:
-			if not os.path.isdir(self.data_dir):
-				os.makedirs(self.data_dir)
-		except Exception as problem:
-			self._settings_failed = True
-			messagebox("Mixtool is unable to create its data directory.", "w", secondary="{0}:\n\"{1}\"\n\n".
-				format(problem.strerror if isinstance(problem, OSError) else "Undefinable problem", self.data_dir) + "Your settings will not be retained.")
+		if not os.path.isdir(self.data_path):
+			try:
+				os.makedirs(self.data_path, 448)
+			except Exception as problem:
+				self._data_path_blocked = True
+				if isinstance(problem, OSError):
+					problem_description = problem.strerror
+				else:
+					problem_description = "Internal error"
+				messagebox(
+					"Mixtool was not able to create its data directory.", "w",
+					secondary="{0}:\n{1}\n\n".format(problem_description, self.data_path)
+					+ "Your settings will not be retained."
+				)
 		
-		# Set location of configuration file
-		self.config_file = os.sep.join((self.data_dir, "settings.ini"))
+		# Set path to configuration file
+		self.config_file = os.sep.join((self.data_path, "settings.ini"))
 		
-		# Initialize the configuration manager
+		# Set up the configuration manager
 		self.settings = Configuration()
+		self.settings.register("installation_id", 0)
 		self.settings.register("simplenames", True)
 		self.settings.register("insertlower", True)
 		self.settings.register("decrypt", True)
 		self.settings.register("backup", False)
 		self.settings.register("nomotd", False)
-		self.settings.register("lastdir", self.home_dir)
+		self.settings.register("lastdir", self.home_path)
 		self.settings.register("alpha_warning", True)
 		self.settings.register("deletion_warning", True)
-		try:
-			self.settings.load(self.config_file)
-		except FileNotFoundError:
-			pass
-		except Exception as problem:
-			if not self._settings_failed:
+		
+		if not self._data_path_blocked:
+			try:
+				self.settings.load(self.config_file)
+			except FileNotFoundError:
+				pass
+			except Exception as problem:
 				if isinstance(problem, OSError):
 					problem_description = problem.strerror
 				elif isinstance(problem, UnicodeError):
@@ -293,19 +317,35 @@ class Mixtool(Gtk.Application):
 				elif isinstance(problem, configparser.Error):
 					problem_description = "Contains incomprehensible structures"
 				else:
-					problem_description = "Undefinable problem"
-				
-				messagebox("Mixtool is unable to read its configuration file.", "w", secondary="{0}:\n\"{1}\"\n\n".
-					format(problem_description, self.config_file) + "Your settings will be reset.")
+					problem_description = "Internal error"
+				messagebox(
+					"Mixtool is unable to read its configuration file.", "w",
+					secondary="{0}:\n{1}\n\n".format(problem_description, self.data_path)
+					+ "Your settings will be reset."
+				)
+		
+		# Initialize the installation id
+		# (to be used with online features)
+		try:
+			installation_id = uuid.UUID(int=self.settings["installation_id"])
+		except ValueError:
+			installation_id = None
+		if installation_id is not None and installation_id.version == 4:
+			self.installation_id = installation_id
+		else:
+			installation_id = uuid.uuid4()
+			self.settings["installation_id"] = installation_id.int
+			if self.save_settings():
+				self.installation_id = installation_id
 		
 		# Parse GUI file
-		app_dir = os.path.dirname(os.path.realpath(__file__))
-		gui_file = os.sep.join((app_dir, "res", "main.glade"))
+		app_path = os.path.dirname(os.path.realpath(__file__))
+		gui_file = os.sep.join((app_path, "res", "main.glade"))
 		self._builder = Gtk.Builder.new_from_file(gui_file)
 		
 		dummy_callback = lambda widget: True
 		callback_map = {
-			"on_new_clicked": dummy_callback,
+			"on_new_clicked": self.invoke_new_dialog,
 			"on_open_clicked": self.invoke_open_dialog,
 			"on_properties_clicked": self.invoke_properties_dialog,
 			"on_optimize_clicked": dummy_callback,
@@ -470,6 +510,8 @@ class Mixtool(Gtk.Application):
 		"""Finalize the application."""
 		try:
 			self._builder.get_object("MainWindow").destroy()
+		except Exception:
+			pass
 		finally:
 			Gtk.Application.do_shutdown(self)
 	
@@ -489,7 +531,53 @@ class Mixtool(Gtk.Application):
 	# Callback to create a new file by using a dialog
 	def invoke_new_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a file chooser dialog and create a new file."""
-		messagebox("Not implemented", "w", self.MainWindow, secondary="Call to `invoke_new_dialog()` method.")
+		window = widget.get_toplevel()
+		lastdir = self.settings["lastdir"]
+		version_chooser = Gtk.ComboBoxText()
+		version_chooser.append("0", "1 – TD")
+		version_chooser.append("1", "2 – RA")
+		version_chooser.append("2", "3 – TS, RA2, YR")
+		version_chooser.set_active_id("2")
+		version_label = Gtk.Label.new_with_mnemonic("_Version:")
+		version_label.set_mnemonic_widget(version_chooser)
+		version_box = Gtk.Box(
+			orientation=Gtk.Orientation.HORIZONTAL,
+			spacing=5
+		)
+		version_box.pack_start(version_label, False, True, 0)
+		version_box.pack_start(version_chooser, False, True, 0)
+		version_box.show_all()
+		dialog = Gtk.FileChooserDialog(
+			title="Create MIX file",
+			transient_for=window,
+			action=Gtk.FileChooserAction.SAVE,
+			do_overwrite_confirmation=True,
+			extra_widget=version_box,
+			filter=self.file_filter
+		)
+		try:
+			dialog.add_buttons(
+				"_Cancel", Gtk.ResponseType.CANCEL,
+				"_Save", Gtk.ResponseType.ACCEPT
+			)
+			dialog.set_current_folder(lastdir)
+			response = dialog.run()
+			dialog.hide()
+			if response == Gtk.ResponseType.ACCEPT:
+				# Save last used directory
+				newdir = dialog.get_current_folder()
+				if newdir != lastdir:
+					self.settings["lastdir"] = newdir
+					self.save_settings()
+				
+				# Create and open the file
+				# (optionally create a backup before)
+				messagebox(
+					"File creation is not implemented yet.",
+					secondary="Nothing will be done."
+				)
+		finally:
+			dialog.destroy()
 		return True
 	
 	# Callback to open files by using a dialog
@@ -500,15 +588,15 @@ class Mixtool(Gtk.Application):
 		dialog = Gtk.FileChooserDialog(
 			title="Open MIX file",
 			transient_for=window,
-			action=Gtk.FileChooserAction.OPEN
+			action=Gtk.FileChooserAction.OPEN,
+			select_multiple=True,
+			filter=self.file_filter
 		)
 		try:
 			dialog.add_buttons(
 				"_Cancel", Gtk.ResponseType.CANCEL,
 				"_Open", Gtk.ResponseType.ACCEPT
 			)
-			dialog.set_select_multiple(True)
-			dialog.set_filter(self.file_filter)
 			dialog.set_current_folder(lastdir)
 			response = dialog.run()
 			dialog.hide()
@@ -669,17 +757,26 @@ class Mixtool(Gtk.Application):
 		self._open_files(files)
 		return True
 	
-	def save_settings(self) -> None:
-		"""Save configuration to file."""
-		if not self._settings_failed:
+	def save_settings(self) -> bool:
+		"""Save configuration to disk."""
+		if not self._data_path_blocked:
 			try:
 				self.settings.save(self.config_file)
 			except Exception as problem:
-				self._settings_failed = True
-				messagebox("Mixtool is unable to save its configuration file.", "w", self.get_active_window(), secondary="{0}:\n\"{1}\"\n\n".
-					format(problem.strerror if isinstance(problem, OSError) else "Undefinable problem", self.config_file) + "Your settings will not be retained.")
+				self._data_path_blocked = True
+				if isinstance(problem, OSError):
+					problem_description = problem.strerror
+				else:
+					problem_description = "Internal error"
+				messagebox(
+					"Mixtool was not able to write its configuration file.", "w",
+					secondary="{0}:\n{1}\n\n".format(problem_description, self.data_path)
+					+ "Changed settings will not be retained."
+				)
+				return False
 			else:
 				print("Saved configuration file.", file=sys.stderr)
+				return True
 
 
 # <!-- BEGIN Old code -->
@@ -812,10 +909,6 @@ class OldWindowController(object):
 # Starter
 def main() -> int:
 	"""Run the Mixtool application and return a status code."""
-	# Since GTK+ does not support KeyboardInterrupt, reset SIGINT to default.
-	# TODO: Find and implement a better way to handle this.
-	# HINT: GLib.unix_signal_add()
-	signal.signal(signal.SIGINT, signal.SIG_DFL)
 	
 	# FIXME: Remove in final version
 	print("Mixtool is running on Python {0[0]}.{0[1]} using PyGObject {1[0]}.{1[1]} and GTK+ {2[0]}.{2[1]}.".
@@ -827,8 +920,9 @@ def main() -> int:
 	application = Mixtool("com.bachsau.mixtool", Gio.ApplicationFlags.HANDLES_OPEN)
 	
 	# Start GUI
-	# FIXME: All exceptions raised from inside are caught by GTK!
-	#        I need to look for a deeper place to catch them all.
+	# Since GTK+ does not support KeyboardInterrupt, reset SIGINT to default.
+	# TODO: Build something with `GLib.unix_signal_add()`
+	signal.signal(signal.SIGINT, signal.SIG_DFL)
 	status = application.run(sys.argv)
 	print("GTK+ returned.", file=sys.stderr)
 	

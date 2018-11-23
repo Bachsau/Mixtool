@@ -32,10 +32,9 @@ MIXTYPE_TD = 0
 MIXTYPE_RA = 1
 MIXTYPE_TS = 2
 MIXTYPE_R2 = 2
-MIXTYPE_RG = 3 # Not implemented yet
+MIXTYPE_RG = 3  # Not implemented yet
 
 BLOCKSIZE = 2097152
-
 ENCODING = "cp1252"
 
 # MixNodes are lightweight objects to store a defined set of index data
@@ -198,7 +197,7 @@ class MixFile(object):
 				if header != b"XCC by Olaf van der Spek\x1a\x04\x17'\x10\x19\x80\x00":
 					continue
 
-				dbsize  = int.from_bytes(stream.read(4), "little") # Total filesize
+				dbsize  = int.from_bytes(stream.read(4), "little")  # Total filesize
 
 				if dbsize != index[dbkey].size or dbsize > 16777216:
 					raise MixError("Invalid database.")
@@ -206,7 +205,7 @@ class MixFile(object):
 				# Four bytes for XCC type; 0 for LMD, 2 for XIF
 				# Four bytes for DB version; Always zero
 				stream.seek(8, io.SEEK_CUR)
-				mixtype = int.from_bytes(stream.read(4), "little") # XCC Game ID
+				mixtype = int.from_bytes(stream.read(4), "little")  # XCC Game ID
 				
 				# FIXME: Handle this correctly. I think we already knew the type before?
 				if mixtype > MIXTYPE_TS + 3:
@@ -215,7 +214,7 @@ class MixFile(object):
 					mixtype = MIXTYPE_TS
 
 				namecount = int.from_bytes(stream.read(4), "little")
-				bodysize  = dbsize - 53 # Size - header - last byte
+				bodysize  = dbsize - 53  # Size - Header - Last byte
 				namelist  = stream.read(bodysize).split(b"\x00") if bodysize > 0 else []
 
 				if len(namelist) != namecount:
@@ -815,18 +814,18 @@ class MixIO(io.BufferedIOBase):
 
 # Create MIX-Identifier from filename
 # Thanks to Olaf van der Spek for providing these functions
-def genkey(name: str, mixtype: int) -> int:
-	"""Return the key for `name` according to `mixtype`.
+def genkey(name: str, version: int) -> int:
+	"""Return the key for `name` according to `version`.
 
 	This is a low-level function that rarely needs to be used directly.
 	"""
-	if not 0 <= mixtype <= 2:
-		raise ValueError("Invalid MIX type.")
+	if not 0 <= version <= 2:
+		raise ValueError("Invalid version")
 	
 	name = name.encode(ENCODING, "strict").upper()
 	len_ = len(name)
 	
-	if mixtype < 2:
+	if version < 2:
 		# Compute key for TD/RA MIXes
 		i   = 0
 		key = 0
