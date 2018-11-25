@@ -25,6 +25,8 @@
 	margin:0;
 	padding:0;
 	border:0 none;
+	border-spacing:0;
+	border-collapse:collapse;
 	background:transparent;
 	color:inherit;
 	font:inherit;
@@ -61,8 +63,20 @@ body {
 	text-shadow:1px 1px 2px #808080;
 }
 
+div {
+	vertical-align:top;
+}
+
 a {
 	text-decoration:underline;
+}
+
+em {
+	font-style:italic;
+}
+
+strong {
+	font-weight:bold;
 }
 
 h1 {
@@ -100,4 +114,13 @@ pre {
 	max-width:100%;
 	overflow:auto;
 	font-style:italic;
+}
+
+th, td {
+	border:1px solid #000000;
+	padding:3px;
+}
+
+table {
+	border:1px hidden;
 }

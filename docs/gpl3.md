@@ -1,6 +1,6 @@
 ---
 title: GNU General Public License v3.0
-canonical: gpl.html
+canonical: gpl3.html
 copyright: fsf
 ---
 
