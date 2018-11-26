@@ -1,6 +1,7 @@
 ---
 title: Home
 canonical: home.html
+lightbox: true
 ---
 
 Welcome to Mixtool!
@@ -30,8 +31,6 @@ Licensing
 | Software      | Documentation              |
 | ------------- | -------------------------- |
 | [![GPLv3]][0] | [![GPLv3]][0] [![GFDL]][1] |
-
-<script src="assets/lightbox2/js/lightbox-plus-jquery.js"></script>
 
 [GPLv3]: assets/gpl3.svg
 [GFDL]: assets/gfdl.svg

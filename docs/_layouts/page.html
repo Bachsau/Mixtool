@@ -14,10 +14,13 @@
 		<base target="_parent">{% if page.canonical %}
 		<link rel="canonical" href="http://docs.bachsau.com/Mixtool/{{ page.canonical }}">{% endif %}
 		<link rel="icon" type="image/vnd.microsoft.icon" href="assets/favicon.ico">
-		<link rel="stylesheet" type="text/css" href="assets/general.css">
-		<link rel="stylesheet" type="text/css" href="assets/lightbox2/css/lightbox.css">
+		<link rel="stylesheet" type="text/css" href="assets/general.css">{% if page.lightbox %}
+		<link rel="stylesheet" type="text/css" href="assets/lightbox2/css/lightbox.css">{% endif %}
 	</head>
 	<body>
+
 {{ content | strip }}
+{% if page.lightbox %}
+	<script src="assets/lightbox2/js/lightbox-plus-jquery.js"></script>{% endif %}
 	</body>
 </html>
