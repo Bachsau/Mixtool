@@ -43,8 +43,10 @@ from gi.repository import GLib, GObject, Gio, Pango, Gdk, Gtk
 # Local modules
 import mixlib
 
+
 # The data type used to keep track of open files
 _FileRecord = collections.namedtuple("_FileRecord", ("path", "container", "store", "button"))
+
 
 # A simple abstraction for Python's ConfigParser.
 # It features implicit type conversion and defaults through prior
@@ -217,7 +219,7 @@ class Mixtool(Gtk.Application):
 	
 	# Object initializer
 	def __init__(self, application_id: str, flags: Gio.ApplicationFlags) -> None:
-		"""Initialize the Mixtool instance"""
+		"""Initialize the Mixtool instance."""
 		Gtk.Application.__init__(self, application_id=application_id, flags=flags)
 		self.set_resource_base_path(None)
 		
@@ -236,7 +238,7 @@ class Mixtool(Gtk.Application):
 	# This is run when Gtk.Application initializes the first instance.
 	# It is not run on any remote controllers.
 	def do_startup(self) -> None:
-		"""Initialize the main instance."""
+		"""Set up the application."""
 		Gtk.Application.do_startup(self)
 		
 		self.motd = random.choice((
@@ -299,8 +301,9 @@ class Mixtool(Gtk.Application):
 		self.settings.register("insertlower", True)
 		self.settings.register("decrypt", True)
 		self.settings.register("backup", False)
+		self.settings.register("extracttolast", True)
 		self.settings.register("nomotd", False)
-		self.settings.register("lastdir", self.home_path)
+		self.settings.register("browse_path", self.home_path)
 		self.settings.register("alpha_warning", True)
 		self.settings.register("deletion_warning", True)
 		
@@ -453,10 +456,12 @@ class Mixtool(Gtk.Application):
 			(self._builder.get_object("Settings.InsertLower"), "insertlower"),
 			(self._builder.get_object("Settings.Decrypt"), "decrypt"),
 			(self._builder.get_object("Settings.Backup"), "backup"),
+			(self._builder.get_object("Settings.ExtractToLast"), "extracttolast"),
 			(self._builder.get_object("Settings.DisableMOTD"), "nomotd")
 		)
 		
 		# Push current settings to dialog
+		self._builder.get_object("Settings.ExtractToFile").set_active(True)
 		if defaults:
 			for checkbox, setting in checkboxes:
 				checkbox.set_active(self.settings.get_default(setting))
@@ -532,7 +537,14 @@ class Mixtool(Gtk.Application):
 	def invoke_new_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a file chooser dialog and create a new file."""
 		window = widget.get_toplevel()
-		lastdir = self.settings["lastdir"]
+		saved_path = self.settings["browse_path"]
+		browse_path = saved_path if os.path.isdir(saved_path) else self.home_path
+		suggestion = "new"
+		suggested = suggestion + ".mix"
+		i = 1
+		while os.path.lexists(os.sep.join((browse_path, suggested))):
+			suggested = suggestion + str(i) + ".mix"
+			i += 1
 		version_chooser = Gtk.ComboBoxText()
 		version_chooser.append("0", "1 – TD")
 		version_chooser.append("1", "2 – RA")
@@ -560,22 +572,19 @@ class Mixtool(Gtk.Application):
 				"_Cancel", Gtk.ResponseType.CANCEL,
 				"_Save", Gtk.ResponseType.ACCEPT
 			)
-			dialog.set_current_folder(lastdir)
+			dialog.set_current_folder(browse_path)
+			dialog.set_current_name(suggested)
 			response = dialog.run()
 			dialog.hide()
 			if response == Gtk.ResponseType.ACCEPT:
 				# Save last used directory
-				newdir = dialog.get_current_folder()
-				if newdir != lastdir:
-					self.settings["lastdir"] = newdir
+				browse_path = dialog.get_current_folder()
+				if browse_path != saved_path:
+					self.settings["browse_path"] = browse_path
 					self.save_settings()
 				
-				# Create and open the file
-				# (optionally create a backup before)
-				messagebox(
-					"File creation is not implemented yet.",
-					secondary="Nothing will be done."
-				)
+				# Open the files
+				self._open_files(dialog.get_files())
 		finally:
 			dialog.destroy()
 		return True
@@ -584,7 +593,8 @@ class Mixtool(Gtk.Application):
 	def invoke_open_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a file chooser dialog and open selected files."""
 		window = widget.get_toplevel()
-		lastdir = self.settings["lastdir"]
+		saved_path = self.settings["browse_path"]
+		browse_path = saved_path if os.path.isdir(saved_path) else self.home_path
 		dialog = Gtk.FileChooserDialog(
 			title="Open MIX file",
 			transient_for=window,
@@ -597,14 +607,14 @@ class Mixtool(Gtk.Application):
 				"_Cancel", Gtk.ResponseType.CANCEL,
 				"_Open", Gtk.ResponseType.ACCEPT
 			)
-			dialog.set_current_folder(lastdir)
+			dialog.set_current_folder(browse_path)
 			response = dialog.run()
 			dialog.hide()
 			if response == Gtk.ResponseType.ACCEPT:
 				# Save last used directory
-				newdir = dialog.get_current_folder()
-				if newdir != lastdir:
-					self.settings["lastdir"] = newdir
+				browse_path = dialog.get_current_folder()
+				if browse_path != saved_path:
+					self.settings["browse_path"] = browse_path
 					self.save_settings()
 				
 				# Open the files
@@ -613,7 +623,7 @@ class Mixtool(Gtk.Application):
 			dialog.destroy()
 		return True
 	
-	def _open_files(self, files: list) -> None:
+	def _open_files(self, files: list, new: int = -1) -> None:
 		"""Open `files` and create a new tab for each one."""
 		window = self.get_active_window()
 		errors = []
@@ -928,6 +938,7 @@ def main() -> int:
 	
 	return status
 
+
 # A simple, instance-independent messagebox
 def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, secondary: str = None) -> None:
 	"""Display a dialog box containing `text` and an OK button.
@@ -971,8 +982,7 @@ def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, second
 		window_position=position,
 		skip_taskbar_hint=skip_hint,
 		skip_pager_hint=skip_hint,
-		transient_for=parent,
-		border_width=5
+		transient_for=parent
 	)
 	
 	if secondary is not None:

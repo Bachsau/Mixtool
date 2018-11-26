@@ -341,6 +341,8 @@ class MixFile(object):
 			self._stream.seek(wpos)
 			self._stream.write(buffer)
 	
+	def _reposition(file):
+		pass
 	
 	# Public method to list the MIX file's contents
 	def get_contents(self) -> list:
