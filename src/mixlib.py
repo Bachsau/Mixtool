@@ -765,17 +765,17 @@ class MixFile(object):
 class MixIO(io.BufferedIOBase):
 	"""Access files inside MIXes like files on disk."""
 	
-	__slots__ = ("__container", "__inode", "__cursor", "__readable", "__writeable")
+	__slots__ = ("_container", "_node", "__cursor", "__readable", "__writeable")
 
 	def __init__(self, container: MixFile, name: str, flags: int) -> None:
 		"""Initialize an abstract stream for 'name' on top of 'container'."""
-		self.__container = container
-		self.__inode = container._get_inode(name)
+		self._container = container
+		self._node = container._get_inode(name)
 		# FIXME: This should probably raise ValueError instead of failing silently on container error
 		self.__readable = flags & 1 and container._stream.readable()
 		self.__writeable = flags & 2 and container._stream.writeable()
 		self.__cursor = 0
-		self.__inode.links += 1
+		self._node.links += 1
 
 	def readable(self) -> bool:
 		# FIXME: Check if we can exchange OSError by MixIOError
@@ -783,7 +783,7 @@ class MixIO(io.BufferedIOBase):
 		if self.closed:
 			raise ValueError("I/O operation on closed file")
 
-		return self.__container._stream.readable()
+		return self._container._stream.readable()
 
 	def writeable(self) -> bool:
 		"""Return True if the stream supports writing. If False, write() and truncate() will raise OSError."""
@@ -804,14 +804,14 @@ class MixIO(io.BufferedIOBase):
 		any operation on the file (e.g. reading or writing) will raise a ValueError.
 		"""
 		if not self.closed:
-			self.__inode.links -= 1
-			self.__inode = None
-			self.__container = None
+			self._node.links -= 1
+			self._node = None
+			self._container = None
 
 	@property
 	def closed(self):
 		"""True if the stream is closed."""
-		return self.__inode is None
+		return self._node is None
 
 
 # Create MIX-Identifier from filename

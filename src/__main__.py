@@ -45,7 +45,7 @@ import mixlib
 
 
 # The data type used to keep track of open files
-_FileRecord = collections.namedtuple("_FileRecord", ("path", "container", "store", "button"))
+_FileRecord = collections.namedtuple("_FileRecord", ("path", "container", "store", "button", "fd", "isnew"))
 
 
 # A simple abstraction for Python's ConfigParser.
@@ -480,6 +480,12 @@ class Mixtool(Gtk.Application):
 		
 		# Close the file
 		file.container.finalize().close()
+		if file.isnew:
+			try:
+				if not os.stat(file.path).st_size:
+					os.remove(file.path)
+			except OSError:
+				pass
 		
 		# Remove all references
 		self._current_file = None
@@ -497,6 +503,7 @@ class Mixtool(Gtk.Application):
 		window = widget.get_toplevel()
 		self._current_file = None
 		
+		# FIXME: Add file deletion logic from `close_current_file`
 		while(self._files):
 			file = self._files.pop()
 			file.container.finalize().close()
@@ -584,7 +591,7 @@ class Mixtool(Gtk.Application):
 					self.save_settings()
 				
 				# Open the files
-				self._open_files(dialog.get_files())
+				self._open_files(dialog.get_files(), int(version_chooser.get_active_id()))
 		finally:
 			dialog.destroy()
 		return True
@@ -626,6 +633,7 @@ class Mixtool(Gtk.Application):
 	def _open_files(self, files: list, new: int = -1) -> None:
 		"""Open `files` and create a new tab for each one."""
 		window = self.get_active_window()
+		fd_support = os.stat in os.supports_fd
 		errors = []
 		
 		self.mark_busy()
@@ -633,45 +641,66 @@ class Mixtool(Gtk.Application):
 		for file in files:
 			path = os.path.realpath(file.get_path())
 			
-			# Check if file is already open
-			for already_open in self._files:
-				if os.path.samefile(already_open.path, path):
-					errors.append((1, path))
-					break
+			for existing_record in self._files:
+				# Check if file is already open
+				try:
+					if os.path.samefile(existing_record.fd if fd_support else existing_record.path, path):
+						errors.append((-1, path))
+						break
+				except OSError as problem:
+					if problem.filename == path and not (new >=0 and problem.errno == 2):
+						errors.append((problem.errno, path))
+						break
 			else:
 				try:
-					# TODO: Catch errors from mixlib.MixFile separately,
-					# so stream can be closed cleanly
-					stream = open(path, "r+b")
-					container = mixlib.MixFile(stream)
-				except Exception:
-					errors.append((2, path))
+					try:
+						stream = open(path, "r+b")
+					except FileNotFoundError:
+						if new >=0:
+							stream = open(path, "w+b")
+							isnew = True
+						else:
+							raise
+					else:
+						isnew = False
+				except OSError as problem:
+					errors.append((problem.errno, path))
 				else:
-					# Initialize a Gtk.ListStore
-					store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_ULONG, GObject.TYPE_ULONG, GObject.TYPE_ULONG)
-					store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
-					for record in container.get_contents():
-						store.append((
-							record.name,
-							record.size,
-							record.offset,
-							record.alloc - record.size  # = Overhead
-						))
-					
-					# Add a button
-					button = Gtk.RadioButton.new_with_label_from_widget(already_open.button if self._files else None, os.path.basename(path))
-					button.set_mode(False)
-					button.get_child().set_ellipsize(Pango.EllipsizeMode.END)
-					button.set_tooltip_text(path)
-					self._builder.get_object("TabBar").pack_start(button, True, True, 0)
-					button.show()
-					
-					# Create the file record
-					file = _FileRecord(path, container, store, button)
-					self._files.append(file)
-					
-					# Connect the signal
-					button.connect("toggled", self.switch_file, file)
+					container = None
+					try:
+						container = mixlib.MixFile(stream, new)
+					except Exception:
+						# FIXME: Implement finer matching as mixlib's error handling evolves
+						errors.append((-2, path))
+					else:
+						# Initialize a Gtk.ListStore
+						store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_ULONG, GObject.TYPE_ULONG, GObject.TYPE_ULONG)
+						store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
+						for record in container.get_contents():
+							store.append((
+								record.name,
+								record.size,
+								record.offset,
+								record.alloc - record.size  # = Overhead
+							))
+						
+						# Add a button
+						button = Gtk.RadioButton.new_with_label_from_widget(existing_record.button if self._files else None, os.path.basename(path))
+						button.set_mode(False)
+						button.get_child().set_ellipsize(Pango.EllipsizeMode.END)
+						button.set_tooltip_text(path)
+						self._builder.get_object("TabBar").pack_start(button, True, True, 0)
+						button.show()
+						
+						# Create the file record
+						file = _FileRecord(path, container, store, button, stream.fileno(), isnew)
+						self._files.append(file)
+						
+						# Connect the signal
+						button.connect("toggled", self.switch_file, file)
+					finally:
+						if container is None:
+							stream.close()
 		
 		if len(files) - len(errors) > 0:
 			self.update_gui()
@@ -682,12 +711,12 @@ class Mixtool(Gtk.Application):
 		if errors:
 			for errno, path in errors:
 				# TODO: Show only one dialog per error or only one dialog at all.
-				if errno == 1:
-					messagebox("This file is already open and can only be opened once:", "e", window, secondary=path)
-				elif errno == 2:
-					messagebox("Error loading MIX file:" ,"e", window, secondary=path)
+				if errno == -1:  # File is already open
+					messagebox("These files are already open:", "e", window, secondary=path)
+				elif errno == -2:  # MIX errors
+					messagebox("Error loading MIX file:", "e", window, secondary=path)
 				else:
-					messagebox("An unknown error occured while trying to open:" ,"e", window, secondary=path)
+					messagebox(os.strerror(errno) + ":", "e", window, secondary=path)
 	
 	# Switch to another tab
 	def switch_file(self, widget: Gtk.Widget, file: _FileRecord) -> bool:
