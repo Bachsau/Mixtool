@@ -730,16 +730,17 @@ class Mixtool(Gtk.Application):
 					err_last = errno
 					err_strings.append("")
 					if errno == -1:  # File is already open
-						err_strings.append("File is already open:")
+						err_string = "File is already open"
 					elif errno == -2:  # MIX errors
-						err_strings.append("File is faulty:")
+						err_string = "File is faulty"
 					else:  # OS erros
-						err_strings.append(os.strerror(errno) + ":")
-				err_strings.append(path)
+						err_string = os.strerror(errno)
+					err_strings.append("<b>{0}:</b>".format(err_string))
+				err_strings.append("\xa0\xa0\xa0\xa0" + GLib.markup_escape_text(path))
 			del err_strings[0]
 			err_text = "\n".join(err_strings)
 					
-			messagebox(err_title, "e", window, secondary=err_text)
+			messagebox(err_title, "e", window, secondary=err_text, markup=2)
 	
 	# Switch to another tab
 	def switch_file(self, widget: Gtk.Widget, file: _FileRecord) -> bool:
@@ -865,7 +866,7 @@ def main() -> int:
 
 
 # A simple, instance-independent messagebox
-def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, secondary: str = None) -> None:
+def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, secondary: str = None, markup: int = 0) -> None:
 	"""Display a dialog box containing `text` and an OK button.
 	
 	`type_` can be 'i' for information, 'e' for error or 'w' for warning.
@@ -902,6 +903,7 @@ def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, second
 		message_type=message_type,
 		buttons=Gtk.ButtonsType.OK,
 		text=str(text),
+		use_markup=markup & 1 == 1,
 		title=title,
 		icon_name=icon,
 		window_position=position,
@@ -911,7 +913,10 @@ def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, second
 	)
 	
 	if secondary is not None:
-		dialog.format_secondary_text(str(secondary))
+		if markup & 2 == 2:
+			dialog.format_secondary_markup(str(secondary))
+		else:
+			dialog.format_secondary_text(str(secondary))
 	
 	dialog.run()
 	dialog.destroy()
