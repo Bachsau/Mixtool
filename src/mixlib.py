@@ -88,14 +88,26 @@ MixRecord = collections.namedtuple("MixRecord", ("name", "size", "offset", "allo
 
 # MIX versions
 class Version(enum.IntEnum):
-	"""Enumeration of MIX versions used by the various games."""
+	"""Enumeration of MIX versions, named after the various games."""
 	
-	TD = 0  # Tiberian Dawn
-	RA = 1  # Red Alert
-	TS = 2  # Tiberian Sun
-	R2 = 2  # Red Alert 2
-	YR = 2  # Yuri's Revenge
-	RG = 3  # Renegade
+	TD  = 0  # Tiberian Dawn
+	RA  = 1  # Red Alert
+	TS  = 2  # Tiberian Sun
+	RA2 = 2  # Red Alert 2
+	YR  = 2  # Yuri's Revenge
+	RG  = 3  # Renegade
+	
+	def needs_conversion(self, other: int) -> bool:
+		"""Tell if keys need to be recalculated when converting to `other`."""
+		# Validity check and type conversion
+		# in two lightweight operations
+		self = Version(self)
+		other = Version(other)
+		
+		if self <= Version.RA:
+			return False if other <= Version.RA else True
+		if self >= Version.TS:
+			return False if other >= Version.TS else True
 
 
 # Instances represent a single MIX file.
@@ -103,7 +115,7 @@ class Version(enum.IntEnum):
 class MixFile(object):
 	"""Manage MIX files, one file per instance."""
 	
-	__slots__ = ("_dirty", "_stream", "_mixtype", "_index", "_contents", "has_checksum", "is_encrypted")
+	__slots__ = ("_dirty", "_stream", "_version", "_index", "_contents", "has_checksum", "is_encrypted")
 
 	# Constructor parses MIX file
 	def __init__(self, stream: io.BufferedIOBase, new: int = -1) -> None:
@@ -135,7 +147,7 @@ class MixFile(object):
 				raise ValueError("Invalid MIX type.")
 
 			self._stream = stream
-			self._mixtype = int(new)
+			self._version = int(new)
 			self._index = {}
 			self._contents = []
 			self.has_checksum = False
@@ -264,7 +276,7 @@ class MixFile(object):
 
 		# Finalize object
 		self._stream = stream
-		self._mixtype = mixtype
+		self._version = mixtype
 		self._index = index
 		self._contents = contents
 		self.has_checksum = has_checksum
@@ -325,7 +337,7 @@ class MixFile(object):
 			if name.startswith("0x"):
 				key = int(name, 16)
 			else:
-				key = genkey(name, self._mixtype)
+				key = genkey(name, self._version)
 		except ValueError:
 			raise MixNameError("Invalid filename.")
 			# FIXME: Parameters could be added to distinguish between encoding
@@ -379,13 +391,9 @@ class MixFile(object):
 		
 		
 	# Public method to get the mixtype		
-	def get_type(self) -> int:
-		"""Return type of MIX.
-		
-		Mapping is `(Version.TD, Version.RA, Version.TS)[self.get_type()]`
-		"""
-		
-		return self._mixtype
+	def get_version(self) -> Version:
+		"""Return MIX version."""
+		return Version(self._version)
 			
 			
 	# Public method to add missing names
@@ -453,7 +461,7 @@ class MixFile(object):
 
 	# Change MIX type
 	# TODO: Repair
-	def convert(self, newtype: int):
+	def set_version(self, newtype: int):
 		"""Convert MIX to 'newtype'.
 
 		When converting between	TD/RA and TS, the MIX is not allowed to have missing
@@ -465,15 +473,15 @@ class MixFile(object):
 		elif newtype > Version.TS:
 			newtype = Version.TS
 
-		if (newtype >= Version.TS and self._mixtype < Version.TS)\
-		or (newtype < Version.TS and self._mixtype >= Version.TS):
+		if (newtype >= Version.TS and self._version < Version.TS)\
+		or (newtype < Version.TS and self._version >= Version.TS):
 			# This means we have to generate new keys for all names
 			newindex = {}
 			for inode in self._contents:
 				if inode.name.startswith("0x"):
 					raise MixError("Can't convert between TD/RA and TS when names are missing")
 
-				newkey = genkey(inode.name, self._mixtype)
+				newkey = genkey(inode.name, self._version)
 				newindex[newkey] = inode
 
 			if len(newindex) != len(self._contents):
@@ -486,7 +494,7 @@ class MixFile(object):
 			self.has_checksum = False
 			self.is_encrypted = False
 
-		self._mixtype = newtype
+		self._version = newtype
 
 
 	# Write current header (Flags, Keysource, Index, Database, Checksum) to MIX
@@ -500,7 +508,7 @@ class MixFile(object):
 		
 		assert len(self._contents) == len(self._index)
 		filecount   = len(self._contents)
-		indexoffset = 6 if self._mixtype == Version.TD else 10
+		indexoffset = 6 if self._version == Version.TD else 10
 		indexsize   = (filecount + 1) * 12
 		bodyoffset  = indexoffset + indexsize
 		# TODO: Implement checksum and encryption
@@ -603,13 +611,13 @@ class MixFile(object):
 		self._stream.write(b"XCC by Olaf van der Spek\x1a\x04\x17'\x10\x19\x80\x00")
 		self._stream.write(dbsize.to_bytes(4, "little"))
 		self._stream.write(bytes(8))
-		self._stream.write(self._mixtype.to_bytes(4, "little"))
+		self._stream.write(self._version.to_bytes(4, "little"))
 		self._stream.write(namecount.to_bytes(4, "little"))
 
 		# Write index
 		bodysize = self._contents[0].offset - bodyoffset if filecount else 0
 		files = sorted(self._index.items(), key=lambda i: i[1].offset)
-		dbkey = 1422054725 if self._mixtype < Version.TS else 913179935
+		dbkey = 1422054725 if self._version < Version.TS else 913179935
 		files.append((dbkey, _MixNode(None, dboffset, dbsize, dbsize)))
 
 		self._stream.seek(indexoffset)
@@ -621,7 +629,7 @@ class MixFile(object):
 
 		# Write MIX header
 		self._stream.seek(0)
-		if self._mixtype != Version.TD:
+		if self._version != Version.TD:
 			self._stream.write(bytes(2))
 			self._stream.write(flags.to_bytes(2, "little"))
 		self._stream.write((filecount + 1).to_bytes(2, "little"))
@@ -706,7 +714,7 @@ class MixFile(object):
 			raise MixError("File exists.")
 
 		filecount   = len(self._contents)
-		indexoffset = 6 if self._mixtype == Version.TD else 10
+		indexoffset = 6 if self._version == Version.TD else 10
 		minoffset   = (filecount + 100) * 12 + indexoffset
 
 		if filecount:

@@ -21,6 +21,7 @@
 """Mixtool GTK+ 3 application"""
 
 __version__ = "0.2.0-volatile"
+__author__ = "Bachsau"
 
 # Standard modules
 import sys
@@ -32,6 +33,7 @@ import collections
 import collections.abc
 import configparser
 from urllib import parse
+import traceback  # for debugging
 
 # Third party modules
 import gi
@@ -373,7 +375,7 @@ class Mixtool(Gtk.Application):
 		else:
 			dialog = self._builder.get_object("PropertiesDialog")
 			mixtype_dropdown = self._builder.get_object("Properties.Type")
-			current_mixtype = self._current_file.container.get_type()
+			current_mixtype = self._current_file.container.get_version()
 			
 			mixtype_dropdown.set_active_id(str(current_mixtype))
 			self._builder.get_object("PropertiesDialog.OK").grab_focus()
@@ -652,7 +654,7 @@ class Mixtool(Gtk.Application):
 					errors.append((problem.errno, path))
 					continue
 			else:
-				# Check if file is already open
+				# File exists. Let's check if it's already open.
 				continue_ = False
 				for existing_record in self._files:
 					if os.path.samestat(existing_record.stat, stat):
@@ -679,6 +681,7 @@ class Mixtool(Gtk.Application):
 					container = mixlib.MixFile(stream, new)
 				except Exception:
 					# FIXME: Implement finer matching as mixlib's error handling evolves
+					traceback.print_exc(file=sys.stderr)
 					errors.append((-2, path))
 				else:
 					# Initialize a Gtk.ListStore
@@ -746,7 +749,7 @@ class Mixtool(Gtk.Application):
 	def switch_file(self, widget: Gtk.Widget, file: _FileRecord) -> bool:
 		"""Switch the currently displayed file to `path`."""
 		if widget.get_active():
-			mixtype = ("TD", "RA", "TS")[file.container.get_type()]
+			mixtype = file.container.get_version().name
 			status = " ".join((mixtype, "MIX contains", str(file.container.get_filecount()), "files."))
 			title = widget.get_label() + " – Mixtool"
 			
