@@ -45,7 +45,7 @@ import mixlib
 
 
 # The data type used to keep track of open files
-_FileRecord = collections.namedtuple("_FileRecord", ("path", "container", "store", "button", "fd", "isnew"))
+_FileRecord = collections.namedtuple("_FileRecord", ("path", "stat", "container", "store", "button", "isnew"))
 
 
 # A simple abstraction for Python's ConfigParser.
@@ -638,69 +638,83 @@ class Mixtool(Gtk.Application):
 		
 		self.mark_busy()
 		
+		button = self._files[0].button if self._files else None
+		
 		for file in files:
 			path = os.path.realpath(file.get_path())
+			stat = None
 			
-			for existing_record in self._files:
-				# Check if file is already open
-				try:
-					if os.path.samefile(existing_record.fd if fd_support else existing_record.path, path):
-						errors.append((-1, path))
-						break
-				except OSError as problem:
-					if problem.filename == path and not (new >=0 and problem.errno == 2):
-						errors.append((problem.errno, path))
-						break
-			else:
-				try:
-					try:
-						stream = open(path, "r+b")
-					except FileNotFoundError:
-						if new >=0:
-							stream = open(path, "w+b")
-							isnew = True
-						else:
-							raise
-					else:
-						isnew = False
-				except OSError as problem:
+			# If the file exists, stat it now
+			try:
+				stat = os.stat(path)
+			except OSError as problem:
+				if not (new >=0 and isinstance(problem, FileNotFoundError)):
 					errors.append((problem.errno, path))
-				else:
-					container = None
-					try:
-						container = mixlib.MixFile(stream, new)
-					except Exception:
-						# FIXME: Implement finer matching as mixlib's error handling evolves
-						errors.append((-2, path))
+					continue
+			
+			# Check if file is already open
+			if stat is not None:
+				continue_ = False
+				for existing_record in self._files:
+					if os.path.samestat(existing_record.stat, stat):
+						errors.append((-1, path))
+						continue_ = True
+						break
+				if continue_:
+					continue
+			
+			try:
+				try:
+					stream = open(path, "r+b")
+				except FileNotFoundError:
+					if new >=0:
+						stream = open(path, "w+b")
+						isnew = True
 					else:
-						# Initialize a Gtk.ListStore
-						store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_ULONG, GObject.TYPE_ULONG, GObject.TYPE_ULONG)
-						store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
-						for record in container.get_contents():
-							store.append((
-								record.name,
-								record.size,
-								record.offset,
-								record.alloc - record.size  # = Overhead
-							))
-						
-						# Add a button
-						button = Gtk.RadioButton.new_with_label_from_widget(existing_record.button if self._files else None, os.path.basename(path))
-						button.set_mode(False)
-						button.get_child().set_ellipsize(Pango.EllipsizeMode.END)
-						button.set_tooltip_text(path)
-						self._builder.get_object("TabBar").pack_start(button, True, True, 0)
-						button.show()
-						
-						# Create the file record
-						file = _FileRecord(path, container, store, button, stream.fileno(), isnew)
-						self._files.append(file)
-						
-						# Connect the signal
-						button.connect("toggled", self.switch_file, file)
-					finally:
-						if container is None:
-							stream.close()
+						raise
+				else:
+					isnew = False
+				if stat is None:
+					# Stat files that didn't exist before
+					stat = os.stat(stream.fileno() if fd_support else path)
+			except OSError as problem:
+				errors.append((problem.errno, path))
+			else:
+				container = None
+				try:
+					container = mixlib.MixFile(stream, new)
+				except Exception:
+					# FIXME: Implement finer matching as mixlib's error handling evolves
+					errors.append((-2, path))
+				else:
+					# Initialize a Gtk.ListStore
+					store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_ULONG, GObject.TYPE_ULONG, GObject.TYPE_ULONG)
+					store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
+					for record in container.get_contents():
+						store.append((
+							record.name,
+							record.size,
+							record.offset,
+							record.alloc - record.size  # = Overhead
+						))
+					
+					# Add a button
+					button = Gtk.RadioButton.new_with_label_from_widget(button, os.path.basename(path))
+					button.set_mode(False)
+					button.get_child().set_ellipsize(Pango.EllipsizeMode.END)
+					button.set_tooltip_text(path)
+					self._builder.get_object("TabBar").pack_start(button, True, True, 0)
+					button.show()
+					
+					# Create the file record
+					file = _FileRecord(path, stat, container, store, button, isnew)
+					self._files.append(file)
+					
+					# Connect the signal
+					button.connect("toggled", self.switch_file, file)
+				finally:
+					if container is None:
+						stream.close()
 		
 		if len(files) - len(errors) > 0:
 			self.update_gui()
