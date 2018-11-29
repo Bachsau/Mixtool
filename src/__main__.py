@@ -651,9 +651,8 @@ class Mixtool(Gtk.Application):
 				if not (new >=0 and isinstance(problem, FileNotFoundError)):
 					errors.append((problem.errno, path))
 					continue
-			
-			# Check if file is already open
-			if stat is not None:
+			else:
+				# Check if file is already open
 				continue_ = False
 				for existing_record in self._files:
 					if os.path.samestat(existing_record.stat, stat):
@@ -664,19 +663,14 @@ class Mixtool(Gtk.Application):
 					continue
 			
 			try:
-				try:
-					stream = open(path, "r+b")
-				except FileNotFoundError:
-					if new >=0:
-						stream = open(path, "w+b")
-						isnew = True
-					else:
-						raise
-				else:
-					isnew = False
 				if stat is None:
+					stream = open(path, "w+b")
+					isnew = True
 					# Stat files that didn't exist before
 					stat = os.stat(stream.fileno() if fd_support else path)
+				else:
+					stream = open(path, "r+b")
+					isnew = False
 			except OSError as problem:
 				errors.append((problem.errno, path))
 			else:
