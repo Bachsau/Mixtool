@@ -19,23 +19,22 @@
 # along with Mixtool.  If not, see <https://www.gnu.org/licenses/>.
 
 """Routines to access MIX files."""
-# TODO: Define public API in final version
-#__all__ = ["MIXTYPE_TD", "MIXTYPE_RA", "MIXTYPE_TS", "MixRecord", "MixFile", "genkey"]
+
+__all__ = ["MixRecord", "Version", "MixFile", "MixIO", "genkey"]
+__version__ = "0.2.0-volatile"
+__author__ = "Bachsau"
 
 import os
 import io
 import collections
+import enum
 import binascii
 
-# Constants
-MIXTYPE_TD = 0
-MIXTYPE_RA = 1
-MIXTYPE_TS = 2
-MIXTYPE_R2 = 2
-MIXTYPE_RG = 3  # Not implemented yet
 
+# Constants
 BLOCKSIZE = 2097152
 ENCODING = "cp1252"
+
 
 # MixNodes are lightweight objects to store a defined set of index data
 class _MixNode(object):
@@ -66,22 +65,38 @@ class _MixNode(object):
 class MixError(Exception):
 	__slots__ = ()
 
+
 # Exception for errors in the MIX file
 class MixFileError(MixError):
 	__slots__ = ()
+
 
 # Exception raised in case of internal errors
 # such as key collisions
 class MixInternalError(MixError):
 	__slots__ = ()
 
+
 # Exception for Errors in MixIO
 class MixIOError(OSError, MixError):
 	__slots__ = ()
 
-		
+
 # A named tuple for metadata returned to the user
 MixRecord = collections.namedtuple("MixRecord", ("name", "size", "offset", "alloc", "node_id"))
+
+
+# MIX versions
+class Version(enum.IntEnum):
+	"""Enumeration of MIX versions used by the various games."""
+	
+	TD = 0  # Tiberian Dawn
+	RA = 1  # Red Alert
+	TS = 2  # Tiberian Sun
+	R2 = 2  # Red Alert 2
+	YR = 2  # Yuri's Revenge
+	RG = 3  # Renegade
+
 
 # Instances represent a single MIX file.
 # They are refered to as "containers".
@@ -141,8 +156,8 @@ class MixFile(object):
 			is_encrypted = bool(flags & 2)
 
 			# Encrypted TS MIXes have a key.ini we can check for later,
-			# so at this point assume MIXTYPE_TS only if unencrypted
-			mixtype = MIXTYPE_RA if is_encrypted else MIXTYPE_TS
+			# so at this point assume Version.TS only if unencrypted
+			mixtype = Version.RA if is_encrypted else Version.TS
 
 			# Get header data for RA/TS
 			if is_encrypted:
@@ -154,7 +169,7 @@ class MixFile(object):
 				filecount = int.from_bytes(stream.read(2), "little")
 		else:
 			# Maybe it's a TD MIX
-			mixtype = MIXTYPE_TD
+			mixtype = Version.TD
 
 			# Get header Data for TD
 			filecount = firstbytes
@@ -208,10 +223,10 @@ class MixFile(object):
 				mixtype = int.from_bytes(stream.read(4), "little")  # XCC Game ID
 				
 				# FIXME: Handle this correctly. I think we already knew the type before?
-				if mixtype > MIXTYPE_TS + 3:
+				if mixtype > Version.TS + 3:
 					raise MixError("Unsupported MIX type")
-				elif mixtype > MIXTYPE_TS:
-					mixtype = MIXTYPE_TS
+				elif mixtype > Version.TS:
+					mixtype = Version.TS
 
 				namecount = int.from_bytes(stream.read(4), "little")
 				bodysize  = dbsize - 53  # Size - Header - Last byte
@@ -367,7 +382,7 @@ class MixFile(object):
 	def get_type(self) -> int:
 		"""Return type of MIX.
 		
-		Mapping is `(MIXTYPE_TD, MIXTYPE_RA, MIXTYPE_TS)[self.get_type()]`
+		Mapping is `(Version.TD, Version.RA, Version.TS)[self.get_type()]`
 		"""
 		
 		return self._mixtype
@@ -445,13 +460,13 @@ class MixFile(object):
 		names as they can not be converted properly. MixError is raised in this	case.
 		"""
 		
-		if newtype < MIXTYPE_TD or newtype > MIXTYPE_TS + 3:
+		if newtype < Version.TD or newtype > Version.TS + 3:
 			raise MixError("Unsupported MIX type")
-		elif newtype > MIXTYPE_TS:
-			newtype = MIXTYPE_TS
+		elif newtype > Version.TS:
+			newtype = Version.TS
 
-		if (newtype >= MIXTYPE_TS and self._mixtype < MIXTYPE_TS)\
-		or (newtype < MIXTYPE_TS and self._mixtype >= MIXTYPE_TS):
+		if (newtype >= Version.TS and self._mixtype < Version.TS)\
+		or (newtype < Version.TS and self._mixtype >= Version.TS):
 			# This means we have to generate new keys for all names
 			newindex = {}
 			for inode in self._contents:
@@ -467,7 +482,7 @@ class MixFile(object):
 			self._index = newindex
 
 		# Checksum and Encryption is not supported in TD
-		if newtype == MIXTYPE_TD:
+		if newtype == Version.TD:
 			self.has_checksum = False
 			self.is_encrypted = False
 
@@ -485,7 +500,7 @@ class MixFile(object):
 		
 		assert len(self._contents) == len(self._index)
 		filecount   = len(self._contents)
-		indexoffset = 6 if self._mixtype == MIXTYPE_TD else 10
+		indexoffset = 6 if self._mixtype == Version.TD else 10
 		indexsize   = (filecount + 1) * 12
 		bodyoffset  = indexoffset + indexsize
 		# TODO: Implement checksum and encryption
@@ -594,7 +609,7 @@ class MixFile(object):
 		# Write index
 		bodysize = self._contents[0].offset - bodyoffset if filecount else 0
 		files = sorted(self._index.items(), key=lambda i: i[1].offset)
-		dbkey = 1422054725 if self._mixtype < MIXTYPE_TS else 913179935
+		dbkey = 1422054725 if self._mixtype < Version.TS else 913179935
 		files.append((dbkey, _MixNode(None, dboffset, dbsize, dbsize)))
 
 		self._stream.seek(indexoffset)
@@ -606,7 +621,7 @@ class MixFile(object):
 
 		# Write MIX header
 		self._stream.seek(0)
-		if self._mixtype != MIXTYPE_TD:
+		if self._mixtype != Version.TD:
 			self._stream.write(bytes(2))
 			self._stream.write(flags.to_bytes(2, "little"))
 		self._stream.write((filecount + 1).to_bytes(2, "little"))
@@ -691,7 +706,7 @@ class MixFile(object):
 			raise MixError("File exists.")
 
 		filecount   = len(self._contents)
-		indexoffset = 6 if self._mixtype == MIXTYPE_TD else 10
+		indexoffset = 6 if self._mixtype == Version.TD else 10
 		minoffset   = (filecount + 100) * 12 + indexoffset
 
 		if filecount:
