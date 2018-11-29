@@ -717,14 +717,29 @@ class Mixtool(Gtk.Application):
 		
 		# Now handle the errors
 		if errors:
+			if len(errors) == 1:
+				err_title = "The file could not be opened."
+			else:
+				err_title = "Some files could not be opened."
+				errors.sort(key=lambda error: error[0])
+			
+			err_strings = []
+			err_last = None
 			for errno, path in errors:
-				# TODO: Show only one dialog per error or only one dialog at all.
-				if errno == -1:  # File is already open
-					messagebox("These files are already open:", "e", window, secondary=path)
-				elif errno == -2:  # MIX errors
-					messagebox("Error loading MIX file:", "e", window, secondary=path)
-				else:
-					messagebox(os.strerror(errno) + ":", "e", window, secondary=path)
+				if errno != err_last:
+					err_last = errno
+					err_strings.append("")
+					if errno == -1:  # File is already open
+						err_strings.append("File is already open:")
+					elif errno == -2:  # MIX errors
+						err_strings.append("File is faulty:")
+					else:  # OS erros
+						err_strings.append(os.strerror(errno) + ":")
+				err_strings.append(path)
+			del err_strings[0]
+			err_text = "\n".join(err_strings)
+					
+			messagebox(err_title, "e", window, secondary=err_text)
 	
 	# Switch to another tab
 	def switch_file(self, widget: Gtk.Widget, file: _FileRecord) -> bool:
