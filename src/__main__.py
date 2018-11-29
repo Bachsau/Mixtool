@@ -703,7 +703,7 @@ class Mixtool(Gtk.Application):
 					button.set_mode(False)
 					button.get_child().set_ellipsize(Pango.EllipsizeMode.END)
 					button.set_tooltip_text(path)
-					self._builder.get_object("TabBar").pack_start(button, True, True, 0)
+					self._builder.get_object("TabBar").pack_start(button, False, True, 0)
 					button.show()
 					
 					# Create the file record
@@ -830,133 +830,6 @@ class Mixtool(Gtk.Application):
 			else:
 				print("Saved configuration file.", file=sys.stderr)
 				return True
-
-
-# <!-- BEGIN Old code -->
-		
-class OldWindowController(object):
-	"""Legacy window controller"""
-	def __init__(self, application):
-		self.Application = application
-		GtkBuilder = application._builder
-		
-		self.GtkBuilder          = GtkBuilder
-		self.MainWindow          = GtkBuilder.get_object("MainWindow")
-		self.SaveDialog          = GtkBuilder.get_object("SaveDialog")
-		self.ExtractSingleDialog = GtkBuilder.get_object("ExtractSingleDialog")
-		self.ExtractMultiDialog  = GtkBuilder.get_object("ExtractMultiDialog")
-		self.InsertDialog        = GtkBuilder.get_object("InsertDialog")
-		self.SearchDialog        = GtkBuilder.get_object("SearchDialog")
-		self.SearchDialogEntry   = GtkBuilder.get_object("SearchDialogEntry")
-		self.AboutDialog         = GtkBuilder.get_object("AboutDialog")
-		self.SettingsDialog      = GtkBuilder.get_object("SettingsDialog")
-		self.PropertiesDialog    = GtkBuilder.get_object("PropertiesDialog")
-		self.ContentList         = GtkBuilder.get_object("ContentList")
-		self.ContentStore        = GtkBuilder.get_object("ContentStore")
-		self.ContentSelector     = GtkBuilder.get_object("ContentSelector")
-		self.StatusBar           = GtkBuilder.get_object("StatusBar")
-	
-			
-	def optimize(self, *args):
-		self.MixFile.write_index(True)
-		self.refresh()
-
-			
-	def refresh(self):
-		messagebox("Not implemented", "w", self.MainWindow, secondary="Call to legacy `refresh()` method.")
-		
-
-	# Delete file(s) from mix
-	def delete_selected(self, *args):
-		pass
-			
-	# Insert dialog
-	def insertdialog(self, *args):
-		if self.MixFile is not None:
-			response = self.InsertDialog.run()
-			self.InsertDialog.hide()
-			
-			if response == Gtk.ResponseType.OK:
-				inpath = self.InsertDialog.get_filename()
-				filename = os.path.basename(inpath)
-				inode = self.MixFile.insert(filename, inpath)
-				
-				self.MixFile.write_index()
-				self.refresh()
-
-
-	def extractdialog(self, *args):
-		rows = self.get_selected_rows()
-		count = len(rows)
-
-		if count == 0:
-			messagebox("Nothing selected", "e", self.MainWindow)
-		else:
-			if count > 1:
-				Dialog = self.ExtractMultiDialog
-				Dialog.set_current_name(self.filename.replace(".", "_"))
-			else:
-				filename = rows[0][0]
-				Dialog = self.ExtractSingleDialog
-				Dialog.set_current_name(filename)
-
-			response = Dialog.run()
-			Dialog.hide()
-
-			if response == Gtk.ResponseType.OK:
-				outpath = Dialog.get_filename()
-
-				if count > 1:
-					# Mitigate FileChoserDialog's inconsistent behavior
-					# to protect user's files
-					if os.listdir(outpath):
-						outpath = os.path.join(outpath, Dialog.get_current_name())
-						os.mkdir(outpath)
-
-					# Save every file with its original name
-					for row in rows:
-						filename = row[0]
-						self.MixFile.extract(filename, os.path.join(outpath, filename))
-				else:
-					self.MixFile.extract(filename, outpath)
-
-	def get_selected_rows(self):
-		rows = []
-		for path in self.ContentSelector.get_selected_rows()[1]:
-			rows.append(self.ContentStore[path])
-		return rows
-
-
-
-	# Search current file for names
-	# TODO: Implement wildcard searching
-	def searchdialog(self, *args):
-		if self.MixFile is not None:
-			self.SearchDialogEntry.grab_focus()
-			self.SearchDialogEntry.select_region(0, -1)
-			response = self.SearchDialog.run()
-			self.SearchDialog.hide()
-			search = self.SearchDialogEntry.get_text()
-
-			if response == Gtk.ResponseType.OK  and search:
-				name  = self.SearchDialogEntry.get_text()
-				# TODO: Stop using private methods
-				# 3rd party developers: Do NOT use MixFile._get_inode()!
-				# There will be better ways to identify a file.
-				inode = self.MixFile._get_inode(name)
-
-				if inode is not None:
-					treeiter = self.contents[id(inode)][0]
-					self.ContentStore[treeiter][0] = inode.name
-
-					path = self.ContentStore.get_path(treeiter)
-					self.ContentList.set_cursor(path)
-				else:
-					messagebox("Found no file matching \"" + name + "\" in current mix", "i", self.MainWindow)
-		else:
-			messagebox("Search needs an open MIX file", "e", self.MainWindow)
-				
-# <!-- END Old code -->
 
 
 # Starter
