@@ -366,6 +366,10 @@ class Mixtool(Gtk.Application):
 			"restore_default_settings": self.restore_default_settings
 		}
 		self._builder.connect_signals(callback_map)
+		
+		# Prepare GUI
+		if not self.settings["nomotd"]:
+			self._builder.get_object("StatusBar").set_text(self.motd)
 	
 	def invoke_properties_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a dialog to modify the current file’s properties."""
@@ -476,26 +480,23 @@ class Mixtool(Gtk.Application):
 		# Return the tuple of checkboxes to be used for saving
 		return checkboxes
 	
-	def close_current_file(self, widget: Gtk.Widget) -> bool:
-		"""Close the currently active file."""
-		file = self._current_file
-		
-		# Close the file
-		file.container.finalize().close()
-		if file.isnew:
+	def _close_file(self, record) -> None:
+		"""Close the file referenced by `record`."""
+		record.container.finalize().close()
+		if record.isnew:
 			try:
-				if not os.stat(file.path).st_size:
-					os.remove(file.path)
+				if not os.stat(record.path).st_size:
+					os.remove(record.path)
 			except OSError:
 				pass
 		
-		# Remove all references
-		self._current_file = None
-		self._files.remove(file)
-		file.button.destroy()
-		
+		self._files.remove(record)
+		record.button.destroy()
+	
+	def close_current_file(self, widget: Gtk.Widget) -> bool:
+		"""Close the currently active file."""
+		self._close_file(self._current_file)
 		self.update_gui()
-		
 		return True
 	
 	# This method is labeled as "Quit" in the GUI,
@@ -503,20 +504,13 @@ class Mixtool(Gtk.Application):
 	def close_window(self, widget: Gtk.Widget, event: Gdk.Event = None) -> bool:
 		"""Close the application window."""
 		window = widget.get_toplevel()
-		self._current_file = None
 		
-		# FIXME: Add file deletion logic from `close_current_file`
 		while(self._files):
-			file = self._files.pop()
-			file.container.finalize().close()
-			file.button.destroy()
-		
+			self._close_file(self._files[-1])
 		self.update_gui()
 		
-		# Hide and remove the window
 		window.hide()
 		self.remove_window(window)
-		
 		return True
 	
 	# Run on the primary instance immediately after the main loop terminates.
@@ -524,8 +518,6 @@ class Mixtool(Gtk.Application):
 		"""Finalize the application."""
 		try:
 			self._builder.get_object("MainWindow").destroy()
-		except Exception:
-			pass
 		finally:
 			Gtk.Application.do_shutdown(self)
 	
@@ -772,6 +764,9 @@ class Mixtool(Gtk.Application):
 			self._builder.get_object("Toolbar.Close").show()
 			self._builder.get_object("ContentList").set_sensitive(True)
 		else:
+			# Set current file to None
+			self._current_file = None
+			
 			# Switch to Quit button and disable ContentList
 			self._builder.get_object("MainWindow").set_title("Mixtool")
 			self._builder.get_object("StatusBar").set_text(
@@ -797,8 +792,6 @@ class Mixtool(Gtk.Application):
 		"""Create a new main window or present an existing one."""
 		window = self.get_active_window()
 		if window is None:
-			if not self.settings["nomotd"]:
-				self._builder.get_object("StatusBar").set_text(self.motd)
 			window = self._builder.get_object("MainWindow")
 			self.add_window(window)
 			window.show()
