@@ -47,7 +47,7 @@ import mixlib
 
 
 # The data type used to keep track of open files
-_FileRecord = collections.namedtuple("_FileRecord", ("path", "stat", "container", "store", "button", "isnew"))
+FileRecord = collections.namedtuple("FileRecord", ("path", "stat", "container", "store", "button", "isnew"))
 
 
 # A simple abstraction for Python's ConfigParser.
@@ -480,7 +480,7 @@ class Mixtool(Gtk.Application):
 		# Return the tuple of checkboxes to be used for saving
 		return checkboxes
 	
-	def _close_file(self, record) -> None:
+	def _close_file(self, record: FileRecord) -> None:
 		"""Close the file referenced by `record`."""
 		record.container.finalize().close()
 		if record.isnew:
@@ -496,7 +496,7 @@ class Mixtool(Gtk.Application):
 	def close_current_file(self, widget: Gtk.Widget) -> bool:
 		"""Close the currently active file."""
 		self._close_file(self._current_file)
-		self.update_gui()
+		self._update_gui()
 		return True
 	
 	# This method is labeled as "Quit" in the GUI,
@@ -507,7 +507,7 @@ class Mixtool(Gtk.Application):
 		
 		while(self._files):
 			self._close_file(self._files[-1])
-		self.update_gui()
+		self._update_gui()
 		
 		window.hide()
 		self.remove_window(window)
@@ -696,17 +696,17 @@ class Mixtool(Gtk.Application):
 					button.show()
 					
 					# Create the file record
-					file = _FileRecord(path, stat, container, store, button, isnew)
-					self._files.append(file)
+					record = FileRecord(path, stat, container, store, button, isnew)
+					self._files.append(record)
 					
 					# Connect the signal
-					button.connect("toggled", self.switch_file, file)
+					button.connect("toggled", self.switch_file, record)
 				finally:
 					if container is None:
 						stream.close()
 		
 		if len(files) - len(errors) > 0:
-			self.update_gui()
+			self._update_gui()
 		
 		self.unmark_busy()
 		
@@ -738,21 +738,22 @@ class Mixtool(Gtk.Application):
 			messagebox(err_title, "e", window, secondary=err_text, markup=2)
 	
 	# Switch to another tab
-	def switch_file(self, widget: Gtk.Widget, file: _FileRecord) -> bool:
-		"""Switch the currently displayed file to `path`."""
+	def switch_file(self, widget: Gtk.Widget, record: FileRecord) -> bool:
+		"""Switch the currently displayed file to `record`."""
 		if widget.get_active():
-			mixtype = file.container.get_version().name
-			status = " ".join((mixtype, "MIX contains", str(file.container.get_filecount()), "files."))
+			mixtype = record.container.get_version().name
+			
+			status = " ".join((mixtype, "MIX contains", str(record.container.get_filecount()), "files."))
 			title = widget.get_label() + " – Mixtool"
 			
-			self._current_file = file
-			self._builder.get_object("ContentList").set_model(file.store)
+			self._current_file = record
+			self._builder.get_object("ContentList").set_model(record.store)
 			self._builder.get_object("StatusBar").set_text(status)
 			self._builder.get_object("MainWindow").set_title(title)
 		
 		return True
 	
-	def update_gui(self) -> None:
+	def _update_gui(self) -> None:
 		"""Enable or disable GUI elements base on current state."""
 		if self._files:
 			# Switch to last open file
@@ -788,7 +789,7 @@ class Mixtool(Gtk.Application):
 	
 	# Method run on the primary instance whenever the application
 	# is invoked without parameters.
-	def do_activate(self) -> bool:
+	def do_activate(self) -> None:
 		"""Create a new main window or present an existing one."""
 		window = self.get_active_window()
 		if window is None:
@@ -806,15 +807,13 @@ class Mixtool(Gtk.Application):
 		else:
 			window.present()
 			print("Activated main window on behalf of remote controller.", file=sys.stderr)
-		return True
 	
 	# Method run on the primary instance whenever the application
 	# is told to open files from outside.
-	def do_open(self, files: list, *args) -> bool:
+	def do_open(self, files: list, *args) -> None:
 		"""Open `files` in a new or existing main window."""
 		self.activate()
 		self._open_files(files)
-		return True
 	
 	def save_settings(self) -> bool:
 		"""Save configuration to disk."""
