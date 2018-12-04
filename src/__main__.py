@@ -547,10 +547,11 @@ class Mixtool(Gtk.Application):
 			suggested = suggestion + str(i) + ".mix"
 			i += 1
 		version_chooser = Gtk.ComboBoxText()
-		version_chooser.append("0", "1 – TD")
-		version_chooser.append("1", "2 – RA")
-		version_chooser.append("2", "3 – TS, RA2, YR")
-		version_chooser.set_active_id("2")
+		version_chooser.append("TD", "1 – TD")
+		version_chooser.append("RA", "2 – RA")
+		version_chooser.append("TS", "3 – TS, RA2, YR")
+		version_chooser.append("RG", "4 – RG")
+		version_chooser.set_active_id("TS")
 		version_label = Gtk.Label.new_with_mnemonic("_Version:")
 		version_label.set_mnemonic_widget(version_chooser)
 		version_box = Gtk.Box(
@@ -585,7 +586,8 @@ class Mixtool(Gtk.Application):
 					self.save_settings()
 				
 				# Open the files
-				self._open_files(dialog.get_files(), int(version_chooser.get_active_id()))
+				version = version_chooser.get_active_id()
+				self._open_files(dialog.get_files(), getattr(mixlib.Version, version))
 		finally:
 			dialog.destroy()
 		return True
@@ -624,7 +626,7 @@ class Mixtool(Gtk.Application):
 			dialog.destroy()
 		return True
 	
-	def _open_files(self, files: list, new: int = -1) -> None:
+	def _open_files(self, files: list, new: mixlib.Version = None) -> None:
 		"""Open `files` and create a new tab for each one."""
 		window = self.get_active_window()
 		fd_support = os.stat in os.supports_fd
@@ -642,7 +644,7 @@ class Mixtool(Gtk.Application):
 			try:
 				stat = os.stat(path)
 			except OSError as problem:
-				if not (new >=0 and isinstance(problem, FileNotFoundError)):
+				if not (new is not None and isinstance(problem, FileNotFoundError)):
 					errors.append((problem.errno, path))
 					continue
 			else:
@@ -898,7 +900,7 @@ def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, second
 		message_type=message_type,
 		buttons=Gtk.ButtonsType.OK,
 		text=str(text),
-		use_markup=markup & 1 == 1,
+		use_markup=bool(markup & 1),
 		title=title,
 		icon_name=icon,
 		window_position=position,
@@ -908,7 +910,7 @@ def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, second
 	)
 	
 	if secondary is not None:
-		if markup & 2 == 2:
+		if markup & 2:
 			dialog.format_secondary_markup(str(secondary))
 		else:
 			dialog.format_secondary_text(str(secondary))

@@ -20,10 +20,11 @@
 
 """Routines to access MIX files."""
 
-__all__ = ["MixRecord", "Version", "MixFile", "MixIO", "genkey"]
+__all__ = ["MixError", "MixParseError", "MixFSError", "MixIOError", "Version", "MixRecord", "MixFile", "MixIO", "genkey"]
 __version__ = "0.2.0-volatile"
 __author__ = "Bachsau"
 
+import sys
 import os
 import io
 import collections
@@ -32,62 +33,70 @@ import binascii
 
 
 # Constants
-BLOCKSIZE = 2097152
-ENCODING = "cp1252"
+BLOCKSIZE: int = 2097152  # 2 MiB
+ENCODING: str = "cp1252"  # Western Windows
 
 
 # MixNodes are lightweight objects to store a defined set of index data
 class _MixNode(object):
 	"""Nodes used by MixFile instances to store index data."""
 	
-	__slots__ = ("name", "offset", "size", "alloc", "links")
+	__slots__ = ("key", "offset", "size", "alloc", "name", "links")
 
-	def __init__(self, name: str, offset: int, size: int, alloc: int) -> None:
+	def __init__(self, key: int, offset: int, size: int, alloc: int, name: str) -> None:
 		"""Initialize the node."""
-		self.name   = name
+		self.key    = key
 		self.offset = offset
 		self.size   = size
 		self.alloc  = alloc
+		self.name   = name
 		self.links  = 0
 
 	def __repr__(self) -> str:
 		"""Return string representation."""
-		return "_MixNode({0!r}, {1!r}, {2!r}, {3!r})".format(
-			self.name, self.offset, self.size, self.alloc
+		return "_MixNode({0!r}, {1!r}, {2!r}, {3!r}, {4!r})".format(
+			self.key, self.offset, self.size, self.alloc, self.name
 		)
 
 	def __delattr__(self, attr: str) -> None:
 		"""Raise `TypeError`."""
 		raise TypeError("Can't delete node attributes.")
-		
 
-# Base exception class
+
 class MixError(Exception):
+	"""Base exception for all MIX related errors."""
+	# TODO: Add errnos, errstrs, filename attributes and subclassig.
+	__slots__ = ("errno", "strerror", "filename", "filename2")
+	
+	def __init__(self, *args):
+		self.errno = None
+		self.strerror = None
+		self.filename = None
+		self.filename2 = None
+	
+	def __str__(self):
+		if self.errno is not None and self.strerror is not None:
+			return "[Errno {0!s}] {1!s}".format(self.errno, self.strerror)
+		return Exception.__str__(self)
+
+
+class MixParseError(MixError):
+	"""Exception raised on errors in the MIX file."""
 	__slots__ = ()
 
 
-# Exception for errors in the MIX file
-class MixFileError(MixError):
+class MixFSError(MixError):
+	"""Exception raised on errors on content access."""
 	__slots__ = ()
 
 
-# Exception raised in case of internal errors
-# such as key collisions
-class MixInternalError(MixError):
+class MixIOError(MixError):
+	"""Exception raised on invalid MixIO operations."""
 	__slots__ = ()
-
-
-# Exception for Errors in MixIO
-class MixIOError(OSError, MixError):
-	__slots__ = ()
-
-
-# A named tuple for metadata returned to the user
-MixRecord = collections.namedtuple("MixRecord", ("name", "size", "offset", "alloc", "node_id"))
 
 
 # MIX versions
-class Version(enum.IntEnum):
+class Version(enum.Enum):
 	"""Enumeration of MIX versions, named after the various games."""
 	
 	TD  = 0  # Tiberian Dawn
@@ -97,17 +106,46 @@ class Version(enum.IntEnum):
 	YR  = 2  # Yuri's Revenge
 	RG  = 3  # Renegade
 	
-	def needs_conversion(self, other: int) -> bool:
+	def __lt__(self, other) -> bool:
+		"""Return True if `self` is a lower version than `other`."""
+		if type(self) is type(other):
+			return self._value_ < other._value_
+		else:
+			return NotImplemented
+	
+	def __le__(self, other) -> bool:
+		"""Return True if `self` is a lower or the same version as `other`."""
+		if type(self) is type(other):
+			return self._value_ <= other._value_
+		else:
+			return NotImplemented
+	
+	def __gt__(self, other) -> bool:
+		"""Return True if `self` is a higher version than `other`."""
+		if type(self) is type(other):
+			return self._value_ > other._value_
+		else:
+			return NotImplemented
+	
+	def __ge__(self, other) -> bool:
+		"""Return True if `self` is a higher or the same version as `other`."""
+		if type(self) is type(other):
+			return self._value_ >= other._value_
+		else:
+			return NotImplemented
+	
+	def needs_conversion(self, other) -> bool:
 		"""Tell if keys need to be recalculated when converting to `other`."""
-		# Validity check and type conversion
-		# in two lightweight operations
-		self = Version(self)
-		other = Version(other)
-		
-		if self <= Version.RA:
-			return False if other <= Version.RA else True
-		if self >= Version.TS:
-			return False if other >= Version.TS else True
+		try:
+			if self <= Version.RA:
+				return other > Version.RA
+			return other < Version.TS
+		except TypeError:
+			raise TypeError("Operands must be members of `Version`.") from None
+
+
+# A named tuple for metadata returned to the user
+MixRecord = collections.namedtuple("MixRecord", ("name", "size", "offset", "alloc", "node_id"))
 
 
 # Instances represent a single MIX file.
@@ -115,16 +153,19 @@ class Version(enum.IntEnum):
 class MixFile(object):
 	"""Manage MIX files, one file per instance."""
 	
-	__slots__ = ("_dirty", "_stream", "_version", "_index", "_contents", "has_checksum", "is_encrypted")
-
-	# Constructor parses MIX file
-	def __init__(self, stream: io.BufferedIOBase, new: int = -1) -> None:
+	__slots__ = ("_stream", "_dirty", "_open", "_index", "_contents", "_version", "_flags")
+	
+	def __init__(self, stream: io.BufferedIOBase, version: Version = None) -> None:
 		"""Parse a MIX from `stream`, which must be a buffered file object.
-
-		If `new` is positive, initialize an empty MIX of this type instead.
-		`ValueError` is raised if `new` is not a valid MIX type.
-		`MixFileError` ist raised on parsing errors.
+		
+		If `version` is given, initialize an empty MIX of this version instead.
+		`MixParseError` is raised on parsing errors.
 		"""
+		
+		# Initialize mandatory attributes
+		self._stream = None
+		self._dirty = False
+		self._open = []
 		
 		# If stream is, for example, a raw I/O object, files could be destroyed
 		# without ever raising an error, so check this.
@@ -137,82 +178,71 @@ class MixFile(object):
 		if not stream.seekable():
 			raise ValueError("`stream` must be seekable.")
 		
-		# Initialize instance attributes
-		# FIXME: Extend
-		self._dirty = False
-
-		# For new files, initialize mixtype and return
-		if new > -1:
-			if not 0 <= new <= 2:
-				raise ValueError("Invalid MIX type.")
-
+		if version is not None:
+			# Create a new file
+			if not isinstance(version, Version):
+				raise TypeError("`version` must be a member of `Version` or `None`.")
 			self._stream = stream
-			self._version = int(new)
 			self._index = {}
 			self._contents = []
-			self.has_checksum = False
-			self.is_encrypted = False
+			self._version = version
+			self._flags = 0
 			return
-
+		
+		# Parse an existing file
 		filesize = stream.seek(0, io.SEEK_END)
-		if filesize < 4:
-			raise MixError("File too small.")
-
-		# First two bytes are zero for RA/TS and the number of files for TD
+		if filesize <= 6:
+			raise MixParseError("File too small.")
 		stream.seek(0)
-		firstbytes = int.from_bytes(stream.read(2), "little")
-		if not firstbytes:
-			# It seems we have a RA/TS MIX so decode the flags
-			flags = int.from_bytes(stream.read(2), "little")
-			has_checksum = bool(flags & 1)
-			is_encrypted = bool(flags & 2)
-
+		
+		first4 = stream.read(4)
+		if first4 == b"MIX1":
+			raise NotImplementedError("RG MIX files are not yet supported.")
+		elif first4[:2] == b"\x00\x00":
+			# It seems we have a RA/TS MIX so check the flags
+			flags = first4[2]
+			if flags > 3:
+				raise MixParseError("Invalid file flags.")
+			if flags & 2:
+				raise NotImplementedError("Encrypted MIX files are not yet supported.")
+			
 			# Encrypted TS MIXes have a key.ini we can check for later,
 			# so at this point assume Version.TS only if unencrypted
-			mixtype = Version.RA if is_encrypted else Version.TS
-
-			# Get header data for RA/TS
-			if is_encrypted:
-				# OK, we have to deal with this first
-				raise MixError("MIX is encrypted, which ist not yet supported.")
-			else:
-				# RA/TS MIXes hold their filecount after the flags,
-				# whilst for TD MIXes their first two bytes are the filecount.
-				filecount = int.from_bytes(stream.read(2), "little")
+			version = Version.TS
+			
+			# RA/TS MIXes hold their filecount after the flags,
+			# whilst for TD MIXes their first two bytes are the filecount.
+			filecount = int.from_bytes(stream.read(2), "little")
 		else:
-			# Maybe it's a TD MIX
-			mixtype = Version.TD
-
-			# Get header Data for TD
-			filecount = firstbytes
-			has_checksum = False
-			is_encrypted = False
-
+			version = Version.TD
+			flags = 0
+			filecount = int.from_bytes(first4[:2], "little")
+			stream.seek(2)
+			
 		# From here it's the same for every unencrypted MIX
-		if not is_encrypted:
-			bodysize    = int.from_bytes(stream.read(4), "little")
-			indexoffset = stream.tell()
-			indexsize   = filecount * 12
-			bodyoffset  = indexoffset + indexsize
+		bodysize    = int.from_bytes(stream.read(4), "little")
+		indexoffset = stream.tell()
+		indexsize   = filecount * 12
+		bodyoffset  = indexoffset + indexsize
 
-			# Check if data is sane
-			if filesize - bodyoffset != bodysize:
-				raise MixError("Incorrect filesize or invalid header")
+		# Check if data is sane
+		if filesize - bodyoffset != bodysize:
+			raise MixParseError("Incorrect filesize or invalid header.")
 
-			# OK, time to read the index
-			index = {}
-			for i in range(filecount):
-				key    = int.from_bytes(stream.read(4), "little")
-				offset = int.from_bytes(stream.read(4), "little") + bodyoffset
-				size   = int.from_bytes(stream.read(4), "little")
+		# OK, time to read the index
+		index = {}
+		for i in range(filecount):
+			key    = int.from_bytes(stream.read(4), "little")
+			offset = int.from_bytes(stream.read(4), "little") + bodyoffset
+			size   = int.from_bytes(stream.read(4), "little")
 
-				if offset + size > filesize:
-					raise MixError("Content extends beyond end of file.")
+			if offset + size > filesize:
+				raise MixParseError("Content extends beyond end of file.")
 
-				index[key] = _MixNode(None, offset, size, size)
+			index[key] = _MixNode(key, offset, size, size, None)
 
-			if len(index) != filecount:
-				raise MixError("Duplicate key.")
+		if len(index) != filecount:
+			raise MixError("Duplicate key.")
 
 		# Now read the names
 		# TD/RA: 1422054725; TS: 913179935
@@ -227,44 +257,51 @@ class MixFile(object):
 				dbsize  = int.from_bytes(stream.read(4), "little")  # Total filesize
 
 				if dbsize != index[dbkey].size or dbsize > 16777216:
-					raise MixError("Invalid database.")
+					raise MixParseError("Invalid database.")
 
-				# Four bytes for XCC type; 0 for LMD, 2 for XIF
-				# Four bytes for DB version; Always zero
+				# Skip four bytes for XCC type; 0 for LMD, 2 for XIF
+				# Skip four bytes for DB version; Always zero
 				stream.seek(8, io.SEEK_CUR)
-				mixtype = int.from_bytes(stream.read(4), "little")  # XCC Game ID
+				gameid = int.from_bytes(stream.read(4), "little")  # XCC Game ID
 				
-				# FIXME: Handle this correctly. I think we already knew the type before?
-				if mixtype > Version.TS + 3:
-					raise MixError("Unsupported MIX type")
-				elif mixtype > Version.TS:
-					mixtype = Version.TS
-
+				# XCC saves alias numbers, so converting them
+				# to `Version` is not straight forward.
+				# FIXME: Check if Dune games and Nox also use MIX files
+				if gameid == 0:
+					if version is not Version.TD:
+						continue
+				elif gameid == 1:
+					version = Version.RA
+				elif 2 <= gameid <= 6 or gameid == 15:
+					version = Version.TS
+				else:
+					continue
+				
 				namecount = int.from_bytes(stream.read(4), "little")
 				bodysize  = dbsize - 53  # Size - Header - Last byte
 				namelist  = stream.read(bodysize).split(b"\x00") if bodysize > 0 else []
-
+				
 				if len(namelist) != namecount:
 					raise MixError("Invalid database.")
-
+				
 				# Remove Database from index
 				del index[dbkey]
-
+				
 				# Add names to index
 				names = False
 				for name in namelist:
 					name = name.decode(ENCODING, "ignore")
-					key = genkey(name, mixtype)
+					key = genkey(name, version)
 					if key in index:
 						index[key].name = name
 						names = True
-
+				
 				# XCC sometimes puts two Databases in a file by mistake,
 				# so if no names were found, give it another try
 				if names: break
 
 		# Create a sorted list of all contents
-		contents = sorted(index.values(), key=lambda i: i.offset)
+		contents = sorted(index.values(), key=lambda node: node.offset)
 
 		# Calculate alloc values
 		# This is the size up to wich a file may grow without needing a move
@@ -274,13 +311,12 @@ class MixFile(object):
 			if contents[i].alloc < contents[i].size:
 				raise MixError("Overlapping file boundaries.")
 
-		# Finalize object
+		# Populate the object
 		self._stream = stream
-		self._version = mixtype
+		self._version = version
 		self._index = index
 		self._contents = contents
-		self.has_checksum = has_checksum
-		self.is_encrypted = is_encrypted
+		self._flags = flags
 		
 	# Object destruction method
 	def finalize(self) -> io.BufferedIOBase:
@@ -302,14 +338,16 @@ class MixFile(object):
 		Suppress any errors as they occur.
 		"""
 		try:
-			if self._dirty and self._stream is not None and not self._stream.closed():
-				self.write_index()
+			if self._stream is not None:
+				print("MixFile object destroyed without being finalized.", file=sys.stderr)
+				if self._dirty and not self._stream.closed():
+					self.write_index()
 		except Exception:
 			pass
 
 	# Central file-finding method
 	# Also used to add missing names to the index
-	def _get_inode(self, name: str) -> _MixNode:
+	def _get_node(self, name: str) -> _MixNode:
 		"""Return the inode for 'name' or 'None' if not found.
 
 		Save 'name' in the inode if missing.
@@ -374,7 +412,7 @@ class MixFile(object):
 	# Public method to list the MIX file's contents
 	def get_contents(self) -> list:
 		"""Return a list of tuples holding the attributes of each file."""
-		return [MixRecord(hex(key) if node.name is None else node.name, node.size, node.offset, node.alloc, id(node)) for key, node in self._index.items()]
+		return [MixRecord(hex(node.key) if node.name is None else node.name, node.size, node.offset, node.alloc, id(node)) for node in self._contents]
 		
 	# Public method to stat a file
 	# Replaces get_inode() to the public
@@ -390,10 +428,10 @@ class MixFile(object):
 		return len(self._contents)
 		
 		
-	# Public method to get the mixtype		
+	# Public method to get the MIX version
 	def get_version(self) -> Version:
 		"""Return MIX version."""
-		return Version(self._version)
+		return self._version
 			
 			
 	# Public method to add missing names
@@ -404,7 +442,7 @@ class MixFile(object):
 		'MixNameError' is raised if 'name' is not valid.
 		"""
 		
-		return False if self._get_inode(name) is None else True
+		return False if self._get_node(name) is None else True
 		
 	
 	# Rename a file in the MIX (New method)
@@ -644,7 +682,7 @@ class MixFile(object):
 		'MixError' is raised if the file is not found.
 		"""
 		
-		inode = self._get_inode(name)
+		inode = self._get_node(name)
 
 		if inode is None:
 			raise MixError("File not found")
@@ -683,7 +721,7 @@ class MixFile(object):
 		'MixNameError' is raised if 'name' is not valid.
 		"""
 		
-		inode = self._get_inode(name)
+		inode = self._get_node(name)
 
 		if inode is None:
 			raise MixError("File not found")
@@ -776,30 +814,40 @@ class MixFile(object):
 	def insert_bytes(self, data: bytes, name: str) -> None:
 		"""!!! STUB !!!"""
 		raise NotImplementedError("Stub method")
-
+	
 	# Opens a file inside the MIX using MixIO
 	# Works like the build-in open function
 	def open(self, name: str, mode: str = "r", buffering: int = -1, encoding: str = None, errors: str = None, newline: str = None):
 		"""!!! STUB !!!"""
 		raise NotImplementedError("Stub method")
-		
-		
+	
+	@property
+	def has_checksum(self):
+		"""Return `True` if MIX has a checksum."""
+		return bool(self._flags & 1)
+	
+	@property
+	def is_encrypted(self):
+		"""Return `True` if MIX header is encrypted."""
+		return bool(self._flags & 2)
+
+
 # MixIO instaces are used to work with contained files as if they were real
 class MixIO(io.BufferedIOBase):
 	"""Access files inside MIXes like files on disk."""
 	
 	__slots__ = ("_container", "_node", "__cursor", "__readable", "__writeable")
-
+	
 	def __init__(self, container: MixFile, name: str, flags: int) -> None:
-		"""Initialize an abstract stream for 'name' on top of 'container'."""
+		"""Initialize an abstract stream for `name` on top of `container`."""
 		self._container = container
-		self._node = container._get_inode(name)
+		self._node = container._get_node(name)
 		# FIXME: This should probably raise ValueError instead of failing silently on container error
 		self.__readable = flags & 1 and container._stream.readable()
 		self.__writeable = flags & 2 and container._stream.writeable()
 		self.__cursor = 0
 		self._node.links += 1
-
+	
 	def readable(self) -> bool:
 		# FIXME: Check if we can exchange OSError by MixIOError
 		"""Return True if the stream can be read from. If False, read() will raise OSError."""
@@ -807,50 +855,47 @@ class MixIO(io.BufferedIOBase):
 			raise ValueError("I/O operation on closed file")
 
 		return self._container._stream.readable()
-
+	
 	def writeable(self) -> bool:
 		"""Return True if the stream supports writing. If False, write() and truncate() will raise OSError."""
 		if self.closed:
 			raise ValueError("I/O operation on closed file")
 
 		return self.__writeable()
-
+	
 	def seekable(self):
 		"""Return True"""
 		return True
-
+	
 	def close(self):
 		"""
 		Flush and close this stream.
 
 		This method has no effect if the file is already closed. Once the file is closed,
-		any operation on the file (e.g. reading or writing) will raise a ValueError.
+		any operation on the file (e.g. reading or writing) will raise `ValueError`.
 		"""
 		if not self.closed:
 			self._node.links -= 1
-			self._node = None
 			self._container = None
-
+			self._node = None
+	
 	@property
 	def closed(self):
-		"""True if the stream is closed."""
-		return self._node is None
+		"""Return `True` if the stream is closed."""
+		return self._container is None or self._node is None
 
 
 # Create MIX-Identifier from filename
 # Thanks to Olaf van der Spek for providing these functions
-def genkey(name: str, version: int) -> int:
+def genkey(name: str, version: Version) -> int:
 	"""Return the key for `name` according to `version`.
 
 	This is a low-level function that rarely needs to be used directly.
 	"""
-	if not 0 <= version <= 2:
-		raise ValueError("Invalid version")
-	
 	name = name.encode(ENCODING, "strict").upper()
 	len_ = len(name)
 	
-	if version < 2:
+	if version <= Version.RA:
 		# Compute key for TD/RA MIXes
 		i   = 0
 		key = 0
