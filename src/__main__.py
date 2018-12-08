@@ -59,11 +59,11 @@ FileRecord = collections.namedtuple("FileRecord", ("path", "stat", "container", 
 class Configuration(collections.abc.MutableMapping):
 	"""INI file based configuration manager"""
 	
-	__slots__ = ("_defaults", "_parser")
+	__slots__ = ("_defaults", "_parser", "_section")
 	
 	key_chars = frozenset("0123456789_abcdefghijklmnopqrstuvwxyz")
 	
-	def __init__(self) -> None:
+	def __init__(self, product: str) -> None:
 		"""Initialize the configuration manager."""
 		self._defaults = {}
 		self._parser = configparser.RawConfigParser(
@@ -76,36 +76,36 @@ class Configuration(collections.abc.MutableMapping):
 			default_section=None,
 			interpolation=None
 		)
-		self._parser.add_section("Settings")
+		self._section = product
+		self._parser.add_section(product)
 	
 	def __getitem__(self, identifier: str):
 		"""Return value of `identifier` or the registered default on errors.
 		
 		`KeyError` is raised if there is no such identifier.
 		"""
-		section = "Settings"
 		default = self._defaults[identifier]
 		
-		if self._parser.has_option(section, identifier):
+		if self._parser.has_option(self._section, identifier):
 			dtype = type(default)
 			try:
 				if dtype is bool:
-					return self._parser.getboolean(section, identifier)
+					return self._parser.getboolean(self._section, identifier)
 				
 				if dtype is int:
-					return self._parser.getint(section, identifier)
+					return self._parser.getint(self._section, identifier)
 				
 				if dtype is float:
-					return self._parser.getfloat(section, identifier)
+					return self._parser.getfloat(self._section, identifier)
 				
 				if dtype is str:
-					return parse.unquote(self._parser.get(section, identifier), errors="strict")
+					return parse.unquote(self._parser.get(self._section, identifier), errors="strict")
 				
 				if dtype is bytes:
-					return parse.unquote_to_bytes(self._parser.get(section, identifier))
+					return parse.unquote_to_bytes(self._parser.get(self._section, identifier))
 			
 			except ValueError:
-				self._parser.remove_option(section, identifier)
+				self._parser.remove_option(self._section, identifier)
 				return default
 		else:
 			return default
@@ -116,21 +116,20 @@ class Configuration(collections.abc.MutableMapping):
 		`KeyError` is raised if `identifier` was not registered.
 		`TypeError` is raised if `value` does not match the registered type.
 		"""
-		section = "Settings"
 		dtype = type(self._defaults[identifier])
 		
 		if dtype is bool and type(value) is bool:
-			self._parser.set(section, identifier, "yes" if value else "no")
+			self._parser.set(self._section, identifier, "yes" if value else "no")
 		
 		elif dtype is int and type(value) is int\
 		  or dtype is float and type(value) is float:
-			self._parser.set(section, identifier, str(value))
+			self._parser.set(self._section, identifier, str(value))
 		
 		elif dtype is str and type(value) is str:
-			self._parser.set(section, identifier, parse.quote(value))
+			self._parser.set(self._section, identifier, parse.quote(value))
 		
 		elif dtype is bytes and type(value) is bytes:
-			self._parser.set(section, identifier, parse.quote_from_bytes(value))
+			self._parser.set(self._section, identifier, parse.quote_from_bytes(value))
 		
 		else:
 			raise TypeError("Not matching registered type.")
@@ -141,7 +140,7 @@ class Configuration(collections.abc.MutableMapping):
 		Nothing is done if the value was not customized,
 		but `KeyError` is raised if `identifier` was not registered."""
 		if identifier in self._defaults:
-			self._parser.remove_option("Settings", identifier)
+			self._parser.remove_option(self._section, identifier)
 		else:
 			raise KeyError(identifier)
 	
@@ -163,9 +162,8 @@ class Configuration(collections.abc.MutableMapping):
 	
 	def clear(self) -> None:
 		"""Remove all customized values, reverting to the registered defaults."""
-		section = "Settings"
 		for identifier in self._defaults.keys():
-			self._parser.remove_option(section, identifier)
+			self._parser.remove_option(self._section, identifier)
 	
 	def register(self, identifier: str, default) -> None:
 		"""Register a setting and its default value.
@@ -297,7 +295,7 @@ class Mixtool(Gtk.Application):
 		self.config_file = os.sep.join((self.data_path, "settings.ini"))
 		
 		# Set up the configuration manager
-		self.settings = Configuration()
+		self.settings = Configuration("Mixtool")
 		self.settings.register("installation_id", 0)
 		self.settings.register("simplenames", True)
 		self.settings.register("insertlower", True)
@@ -305,7 +303,7 @@ class Mixtool(Gtk.Application):
 		self.settings.register("backup", False)
 		self.settings.register("extracttolast", True)
 		self.settings.register("nomotd", False)
-		self.settings.register("browse_path", self.home_path)
+		self.settings.register("lastdir", self.home_path)
 		self.settings.register("alpha_warning", True)
 		self.settings.register("deletion_warning", True)
 		
@@ -467,7 +465,7 @@ class Mixtool(Gtk.Application):
 		)
 		
 		# Push current settings to dialog
-		self._builder.get_object("Settings.ExtractToFile").set_active(True)
+		self._builder.get_object("Settings.ExtractToSource").set_active(True)
 		if defaults:
 			for checkbox, setting in checkboxes:
 				checkbox.set_active(self.settings.get_default(setting))
@@ -538,7 +536,7 @@ class Mixtool(Gtk.Application):
 	def invoke_new_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a file chooser dialog and create a new file."""
 		window = widget.get_toplevel()
-		saved_path = self.settings["browse_path"]
+		saved_path = self.settings["lastdir"]
 		browse_path = saved_path if os.path.isdir(saved_path) else self.home_path
 		suggestion = "new"
 		suggested = suggestion + ".mix"
@@ -582,7 +580,7 @@ class Mixtool(Gtk.Application):
 				# Save last used directory
 				browse_path = dialog.get_current_folder()
 				if browse_path != saved_path:
-					self.settings["browse_path"] = browse_path
+					self.settings["lastdir"] = browse_path
 					self.save_settings()
 				
 				# Open the files
@@ -596,7 +594,7 @@ class Mixtool(Gtk.Application):
 	def invoke_open_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a file chooser dialog and open selected files."""
 		window = widget.get_toplevel()
-		saved_path = self.settings["browse_path"]
+		saved_path = self.settings["lastdir"]
 		browse_path = saved_path if os.path.isdir(saved_path) else self.home_path
 		dialog = Gtk.FileChooserDialog(
 			title="Open MIX file",
@@ -617,7 +615,7 @@ class Mixtool(Gtk.Application):
 				# Save last used directory
 				browse_path = dialog.get_current_folder()
 				if browse_path != saved_path:
-					self.settings["browse_path"] = browse_path
+					self.settings["lastdir"] = browse_path
 					self.save_settings()
 				
 				# Open the files

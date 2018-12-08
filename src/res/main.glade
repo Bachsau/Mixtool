@@ -1153,7 +1153,7 @@ Do you want to continue?</property>
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkRadioButton" id="Settings.ExtractToFile">
+                  <object class="GtkRadioButton" id="Settings.ExtractToSource">
                     <property name="label">the directory of the MIX file.</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
