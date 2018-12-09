@@ -212,6 +212,9 @@ class Configuration(collections.abc.MutableMapping):
 class Mixtool(Gtk.Application):
 	"""Application management class"""
 	
+	# Characters allowed when simple names are enforced
+	simple_chars = frozenset("-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz")
+	
 	# The GtkFileFilter used by open/save dialogs
 	file_filter = Gtk.FileFilter()
 	file_filter.set_name("MIX files")
@@ -241,16 +244,28 @@ class Mixtool(Gtk.Application):
 		"""Set up the application."""
 		Gtk.Application.do_startup(self)
 		
-		self.motd = random.choice((
-			"CABAL is order",
-			"Don’t throw stones in glass houses without proper protection",
-			"For Kane",
-			"If I am cut, do I not bleed?",
-			"Kane lives in death",
-			"The technology of peace",
-			"Tiberium is the way and the life",
-			"You can’t kill the Messiah"
-		))
+		# Parse GUI file
+		app_path = os.path.dirname(os.path.realpath(__file__))
+		gui_file = os.sep.join((app_path, "res", "main.glade"))
+		self._builder = Gtk.Builder.new_from_file(gui_file)
+		dummy_callback = lambda widget: False
+		callback_map = {
+			"on_new_clicked": self.invoke_new_dialog,
+			"on_open_clicked": self.invoke_open_dialog,
+			"on_properties_clicked": self.invoke_properties_dialog,
+			"on_optimize_clicked": dummy_callback,
+			"on_add_clicked": dummy_callback,
+			"on_remove_clicked": dummy_callback,
+			"on_extract_clicked": dummy_callback,
+			"on_settings_clicked": self.invoke_settings_dialog,
+			"on_about_clicked": self.invoke_about_dialog,
+			"on_close_clicked": self.close_current_file,
+			"on_quit_clicked": self.close_window,
+			"on_donate_clicked": self.open_donation_website,
+			"update_properties_dialog": self.update_properties_dialog,
+			"restore_default_settings": self.restore_default_settings
+		}
+		self._builder.connect_signals(callback_map)
 		
 		# Determine the platform-specific data directory
 		self.home_path = os.path.realpath(os.path.expanduser("~"))
@@ -327,45 +342,34 @@ class Mixtool(Gtk.Application):
 					+ "Your settings will be reset."
 				)
 		
-		# Initialize the installation id
-		# (to be used with online features)
-		try:
-			installation_id = uuid.UUID(int=self.settings["installation_id"])
-		except ValueError:
-			installation_id = None
-		if installation_id is not None and installation_id.version == 4:
-			self.installation_id = installation_id
-		else:
-			installation_id = uuid.uuid4()
-			self.settings["installation_id"] = installation_id.int
-			if self.save_settings():
+			# Initialize the installation id
+			# (to be used with online features)
+			try:
+				installation_id = uuid.UUID(int=self.settings["installation_id"])
+			except ValueError:
+				installation_id = None
+			
+			if installation_id is not None\
+			and installation_id.variant == uuid.RFC_4122\
+			and installation_id.version == 4:
 				self.installation_id = installation_id
-		
-		# Parse GUI file
-		app_path = os.path.dirname(os.path.realpath(__file__))
-		gui_file = os.sep.join((app_path, "res", "main.glade"))
-		self._builder = Gtk.Builder.new_from_file(gui_file)
-		
-		dummy_callback = lambda widget: True
-		callback_map = {
-			"on_new_clicked": self.invoke_new_dialog,
-			"on_open_clicked": self.invoke_open_dialog,
-			"on_properties_clicked": self.invoke_properties_dialog,
-			"on_optimize_clicked": dummy_callback,
-			"on_add_clicked": dummy_callback,
-			"on_remove_clicked": dummy_callback,
-			"on_extract_clicked": dummy_callback,
-			"on_settings_clicked": self.invoke_settings_dialog,
-			"on_about_clicked": self.invoke_about_dialog,
-			"on_close_clicked": self.close_current_file,
-			"on_quit_clicked": self.close_window,
-			"on_donate_clicked": self.open_donation_website,
-			"update_properties_dialog": self.update_properties_dialog,
-			"restore_default_settings": self.restore_default_settings
-		}
-		self._builder.connect_signals(callback_map)
+			else:
+				installation_id = uuid.uuid4()
+				self.settings["installation_id"] = installation_id.int
+				if self._save_settings():
+					self.installation_id = installation_id
 		
 		# Prepare GUI
+		self.motd = random.choice((
+			"CABAL is order",
+			"Don’t throw stones in glass houses without proper protection",
+			"For Kane",
+			"If I am cut, do I not bleed?",
+			"Kane lives in death",
+			"The technology of peace",
+			"Tiberium is the way and the life",
+			"You can’t kill the Messiah"
+		))
 		if not self.settings["nomotd"]:
 			self._builder.get_object("StatusBar").set_text(self.motd)
 	
@@ -394,7 +398,6 @@ class Mixtool(Gtk.Application):
 				
 				self._current_file.container.is_encrypted = encrypt_checkbox.get_active()
 				self._current_file.container.has_checksum = checksum_checkbox.get_active()
-		
 		return True
 	
 	def update_properties_dialog(self, widget: Gtk.Widget) -> bool:
@@ -416,19 +419,15 @@ class Mixtool(Gtk.Application):
 		else:
 			checksum_checkbox.set_sensitive(True)
 			checksum_checkbox.set_active(self._current_file.container.has_checksum)
-		
 		return True
 	
 	def invoke_settings_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a dialog with current settings and save any changes."""
-		dialog = self._builder.get_object("SettingsDialog")
-		
 		# The updater returns a tuple of checkboxes to not repeat
 		# ourselfs when it comes to saving
-		checkboxes = self._update_settings_dialog(dialog, False)
-		
-		# Show the dialog
+		checkboxes = self._update_settings_dialog(False)
 		self._builder.get_object("SettingsDialog.OK").grab_focus()
+		dialog = self._builder.get_object("SettingsDialog")
 		response = dialog.run()
 		dialog.hide()
 		
@@ -438,23 +437,21 @@ class Mixtool(Gtk.Application):
 				self.settings[setting] = checkbox.get_active()
 			if self._builder.get_object("Settings.ResetWarnings").get_active():
 				del self.settings["alpha_warning"], self.settings["deletion_warning"]
-			self.save_settings()
+			self._save_settings()
 			
 			if not self._files:
 				self._builder.get_object("StatusBar").set_text(
 					"Ready" if self.settings["nomotd"] else self.motd
 				)
-		
 		return True
 	
 	def restore_default_settings(self, widget: Gtk.Widget) -> bool:
 		"""Set all widgets in the settings dialog to reflect the defaults."""
-		dialog = self._builder.get_object("SettingsDialog")
-		self._update_settings_dialog(dialog, True)
+		self._update_settings_dialog(True)
 		return True
 	
-	def _update_settings_dialog(self, dialog, defaults: bool) -> tuple:
-		"""Populate `dialog` with the current or default settings."""
+	def _update_settings_dialog(self, defaults: bool) -> tuple:
+		"""Populate the settings dialog with the current or default settings."""
 		checkboxes = (
 			(self._builder.get_object("Settings.SimpleNames"), "simplenames"),
 			(self._builder.get_object("Settings.InsertLower"), "insertlower"),
@@ -481,15 +478,16 @@ class Mixtool(Gtk.Application):
 	def _close_file(self, record: FileRecord) -> None:
 		"""Close the file referenced by `record`."""
 		record.container.finalize().close()
+		record.button.destroy()
+		self._files.remove(record)
+		
+		# Delete new files if they are still empty
 		if record.isnew:
 			try:
 				if not os.stat(record.path).st_size:
 					os.remove(record.path)
 			except OSError:
 				pass
-		
-		self._files.remove(record)
-		record.button.destroy()
 	
 	def close_current_file(self, widget: Gtk.Widget) -> bool:
 		"""Close the currently active file."""
@@ -529,7 +527,11 @@ class Mixtool(Gtk.Application):
 	
 	def open_donation_website(self, widget: Gtk.Widget) -> bool:
 		"""Open donation website in default browser."""
-		Gtk.show_uri_on_window(widget.get_toplevel(), "http://go.bachsau.com/mtdonate", Gtk.get_current_event_time())
+		Gtk.show_uri_on_window(
+			widget.get_toplevel(),
+			"http://go.bachsau.com/mtdonate",
+			Gtk.get_current_event_time()
+		)
 		return True
 		
 	# Callback to create a new file by using a dialog
@@ -581,11 +583,11 @@ class Mixtool(Gtk.Application):
 				browse_path = dialog.get_current_folder()
 				if browse_path != saved_path:
 					self.settings["lastdir"] = browse_path
-					self.save_settings()
+					self._save_settings()
 				
 				# Open the files
-				version = version_chooser.get_active_id()
-				self._open_files(dialog.get_files(), getattr(mixlib.Version, version))
+				version = getattr(mixlib.Version, version_chooser.get_active_id())
+				self._open_files(dialog.get_files(), version)
 		finally:
 			dialog.destroy()
 		return True
@@ -616,7 +618,7 @@ class Mixtool(Gtk.Application):
 				browse_path = dialog.get_current_folder()
 				if browse_path != saved_path:
 					self.settings["lastdir"] = browse_path
-					self.save_settings()
+					self._save_settings()
 				
 				# Open the files
 				self._open_files(dialog.get_files())
@@ -632,7 +634,7 @@ class Mixtool(Gtk.Application):
 		
 		self.mark_busy()
 		
-		button = self._files[0].button if self._files else None
+		button = self._files[-1].button if self._files else None
 		
 		for file in files:
 			path = os.path.realpath(file.get_path())
@@ -658,13 +660,13 @@ class Mixtool(Gtk.Application):
 			
 			try:
 				if stat is None:
-					stream = open(path, "w+b")
 					isnew = True
+					stream = open(path, "w+b")
 					# Stat files that didn't exist before
 					stat = os.stat(stream.fileno() if fd_support else path)
 				else:
-					stream = open(path, "r+b")
 					isnew = False
+					stream = open(path, "r+b")
 			except OSError as problem:
 				errors.append((problem.errno, path))
 			else:
@@ -743,14 +745,13 @@ class Mixtool(Gtk.Application):
 		if widget.get_active():
 			mixtype = record.container.get_version().name
 			
-			status = " ".join((mixtype, "MIX contains", str(record.container.get_filecount()), "files."))
+			status = " ".join((str(record.container.get_filecount()), "files in", mixtype, "MIX."))
 			title = widget.get_label() + " – Mixtool"
 			
 			self._current_file = record
 			self._builder.get_object("ContentList").set_model(record.store)
 			self._builder.get_object("StatusBar").set_text(status)
 			self._builder.get_object("MainWindow").set_title(title)
-		
 		return True
 	
 	def _update_gui(self) -> None:
@@ -786,6 +787,7 @@ class Mixtool(Gtk.Application):
 	
 	def update_available_actions(self) -> None:
 		"""Depends on number of files in container."""
+		# FIXME: I'm still empty.
 	
 	# Method run on the primary instance whenever the application
 	# is invoked without parameters.
@@ -803,7 +805,7 @@ class Mixtool(Gtk.Application):
 				dialog.hide()
 				if self._builder.get_object("AlphaWarning.Disable").get_active():
 					self.settings["alpha_warning"] = False
-					self.save_settings()
+					self._save_settings()
 		else:
 			window.present()
 			print("Activated main window on behalf of remote controller.", file=sys.stderr)
@@ -815,26 +817,28 @@ class Mixtool(Gtk.Application):
 		self.activate()
 		self._open_files(files)
 	
-	def save_settings(self) -> bool:
+	def _save_settings(self) -> bool:
 		"""Save configuration to disk."""
 		if not self._data_path_blocked:
 			try:
 				self.settings.save(self.config_file)
 			except Exception as problem:
 				self._data_path_blocked = True
+				
 				if isinstance(problem, OSError):
 					problem_description = problem.strerror
 				else:
 					problem_description = "Internal error"
+				
 				messagebox(
 					"Mixtool was not able to write its configuration file.", "w",
 					secondary="{0}:\n{1}\n\n".format(problem_description, self.data_path)
 					+ "Changed settings will not be retained."
 				)
-				return False
 			else:
 				print("Saved configuration file.", file=sys.stderr)
 				return True
+		return False
 
 
 # Starter
@@ -869,8 +873,8 @@ def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, second
 	If `parent` is given, the dialog will be a child of that window and
 	centered upon it.
 	
-	`secondary` can be used to display additional text. The primary text will
-	appear bolder in that case.
+	`secondary` can be used to display additional text. The primary text
+	will appear bolder in that case.
 	"""
 	if type_ == "i":
 		message_type = Gtk.MessageType.INFO
