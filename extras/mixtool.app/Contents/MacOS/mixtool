@@ -1,0 +1,22 @@
+#!/bin/sh
+script_dir_53qoi4vk1syguf5b=${0%/*}
+cd "$HOME"
+if [ -r '/etc/profile' ]; then
+	. '/etc/profile'
+fi
+if [ -n "$BASH_VERSION" ] && [ -r "$HOME/.bash_profile" ]; then
+	. "$HOME/.bash_profile"
+elif [ -r "$HOME/.profile" ]; then
+	. "$HOME/.profile"
+fi
+if command -v mixtool; then
+	exec mixtool
+fi
+cd "$script_dir_53qoi4vk1syguf5b/../../.."
+if [ "${PWD##*/}" == 'extras' ] && [ -x ../mixtool.sh ]; then
+	script_dir_53qoi4vk1syguf5b=$PWD
+	cd "$HOME"
+	exec "$script_dir_53qoi4vk1syguf5b/../mixtool.sh"
+fi
+cd "$HOME"
+exec osascript -e 'display alert "Application not found" message "`mixtool` needs to be in the search path for this launcher to work." as critical'

@@ -1,0 +1,13 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Version=1.1
+Type=Application
+Name=Mixtool
+GenericName=MIX file editor
+Comment=An editor for Westwood Studios’ MIX files
+Icon=mixtool
+Exec=mixtool %F
+Terminal=false
+Categories=Development;GTK;
+Keywords=mix;westwood;command;conquer;
+MimeType=application/x-extension-mix;
