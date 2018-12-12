@@ -230,7 +230,6 @@ class Mixtool(Gtk.Application):
 		self._data_path_blocked = False
 		self._builder = None
 		self._files = []
-		self._current_file = None
 		self.installation_id = None
 		self.home_path = None
 		self.data_path = None
@@ -475,11 +474,11 @@ class Mixtool(Gtk.Application):
 		# Return the tuple of checkboxes to be used for saving
 		return checkboxes
 	
-	def _close_file(self, record: FileRecord) -> None:
-		"""Close the file referenced by `record`."""
+	def _close_file(self, index: int) -> None:
+		"""Close the file specified by `index`."""
+		record = self._files.pop(index)
 		record.container.finalize().close()
 		record.button.destroy()
-		self._files.remove(record)
 		
 		# Delete new files if they are still empty
 		if record.isnew:
@@ -491,7 +490,7 @@ class Mixtool(Gtk.Application):
 	
 	def close_current_file(self, widget: Gtk.Widget) -> bool:
 		"""Close the currently active file."""
-		self._close_file(self._current_file)
+		self._close_file(-1)
 		self._update_gui()
 		return True
 	
@@ -502,7 +501,7 @@ class Mixtool(Gtk.Application):
 		window = widget.get_toplevel()
 		
 		while(self._files):
-			self._close_file(self._files[-1])
+			self._close_file(-1)
 		self._update_gui()
 		
 		window.hide()
@@ -744,18 +743,18 @@ class Mixtool(Gtk.Application):
 		"""Switch the currently displayed file to `record`."""
 		if widget.get_active():
 			mixtype = record.container.get_version().name
-			
 			status = " ".join((str(record.container.get_filecount()), "files in", mixtype, "MIX."))
 			title = widget.get_label() + " – Mixtool"
 			
-			self._current_file = record
+			self._files.remove(record)
+			self._files.append(record)
 			self._builder.get_object("ContentList").set_model(record.store)
 			self._builder.get_object("StatusBar").set_text(status)
 			self._builder.get_object("MainWindow").set_title(title)
 		return True
 	
 	def _update_gui(self) -> None:
-		"""Enable or disable GUI elements base on current state."""
+		"""Enable or disable GUI elements based on current state."""
 		if self._files:
 			# Switch to last open file
 			button = self._files[-1].button
@@ -766,9 +765,6 @@ class Mixtool(Gtk.Application):
 			self._builder.get_object("Toolbar.Close").show()
 			self._builder.get_object("ContentList").set_sensitive(True)
 		else:
-			# Set current file to None
-			self._current_file = None
-			
 			# Switch to Quit button and disable ContentList
 			self._builder.get_object("MainWindow").set_title("Mixtool")
 			self._builder.get_object("StatusBar").set_text(
