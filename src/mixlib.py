@@ -141,7 +141,7 @@ class Version(enum.Enum):
 				return other > Version.RA
 			return other < Version.TS
 		except TypeError:
-			raise TypeError("Operands must be members of `Version`.") from None
+			raise TypeError("Operands must be members of Version.") from None
 
 
 # A named tuple for metadata returned to the user
@@ -153,7 +153,7 @@ MixRecord = collections.namedtuple("MixRecord", ("name", "size", "offset", "allo
 class MixFile(object):
 	"""Manage MIX files, one file per instance."""
 	
-	__slots__ = ("_stream", "_dirty", "_open", "_index", "_contents", "_version", "_flags")
+	__slots__ = ("_dirty", "_stream", "_open", "_index", "_contents", "_version", "_flags")
 	
 	def __init__(self, stream: io.BufferedIOBase, version: Version = None) -> None:
 		"""Parse a MIX from `stream`, which must be a buffered file object.
@@ -163,14 +163,14 @@ class MixFile(object):
 		"""
 		
 		# Initialize mandatory attributes
-		self._stream = None
 		self._dirty = False
+		self._stream = None
 		self._open = []
 		
 		# If stream is, for example, a raw I/O object, files could be destroyed
 		# without ever raising an error, so check this.
 		if not isinstance(stream, io.BufferedIOBase):
-			raise TypeError("`stream` must be an instance of `io.BufferedIOBase`.")
+			raise TypeError("`stream` must be an instance of io.BufferedIOBase.")
 		
 		if not stream.readable():
 			raise ValueError("`stream` must be readable.")
@@ -180,8 +180,8 @@ class MixFile(object):
 		
 		if version is not None:
 			# Create a new file
-			if not isinstance(version, Version):
-				raise TypeError("`version` must be a member of `Version` or `None`.")
+			if type(version) is not Version:
+				raise TypeError("`version` must be a member of Version or None.")
 			self._stream = stream
 			self._index = {}
 			self._contents = []
@@ -499,11 +499,11 @@ class MixFile(object):
 
 	# Change MIX type
 	# TODO: Repair
-	def set_version(self, newtype: int):
-		"""Convert MIX to 'newtype'.
+	def convert(self, version: Version):
+		"""Convert MIX to `version`.
 
 		When converting between	TD/RA and TS, the MIX is not allowed to have missing
-		names as they can not be converted properly. MixError is raised in this	case.
+		names as they can not be converted properly. MixError is raised in that	case.
 		"""
 		
 		if newtype < Version.TD or newtype > Version.TS + 3:
@@ -822,14 +822,32 @@ class MixFile(object):
 		raise NotImplementedError("Stub method")
 	
 	@property
-	def has_checksum(self):
-		"""Return `True` if MIX has a checksum."""
+	def has_checksum(self) -> bool:
+		"""Define if MIX has a checksum."""
 		return bool(self._flags & 1)
 	
+	@has_checksum.setter
+	def has_checksum(self, value: bool):
+		"""Define if MIX has a checksum."""
+		if self._version is not Version.TD:
+			if value:
+				self._flags |= 1
+			else:
+				self._flags &= -2
+	
 	@property
-	def is_encrypted(self):
-		"""Return `True` if MIX header is encrypted."""
+	def is_encrypted(self) -> bool:
+		"""Define if MIX headers are encrypted."""
 		return bool(self._flags & 2)
+	
+	@is_encrypted.setter
+	def is_encrypted(self, value: bool):
+		"""Define if MIX headers are encrypted."""
+		if self._version is not Version.TD:
+			if value:
+				self._flags |= 2
+			else:
+				self._flags &= -3
 
 
 # MixIO instaces are used to work with contained files as if they were real

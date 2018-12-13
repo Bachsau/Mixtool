@@ -194,7 +194,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="tooltip_text" translatable="yes">Add files to the MIX by using a file chooser</property>
+                <property name="tooltip_text">Add files to the MIX by using a file chooser</property>
                 <property name="label">_Add</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">Toolbar.Add.Icon</property>
@@ -526,7 +526,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
   <object class="GtkDialog" id="AlphaWarning">
     <property name="can_focus">False</property>
     <property name="border_width">5</property>
-    <property name="title" translatable="yes">Alpha version</property>
+    <property name="title">Alpha version</property>
     <property name="resizable">False</property>
     <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
@@ -621,7 +621,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
   <object class="GtkDialog" id="DeletionWarning">
     <property name="can_focus">False</property>
     <property name="border_width">5</property>
-    <property name="title" translatable="yes">Delete files…</property>
+    <property name="title">Delete files…</property>
     <property name="resizable">False</property>
     <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
@@ -791,10 +791,9 @@ Do you want to continue?</property>
               <object class="GtkLabel">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label">MIX _version:</property>
+                <property name="label">_Version:</property>
                 <property name="use_underline">True</property>
                 <property name="mnemonic_widget">Properties.Version</property>
-                <property name="single_line_mode">True</property>
                 <property name="xalign">1</property>
               </object>
               <packing>
@@ -806,13 +805,16 @@ Do you want to continue?</property>
               <object class="GtkComboBoxText" id="Properties.Version">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text">Selecting another version will convert the file as soon as you click “OK”.
+MIX files of version 1 support neither checksums nor encrypted headers.</property>
                 <property name="hexpand">True</property>
                 <items>
-                  <item id="0">1 – TD</item>
-                  <item id="1">2 – RA</item>
-                  <item id="2">3 – TS, RA2, YR</item>
+                  <item id="TD">1 – TD</item>
+                  <item id="RA">2 – RA</item>
+                  <item id="TS">3 – TS, RA2, YR</item>
+                  <item id="RG">4 – RG</item>
                 </items>
-                <signal name="changed" handler="update_properties_dialog" swapped="no"/>
+                <signal name="changed" handler="on_version_changed" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -825,7 +827,6 @@ Do you want to continue?</property>
                 <property name="can_focus">False</property>
                 <property name="margin_top">3</property>
                 <property name="label">Specifications:</property>
-                <property name="single_line_mode">True</property>
                 <property name="xalign">1</property>
                 <property name="yalign">0</property>
               </object>
@@ -841,8 +842,8 @@ Do you want to continue?</property>
                 <property name="hexpand">True</property>
                 <property name="orientation">vertical</property>
                 <child>
-                  <object class="GtkCheckButton" id="Properties.Encrypted">
-                    <property name="label">_Encrypt header</property>
+                  <object class="GtkCheckButton" id="Properties.Checksum">
+                    <property name="label">Check_summed</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
@@ -856,11 +857,12 @@ Do you want to continue?</property>
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="Properties.Checksum">
-                    <property name="label">Save check_sum</property>
+                  <object class="GtkCheckButton" id="Properties.Encrypt">
+                    <property name="label">_Encrypted header</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
+                    <property name="tooltip_text">Encryption has been disabled in the settings. The checkbox reflects the current state and will be cleared when the MIX is changed.</property>
                     <property name="use_underline">True</property>
                     <property name="draw_indicator">True</property>
                   </object>
@@ -950,7 +952,7 @@ Do you want to continue?</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="tooltip_text">Reset all settings to build-in defaults. Nothing is applied until you click the “OK” button.</property>
-                <signal name="clicked" handler="restore_default_settings" swapped="no"/>
+                <signal name="clicked" handler="on_defaults_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -1111,7 +1113,6 @@ Do you want to continue?</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label">File handling</property>
-                <property name="single_line_mode">True</property>
               </object>
               <packing>
                 <property name="tab_fill">False</property>
@@ -1244,7 +1245,6 @@ Do you want to continue?</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label">Appearance</property>
-                <property name="single_line_mode">True</property>
               </object>
               <packing>
                 <property name="position">1</property>
@@ -1261,7 +1261,7 @@ Do you want to continue?</property>
                     <property name="visible">True</property>
                     <property name="sensitive">False</property>
                     <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">Not implemented yet</property>
+                    <property name="label">Not implemented yet</property>
                     <property name="wrap">True</property>
                   </object>
                 </child>
@@ -1275,7 +1275,6 @@ Do you want to continue?</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label">Online settings</property>
-                <property name="single_line_mode">True</property>
               </object>
               <packing>
                 <property name="position">2</property>

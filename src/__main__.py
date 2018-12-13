@@ -248,7 +248,7 @@ class Mixtool(Gtk.Application):
 		gui_file = os.sep.join((app_path, "res", "main.glade"))
 		self._builder = Gtk.Builder.new_from_file(gui_file)
 		dummy_callback = lambda widget: False
-		callback_map = {
+		self._builder.connect_signals({
 			"on_new_clicked": self.invoke_new_dialog,
 			"on_open_clicked": self.invoke_open_dialog,
 			"on_properties_clicked": self.invoke_properties_dialog,
@@ -260,11 +260,10 @@ class Mixtool(Gtk.Application):
 			"on_about_clicked": self.invoke_about_dialog,
 			"on_close_clicked": self.close_current_file,
 			"on_quit_clicked": self.close_window,
-			"on_donate_clicked": self.open_donation_website,
-			"update_properties_dialog": self.update_properties_dialog,
-			"restore_default_settings": self.restore_default_settings
-		}
-		self._builder.connect_signals(callback_map)
+			"on_version_changed": self.update_properties_dialog,
+			"on_defaults_clicked": self.restore_default_settings,
+			"on_donate_clicked": self.open_donation_website
+		})
 		
 		# Determine the platform-specific data directory
 		self.home_path = os.path.realpath(os.path.expanduser("~"))
@@ -374,50 +373,46 @@ class Mixtool(Gtk.Application):
 	
 	def invoke_properties_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a dialog to modify the current file’s properties."""
-		if self._current_file is None:
-			# TODO: Replace by disabling the button
-			messagebox("Properties can only be set for an open file.", "e", widget.get_toplevel())
-		else:
-			dialog = self._builder.get_object("PropertiesDialog")
-			mixtype_dropdown = self._builder.get_object("Properties.Type")
-			current_mixtype = self._current_file.container.get_version()
-			
-			mixtype_dropdown.set_active_id(str(current_mixtype))
-			self._builder.get_object("PropertiesDialog.OK").grab_focus()
-			response = dialog.run()
-			dialog.hide()
-			
-			if response == Gtk.ResponseType.OK:
-				selected_mixtype = int(mixtype_dropdown.get_active_id())
-				encrypt_checkbox = self._builder.get_object("Properties.Encrypted")
-				checksum_checkbox = self._builder.get_object("Properties.Checksum")
-				
-				if selected_mixtype != current_mixtype:
-					messagebox("Conversion is not implemented yet.", "e", widget.get_toplevel())
-				
-				self._current_file.container.is_encrypted = encrypt_checkbox.get_active()
-				self._current_file.container.has_checksum = checksum_checkbox.get_active()
+		container = self._files[-1].container
+		mixtype = container.get_version().name
+		version_chooser = self._builder.get_object("Properties.Version")
+		version_chooser.set_active_id(mixtype)
+		self.update_properties_dialog(version_chooser)
+		self._builder.get_object("PropertiesDialog.OK").grab_focus()
+		dialog = self._builder.get_object("PropertiesDialog")
+		response = dialog.run()
+		dialog.hide()
+		
+		if response == Gtk.ResponseType.OK:
+			newtype = version_chooser.get_active_id()
+			if newtype != "TD":
+				container.has_checksum = self._builder.get_object("Properties.Checksum").get_active()
+				container.is_encrypted = self._builder.get_object("Properties.Encrypt").get_active()
+			if newtype != mixtype:
+				messagebox("Conversion is not implemented yet.", "e", widget.get_toplevel())
+				# FIXME: Catch errors
+				#container.convert(getattr(mixlib.Version, newtype))
 		return True
 	
-	def update_properties_dialog(self, widget: Gtk.Widget) -> bool:
-		"""Update the properties dialog to reflect the choosen MIX type."""
-		mixtype = int(widget.get_active_id())
-		encrypt_checkbox = self._builder.get_object("Properties.Encrypted")
-		checksum_checkbox = self._builder.get_object("Properties.Checksum")
+	def update_properties_dialog(self, version_chooser: Gtk.ComboBoxText) -> bool:
+		"""Update the properties dialog to reflect the chosen version."""
+		container = self._files[-1].container
+		decrypt = self.settings["decrypt"]
+		checkbox_encrypted = self._builder.get_object("Properties.Encrypt")
+		checkbox_checksum = self._builder.get_object("Properties.Checksum")
 		
-		if mixtype < 1 or self.settings["decrypt"]:
-			encrypt_checkbox.set_sensitive(False)
-			encrypt_checkbox.set_active(False)
+		if version_chooser.get_active_id() == "TD":
+			checkbox_checksum.set_sensitive(False)
+			checkbox_checksum.set_active(False)
+			checkbox_encrypted.set_sensitive(False)
+			checkbox_encrypted.set_active(False)
+			checkbox_encrypted.set_has_tooltip(False)
 		else:
-			encrypt_checkbox.set_sensitive(True)
-			encrypt_checkbox.set_active(self._current_file.container.is_encrypted)
-		
-		if mixtype < 1:
-			checksum_checkbox.set_sensitive(False)
-			checksum_checkbox.set_active(False)
-		else:
-			checksum_checkbox.set_sensitive(True)
-			checksum_checkbox.set_active(self._current_file.container.has_checksum)
+			checkbox_checksum.set_sensitive(True)
+			checkbox_checksum.set_active(container.has_checksum)
+			checkbox_encrypted.set_sensitive(not decrypt)
+			checkbox_encrypted.set_active(container.is_encrypted)
+			checkbox_encrypted.set_has_tooltip(decrypt)
 		return True
 	
 	def invoke_settings_dialog(self, widget: Gtk.Widget) -> bool:
@@ -739,12 +734,12 @@ class Mixtool(Gtk.Application):
 			messagebox(err_title, "e", window, secondary=err_text, markup=2)
 	
 	# Switch to another tab
-	def switch_file(self, widget: Gtk.Widget, record: FileRecord) -> bool:
+	def switch_file(self, button: Gtk.RadioButton, record: FileRecord) -> bool:
 		"""Switch the currently displayed file to `record`."""
-		if widget.get_active():
+		if button.get_active():
 			mixtype = record.container.get_version().name
 			status = " ".join((str(record.container.get_filecount()), "files in", mixtype, "MIX."))
-			title = widget.get_label() + " – Mixtool"
+			title = button.get_label() + " – Mixtool"
 			
 			self._files.remove(record)
 			self._files.append(record)
@@ -763,6 +758,7 @@ class Mixtool(Gtk.Application):
 			# Switch to Close button and enable ContentList
 			self._builder.get_object("Toolbar.Quit").hide()
 			self._builder.get_object("Toolbar.Close").show()
+			self._builder.get_object("Toolbar.Properties").set_sensitive(True)
 			self._builder.get_object("ContentList").set_sensitive(True)
 		else:
 			# Switch to Quit button and disable ContentList
@@ -772,6 +768,7 @@ class Mixtool(Gtk.Application):
 			)
 			self._builder.get_object("Toolbar.Close").hide()
 			self._builder.get_object("Toolbar.Quit").show()
+			self._builder.get_object("Toolbar.Properties").set_sensitive(False)
 			self._builder.get_object("ContentList").set_sensitive(False)
 			self._builder.get_object("ContentList").set_model(self._builder.get_object("ContentStore"))
 		
