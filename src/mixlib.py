@@ -137,9 +137,11 @@ class Version(enum.Enum):
 	def needs_conversion(self, other) -> bool:
 		"""Tell if keys need to be recalculated when converting to `other`."""
 		try:
-			if self <= Version.RA:
+			if self < Version.TS:
 				return other > Version.RA
-			return other < Version.TS
+			if self is Version.TS:
+				return other is not Version.TS
+			return other is not Version.RG
 		except TypeError:
 			raise TypeError("Operands must be members of Version.") from None
 
@@ -199,10 +201,10 @@ class MixFile(object):
 		if first4 == b"MIX1":
 			raise NotImplementedError("RG MIX files are not yet supported.")
 		elif first4[:2] == b"\x00\x00":
-			# It seems we have a RA/TS MIX so check the flags
+			# It seems we have a RA or TS MIX so check the flags
 			flags = first4[2]
 			if flags > 3:
-				raise MixParseError("Invalid file flags.")
+				raise MixParseError("Unsupported properties.")
 			if flags & 2:
 				raise NotImplementedError("Encrypted MIX files are not yet supported.")
 			
@@ -815,8 +817,8 @@ class MixFile(object):
 		"""!!! STUB !!!"""
 		raise NotImplementedError("Stub method")
 	
-	# Opens a file inside the MIX using MixIO
-	# Works like the build-in open function
+	# Open a file inside the MIX using MixIO
+	# Shall work like the built-in open function
 	def open(self, name: str, mode: str = "r", buffering: int = -1, encoding: str = None, errors: str = None, newline: str = None):
 		"""!!! STUB !!!"""
 		raise NotImplementedError("Stub method")
@@ -827,7 +829,7 @@ class MixFile(object):
 		return bool(self._flags & 1)
 	
 	@has_checksum.setter
-	def has_checksum(self, value: bool):
+	def has_checksum(self, value: bool) -> None:
 		"""Define if MIX has a checksum."""
 		if self._version is not Version.TD:
 			if value:
@@ -841,7 +843,7 @@ class MixFile(object):
 		return bool(self._flags & 2)
 	
 	@is_encrypted.setter
-	def is_encrypted(self, value: bool):
+	def is_encrypted(self, value: bool) -> None:
 		"""Define if MIX headers are encrypted."""
 		if self._version is not Version.TD:
 			if value:
@@ -903,33 +905,30 @@ class MixIO(io.BufferedIOBase):
 		return self._container is None or self._node is None
 
 
-# Create MIX-Identifier from filename
+# Create MIX identifier from name
 # Thanks to Olaf van der Spek for providing these functions
 def genkey(name: str, version: Version) -> int:
 	"""Return the key for `name` according to `version`.
 
 	This is a low-level function that rarely needs to be used directly.
 	"""
-	name = name.encode(ENCODING, "strict").upper()
-	len_ = len(name)
-	
-	if version <= Version.RA:
-		# Compute key for TD/RA MIXes
-		i   = 0
-		key = 0
-		while i < len_:
+	n = name.encode(ENCODING, "strict").upper()
+	l = len(n)
+	if version < Version.TS:
+		i = 0
+		k = 0
+		while i < l:
 			a = 0
 			for j in range(4):
 				a >>= 8
-				if i < len_:
-					a |= (name[i] << 24)
+				if i < l:
+					a |= (n[i] << 24)
 					i += 1
-			key = (key << 1 | key >> 31) + a & 4294967295
-		return key
-	else:
-		# Compute key for TS MIXes
-		a = len_ & ~3
-		if len_ & 3:
-			name += bytes((len_ - a,))
-			name += bytes((name[a],)) * (3 - (len_ & 3))
-		return binascii.crc32(name)
+			k = (k << 1 | k >> 31) + a & 4294967295
+		return k
+	if version is Version.TS:
+		a = l & -4
+		if l & 3:
+			n += bytes((l - a,))
+			n += bytes((n[a],)) * (3 - (l & 3))
+	return binascii.crc32(n)
