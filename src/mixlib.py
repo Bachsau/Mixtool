@@ -43,7 +43,7 @@ class _MixNode(object):
 	
 	__slots__ = ("key", "offset", "size", "alloc", "name", "links")
 
-	def __init__(self, key: int, offset: int, size: int, alloc: int, name: str) -> None:
+	def __init__(self, key: int, offset: int, size: int, alloc: int, name: str):
 		"""Initialize the node."""
 		self.key    = key
 		self.offset = offset
@@ -52,47 +52,91 @@ class _MixNode(object):
 		self.name   = name
 		self.links  = 0
 
-	def __repr__(self) -> str:
+	def __repr__(self):
 		"""Return string representation."""
 		return "_MixNode({0!r}, {1!r}, {2!r}, {3!r}, {4!r})".format(
 			self.key, self.offset, self.size, self.alloc, self.name
 		)
 
-	def __delattr__(self, attr: str) -> None:
-		"""Raise `TypeError`."""
-		raise TypeError("Can't delete node attributes.")
+	def __delattr__(self, attr):
+		"""Raise TypeError."""
+		raise TypeError("Can’t delete node attributes.")
 
 
 class MixError(Exception):
-	"""Base exception for all MIX related errors."""
-	# TODO: Add errnos, errstrs, filename attributes and subclassig.
-	__slots__ = ("errno", "strerror", "filename", "filename2")
+	"""MixError(errno: int, strerror: str, filename: str, filename2: str)
+	
+	Base exception for all MIX related errors.
+	"""
+	
+	__slots__ = ("characters_written", "errno", "filename", "filename2", "strerror")
+	
+	__errnomap = None
+	
+	def __new__(cls, *args):
+		"""Return a new instance of MixError or one of its subclasses.
+		
+		The subclass is chosen based on the value of the first argument,
+		as long as a second argument is present.
+		"""
+		if cls is MixError and 2 <= len(args) <= 4:
+			if cls.__errnomap is None:
+				cls.__errnomap = {
+					1: MixParseError
+				}
+			self = Exception.__new__(cls.__errnomap.get(args[0], cls), *args)
+		else:
+			self = super().__new__(cls, *args)
+		for attr in MixError.__slots__:
+			setattr(self, attr, None)
+		return self
 	
 	def __init__(self, *args):
-		self.errno = None
-		self.strerror = None
-		self.filename = None
-		self.filename2 = None
+		"""Initialize MixError with the given values."""
+		self.characters_written = None
+		a = len(args)
+		if 2 <= a <= 4:
+			self.errno = args[0]
+			self.strerror = args[1]
+			if a > 2:
+				self.args = args[:2]
+				self.filename = args[2]
+				if a > 3:
+				 self.filename2 = args[3]
+	
+	def __delattr__(self, attr):
+		"""Delete the attribute if it’s not a built-in one, else set it to None."""
+		if attr in MixError.__slots__:
+			setattr(self, attr, None)
+		else:
+			super().__delattr__(attr)
 	
 	def __str__(self):
+		"""Return string representation."""
 		if self.errno is not None and self.strerror is not None:
 			return "[Errno {0!s}] {1!s}".format(self.errno, self.strerror)
-		return Exception.__str__(self)
+		return super().__str__(self)
 
 
 class MixParseError(MixError):
-	"""Exception raised on errors in the MIX file."""
-	__slots__ = ()
+	"""Exception raised on errors in the MIX file.
+	
+	See help(MixError) for accurate signature.
+	"""
 
 
 class MixFSError(MixError):
-	"""Exception raised on errors on content access."""
-	__slots__ = ()
+	"""Exception raised on errors on content access.
+	
+	See help(MixError) for accurate signature.
+	"""
 
 
 class MixIOError(MixError):
-	"""Exception raised on invalid MixIO operations."""
-	__slots__ = ()
+	"""Exception raised on invalid MixIO operations.
+	
+	See help(MixError) for accurate signature.
+	"""
 
 
 # MIX versions
@@ -106,28 +150,28 @@ class Version(enum.Enum):
 	YR  = 2  # Yuri's Revenge
 	RG  = 3  # Renegade
 	
-	def __lt__(self, other) -> bool:
+	def __lt__(self, other):
 		"""Return True if `self` is a lower version than `other`."""
 		if type(self) is type(other):
 			return self._value_ < other._value_
 		else:
 			return NotImplemented
 	
-	def __le__(self, other) -> bool:
+	def __le__(self, other):
 		"""Return True if `self` is a lower or the same version as `other`."""
 		if type(self) is type(other):
 			return self._value_ <= other._value_
 		else:
 			return NotImplemented
 	
-	def __gt__(self, other) -> bool:
+	def __gt__(self, other):
 		"""Return True if `self` is a higher version than `other`."""
 		if type(self) is type(other):
 			return self._value_ > other._value_
 		else:
 			return NotImplemented
 	
-	def __ge__(self, other) -> bool:
+	def __ge__(self, other):
 		"""Return True if `self` is a higher or the same version as `other`."""
 		if type(self) is type(other):
 			return self._value_ >= other._value_
@@ -157,7 +201,7 @@ class MixFile(object):
 	
 	__slots__ = ("_dirty", "_stream", "_open", "_index", "_contents", "_version", "_flags")
 	
-	def __init__(self, stream: io.BufferedIOBase, version: Version = None) -> None:
+	def __init__(self, stream: io.BufferedIOBase, version: Version = None):
 		"""Parse a MIX from `stream`, which must be a buffered file object.
 		
 		If `version` is given, initialize an empty MIX of this version instead.
@@ -391,8 +435,7 @@ class MixFile(object):
 	def _move_internal(self, rpos, wpos, size):
 		"""Internal move method..."""
 		
-		full = size // BLOCKSIZE
-		rest = size % BLOCKSIZE
+		full, rest = divmod(size, BLOCKSIZE)
 
 		if full:
 			buffer = bytearray(BLOCKSIZE)
@@ -729,8 +772,7 @@ class MixFile(object):
 			raise MixError("File not found")
 
 		size = inode.size
-		full = size // BLOCKSIZE
-		rest = size % BLOCKSIZE
+		full, rest = divmod(size, BLOCKSIZE)
 
 		self._stream.seek(inode.offset)
 		with open(dest, "wb") as OutFile:
@@ -798,8 +840,7 @@ class MixFile(object):
 		inode = self.allocate(name, size)
 		inode.size = size
 
-		full = size // BLOCKSIZE
-		rest = size % BLOCKSIZE
+		full, rest = divmod(size, BLOCKSIZE)
 
 		self._stream.seek(inode.offset)
 		with open(source, "rb") as InFile:
