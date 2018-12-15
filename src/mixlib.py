@@ -69,7 +69,7 @@ class MixError(Exception):
 	Base exception for all MIX related errors.
 	"""
 	
-	__slots__ = ("characters_written", "errno", "filename", "filename2", "strerror")
+	__slots__ = ("_characters_written", "errno", "filename", "filename2", "strerror")
 	
 	__errnomap = None
 	
@@ -93,7 +93,6 @@ class MixError(Exception):
 	
 	def __init__(self, *args):
 		"""Initialize MixError with the given values."""
-		self.characters_written = None
 		a = len(args)
 		if 2 <= a <= 4:
 			self.errno = args[0]
@@ -105,7 +104,7 @@ class MixError(Exception):
 				 self.filename2 = args[3]
 	
 	def __delattr__(self, attr):
-		"""Delete the attribute if it’s not a built-in one, else set it to None."""
+		"""Delete the attribute if it’s not a special one, else set it to None."""
 		if attr in MixError.__slots__:
 			setattr(self, attr, None)
 		else:
@@ -116,6 +115,35 @@ class MixError(Exception):
 		if self.errno is not None and self.strerror is not None:
 			return "[Errno {0!s}] {1!s}".format(self.errno, self.strerror)
 		return super().__str__(self)
+	
+	@property
+	def characters_written(self) -> int:
+		"""The number of characters written before the error occurred."""
+		if self._characters_written is None:
+			raise AttributeError("characters_written")
+		return self._characters_written
+	
+	@characters_written.setter
+	def characters_written(self, value: int) -> None:
+		"""The number of characters written before the error occurred."""
+		if type(value) is int:
+			self._characters_written = value
+		else:
+			try:
+				value = value.__index__()
+			except Exception:
+				# OSError does it more or less the same way
+				pass
+			else:
+				if type(value) is int:
+					self._characters_written = value
+					return
+			raise TypeError("Value cannot be interpreted as an integer.")
+	
+	@characters_written.deleter
+	def characters_written(self) -> None:
+		"""The number of characters written before the error occurred."""
+		self._characters_written = None
 
 
 class MixParseError(MixError):
