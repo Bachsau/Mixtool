@@ -858,10 +858,10 @@ def main() -> int:
 
 
 # A simple, instance-independent messagebox
-def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, secondary: str = None, markup: int = 0) -> None:
+def messagebox(text: str, severity: str = "i", parent: Gtk.Window = None, *, secondary: str = None, markup: int = 0) -> None:
 	"""Display a dialog box containing `text` and an OK button.
 	
-	`type_` can be 'i' for information, 'e' for error or 'w' for warning.
+	`severity` can be 'i' for information, 'e' for error or 'w' for warning.
 	
 	If `parent` is given, the dialog will be a child of that window and
 	centered upon it.
@@ -869,20 +869,20 @@ def messagebox(text: str, type_: str = "i", parent: Gtk.Window = None, *, second
 	`secondary` can be used to display additional text. The primary text
 	will appear bolder in that case.
 	"""
-	if type_ == "i":
+	if severity == "i":
 		message_type = Gtk.MessageType.INFO
 		title = "Notice"
 		icon = "gtk-dialog-info"
-	elif type_ == "e":
+	elif severity == "e":
 		message_type = Gtk.MessageType.ERROR
 		title = "Error"
 		icon = "gtk-dialog-error"
-	elif type_ == "w":
+	elif severity == "w":
 		message_type = Gtk.MessageType.WARNING
 		title = "Warning"
 		icon = "gtk-dialog-warning"
 	else:
-		raise ValueError("Invalid message type.")
+		raise ValueError("Invalid severity level.")
 	
 	if parent is None:
 		position = Gtk.WindowPosition.CENTER

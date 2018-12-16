@@ -60,9 +60,10 @@ class _MixNode(object):
 
 	def __delattr__(self, attr):
 		"""Raise TypeError."""
-		raise TypeError("Can’t delete node attributes.")
+		raise TypeError("Cannot delete node attributes.")
 
 
+# A custom exception class that closely resembles Python's OSError
 class MixError(Exception):
 	"""MixError(errno: int, strerror: str, filename: str, filename2: str)
 	
@@ -128,17 +129,17 @@ class MixError(Exception):
 		"""The number of characters written before the error occurred."""
 		if type(value) is int:
 			self._characters_written = value
+			return
+		try:
+			value = value.__index__()
+		except Exception:
+			# OSError does it more or less the same way
+			pass
 		else:
-			try:
-				value = value.__index__()
-			except Exception:
-				# OSError does it more or less the same way
-				pass
-			else:
-				if type(value) is int:
-					self._characters_written = value
-					return
-			raise TypeError("Value cannot be interpreted as an integer.")
+			if type(value) is int:
+				self._characters_written = value
+				return
+		raise TypeError("Value cannot be interpreted as an integer.")
 	
 	@characters_written.deleter
 	def characters_written(self) -> None:
@@ -178,44 +179,14 @@ class Version(enum.Enum):
 	YR  = 2  # Yuri's Revenge
 	RG  = 3  # Renegade
 	
-	def __lt__(self, other):
-		"""Return True if `self` is a lower version than `other`."""
-		if type(self) is type(other):
-			return self._value_ < other._value_
-		else:
-			return NotImplemented
-	
-	def __le__(self, other):
-		"""Return True if `self` is a lower or the same version as `other`."""
-		if type(self) is type(other):
-			return self._value_ <= other._value_
-		else:
-			return NotImplemented
-	
-	def __gt__(self, other):
-		"""Return True if `self` is a higher version than `other`."""
-		if type(self) is type(other):
-			return self._value_ > other._value_
-		else:
-			return NotImplemented
-	
-	def __ge__(self, other):
-		"""Return True if `self` is a higher or the same version as `other`."""
-		if type(self) is type(other):
-			return self._value_ >= other._value_
-		else:
-			return NotImplemented
-	
 	def needs_conversion(self, other) -> bool:
 		"""Tell if keys need to be recalculated when converting to `other`."""
-		try:
-			if self < Version.TS:
-				return other > Version.RA
-			if self is Version.TS:
-				return other is not Version.TS
-			return other is not Version.RG
-		except TypeError:
-			raise TypeError("Operands must be members of Version.") from None
+		if type(self) is Version and type(other) is Version:
+			lowers = (Version.TD, Version.RA)
+			if self in lowers:
+				return other not in lowers
+			return self is not other
+		raise TypeError("Operands must be Version enumeration members.")
 
 
 # A named tuple for metadata returned to the user
@@ -255,7 +226,7 @@ class MixFile(object):
 		if version is not None:
 			# Create a new file
 			if type(version) is not Version:
-				raise TypeError("`version` must be a member of Version or None.")
+				raise TypeError("`version` must be a Version enumeration member or None.")
 			self._stream = stream
 			self._index = {}
 			self._contents = []
@@ -274,7 +245,7 @@ class MixFile(object):
 			raise NotImplementedError("RG MIX files are not yet supported.")
 		elif first4[:2] == b"\x00\x00":
 			# It seems we have a RA or TS MIX so check the flags
-			flags = first4[2]
+			flags = int.from_bytes(first4[2:], "little")
 			if flags > 3:
 				raise MixParseError("Unsupported properties.")
 			if flags & 2:
@@ -391,7 +362,18 @@ class MixFile(object):
 		self._index = index
 		self._contents = contents
 		self._flags = flags
+	
+	def _allocate(node: _MixNode, space: int) -> None:
+		"""Allocate an amount of `space` additional bytes to `node`."""
+		# Move, expand, etc...
+	
+	def create(name: str, alloc: int = 0) -> None:
+		"""Create a contained file and optionally pre-allocate some bytes to it.
 		
+		The resulting file might have a greater amount of space allocated to it,
+		but never less.
+		"""
+	
 	# Object destruction method
 	def finalize(self) -> io.BufferedIOBase:
 		"""Finalize the container and return its stream."""
@@ -422,40 +404,37 @@ class MixFile(object):
 	# Central file-finding method
 	# Also used to add missing names to the index
 	def _get_node(self, name: str) -> _MixNode:
-		"""Return the inode for 'name' or 'None' if not found.
+		"""Return the node for `name` or None if not found.
 
-		Save 'name' in the inode if missing.
-		'MixNameError' is raised if 'name' is not valid.
-		"""
+		Add `name` to the node if it’s missing.
 		
-		inode = self._index.get(self._get_key(name))
-
-		if inode is not None and inode.name is None and not name.startswith("0x"):
-				inode.name = name
-
-		return inode
-
-	# Get key for any _valid_ name
-	def _get_key(self, name: str) -> int:
-		"""Return the key for 'name', regardless of it being in the MIX.
-
-		'MixNameError' is raised if 'name' is not valid.
+		ValueError is raised if `name` is not valid.
 		"""
+		node = self._index.get(self._get_key(name))
+		if node is not None and node.name is None and not name.startswith(("0x", "0X")):
+				node.name = name
+		return node
+	
+	# Get key for any *valid* name
+	def _get_key(self, name: str) -> int:
+		"""Return the key for `name`, regardless of it being in the MIX.
+
+		ValueError is raised if `name` is not valid.
+		"""
+		if not isinstance(name, str):
+			raise TypeError("Names must be strings.")
 		
 		if not name:
-			raise MixNameError("Filename must not be empty.")
-
-		try:
-			if name.startswith("0x"):
-				key = int(name, 16)
-			else:
-				key = genkey(name, self._version)
-		except ValueError:
-			raise MixNameError("Invalid filename.")
-			# FIXME: Parameters could be added to distinguish between encoding
-			#        and hex conversion errors, when MixNameError matures.
-
-		return key
+			raise ValueError("Names must not be empty.")
+		
+		if name.startswith(("0x", "0X")):
+			key = int(name, 16)
+			if not key:
+				raise ValueError("Keys must not be zero.")
+			if key > 4294967295:
+				raise ValueError("Key exceeds maximum value.")
+			return key
+		return genkey(name, self._version)
 		
 		
 	# Move contents in stream
@@ -519,93 +498,93 @@ class MixFile(object):
 		
 	
 	# Rename a file in the MIX (New method)
-	def rename(self, old_name: str, new_name: str) -> bool:
-		"""Rename a contained file and return `True` if there were any changes.
+	def rename(self, old: str, new: str) -> bool:
+		"""Rename a contained file and return True if there were any changes.
 		
-		`ValueError` is raised if any name is not valid.
+		ValueError is raised if any name is not valid.
 		
-		`MixInternalError` is raised if `old_name` does not exist,
-		`new_name` already exists or a key collision occurs.
+		MixFSError is raised if a file named `old` does not exist,
+		a file named `new` already exists or a key collision occurs.
 		"""
-	
-	
-	# Rename a file in the MIX (FUBAR method)
-	def rename_old(self, old_name, new_name):
-		"""Rename a file in the MIX.
-		
-		!!! BROKEN !!!
-		"""
-		
-		raise NotImplementedError("FUBAR")
-		
 		oldkey = self._get_key(old)
-		inode = self._index.get(old)
-
-		if inode is None:
-			raise MixError("File not found")
-
-		if inode.name.startswith("0x"):
-				inode.name = old
-
-		newkey = self._get_key(new)
-
-		if newkey in (1422054725, 913179935):
-			raise MixNameError("Reserved filename")
-
-		existing = self._index.get(newkey)
-
-		if existing:
-			if existing is inode:
-				# This  means "old" and "new" matched the same key.
-				if not new.startswith("0x"):
-					inode.name = new
-				return inode.name
-			else:
-				# In this case a different file by name "new" already exists
-				raise MixError("File exists")
-
-		# Now rename the file
-		del self._index[oldkey]
-		inode.name = new
-		self._index[newkey] = inode
-
-
-	# Change MIX type
-	# TODO: Repair
-	def convert(self, version: Version):
-		"""Convert MIX to `version`.
-
-		When converting between	TD/RA and TS, the MIX is not allowed to have missing
-		names as they can not be converted properly. MixError is raised in that	case.
-		"""
+		node = self._index.get(oldkey)
 		
-		if newtype < Version.TD or newtype > Version.TS + 3:
-			raise MixError("Unsupported MIX type")
-		elif newtype > Version.TS:
-			newtype = Version.TS
+		if node is None:
+			raise MixFSError("File not found")
+		
+		if old == new:
+			# Maybe the user wants to add a missing name
+			# by giving it twice...
+			if node.name is None and not new.startswith(("0x", "0X")):
+				node.name = new
+				return True
+			return False
+		
+		newkey = self._get_key(new)
+		
+		if newkey == oldkey:
+			# We already know that `old` exists,
+			# so `old` and `new` refer to the same file.
+			if new.startswith(("0x", "0X")):
+				# We do not delete names
+				return False
+			# Changed casing, a key-equivalent
+			# or a matching name for a key-only file.
+			node.name = new
+			return True
+		
+		if newkey in self._index:
+			# In this case a different file named `new` already exists,
+			# but we never miss a chance to add missing names
+			if node.name is None and not old.startswith(("0x", "0X")):
+				node.name = old
+			raise MixFSError("File exists")
+		
+		if newkey in (1422054725, 913179935):
+			# These are namelists
+			raise MixFSError("Evaluation to reserved key")
+		
+		# Checks complete. It's going to be a "real" name change
+		del self._index[oldkey]
+		self._index[newkey] = node
+		node.key = newkey
+		node.name = None if new.startswith(("0x", "0X")) else new
 
-		if (newtype >= Version.TS and self._version < Version.TS)\
-		or (newtype < Version.TS and self._version >= Version.TS):
+	# Change MIX version
+	def set_version(self, version: Version):
+		"""Change MIX file format to `version`.
+
+		When not converting between TD and RA, the MIX is not allowed to have
+		missing	names as they can not be converted properly.
+		MixFSError is raised in that case.
+		"""
+		if self._version.needs_conversion(version):
 			# This means we have to generate new keys for all names
 			newindex = {}
-			for inode in self._contents:
-				if inode.name.startswith("0x"):
-					raise MixError("Can't convert between TD/RA and TS when names are missing")
-
-				newkey = genkey(inode.name, self._version)
-				newindex[newkey] = inode
-
+			reserved = (1422054725, 913179935)
+			for node in self._contents:
+				if node.name is None:
+					raise MixFSError("Conversion impossible with names missing.")
+				
+				newkey = genkey(node.name, version)
+				if newkey in reserved:
+					# These are namelists
+					raise MixFSError("Evaluation to reserved key")
+				newindex[newkey] = node
+			
 			if len(newindex) != len(self._contents):
 				raise MixError("Key collision")
-
+			
 			self._index = newindex
-
-		# Checksum and Encryption is not supported in TD
-		if newtype == Version.TD:
-			self.has_checksum = False
-			self.is_encrypted = False
-
-		self._version = newtype
+			
+			for key, node in self._index:
+				node.key = key
+		
+		if version is Version.TD:
+			# Flags are not supported by TD MIXes
+			self._flags = 0
+		
+		self._version = version
 
 
 	# Write current header (Flags, Keysource, Index, Database, Checksum) to MIX
@@ -728,7 +707,7 @@ class MixFile(object):
 		# Write index
 		bodysize = self._contents[0].offset - bodyoffset if filecount else 0
 		files = sorted(self._index.items(), key=lambda i: i[1].offset)
-		dbkey = 1422054725 if self._version < Version.TS else 913179935
+		dbkey = 1422054725 if self._version in (Version.TD, Version.RA) else 913179935
 		files.append((dbkey, _MixNode(None, dboffset, dbsize, dbsize)))
 
 		self._stream.seek(indexoffset)
@@ -982,8 +961,9 @@ def genkey(name: str, version: Version) -> int:
 	This is a low-level function that rarely needs to be used directly.
 	"""
 	n = name.encode(ENCODING, "strict").upper()
-	l = len(n)
-	if version < Version.TS:
+	
+	if version is Version.TD or version is Version.RA:
+		l = len(n)
 		i = 0
 		k = 0
 		while i < l:
@@ -995,9 +975,16 @@ def genkey(name: str, version: Version) -> int:
 					i += 1
 			k = (k << 1 | k >> 31) + a & 4294967295
 		return k
+	
 	if version is Version.TS:
+		l = len(n)
 		a = l & -4
 		if l & 3:
 			n += bytes((l - a,))
 			n += bytes((n[a],)) * (3 - (l & 3))
-	return binascii.crc32(n)
+		return binascii.crc32(n)
+	
+	if version is Version.RG:
+		return binascii.crc32(n)
+	
+	raise TypeError("`version` must be a Version enumeration member.")
