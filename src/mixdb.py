@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# coding=utf_8
+# -*- coding: utf-8 -*-
 
-# Copyright (C) 2015-2018 Sven Heinemann (Bachsau)
+#﻿ Copyright (C) 2015-2018 Sven Heinemann (Bachsau)
 #
 # This file is part of Mixtool.
 #
@@ -18,50 +18,64 @@
 # You should have received a copy of the GNU General Public License
 # along with Mixtool.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Mixtool's names database module"""
+"""Mixtool’s names database module"""
+
+__version__ = "0.2.0-volatile"
+__author__ = "Bachsau"
 
 # Standard modules
-import sqlite3 as SQLite3
+import os
+import sqlite3
+import uuid
+
+
+class SQLiteDB(sqlite3.Connection):
+	"""An SQLite3 connection with implicit cursor."""
+	
+	__slots__ = ("query",)
+	
+	def __init__(self, *args, **kwargs):
+		"""Connect to an SQLite3 database file."""
+		sqlite3.Connection.__init__(self, *args, **kwargs)
+		self.query = sqlite3.Connection.cursor(self)
+	
+	def close(self):
+		"""Close the connection."""
+		self.query = None
+		sqlite3.Connection.close(self)
+	
+	def cursor(self):
+		"""Return the cursor."""
+		return self.query
+
 
 # A global MIX Database interface
-class MixDB(object):
-	def __init__(self, data_path, installation_id):
-		self.__closed = False
-		
+class NamesDB(object):
+	"""Mixtool’s names database"""
+	
+	__slots__ = ("_db",)
+	
+	def __init__(self, data_path: str, inst_id: uuid.UUID):
+		"""Create or open the database file."""
+		# SQLite:
+		# 'keyword'    A keyword in single quotes is a string literal.
+		# "keyword"    A keyword in double-quotes is an identifier.
 		dbfile = os.sep.join((data_path, "cache.db"))
-		self.DB = SQLite3.connect(dbfile)
-		self.DBQuery = self.DB.cursor()
+		self._db = SQLiteDB(dbfile, isolation_level=None, check_same_thread=False)
+		self._db.query.execute("PRAGMA journal_mode = TRUNCATE;")
+		self._db.query.execute("PRAGMA synchronous = NORMAL;")
 		
-		self.DBQuery.execute("PRAGMA encoding = 'UTF-8';")
-		
-		try:
-			for v in (1, 3):
-				self.DBQuery.execute("CREATE TABLE IF NOT EXISTS `names_v{0}` (`key` INT PRIMARY KEY NOT NULL CHECK(TYPEOF(`key`) = 'integer'), `name` CHAR NOT NULL CHECK(TYPEOF(`name`) = 'text')) WITHOUT ROWID;".format(v))
-		except SQLite3.Error as e:
-			self.DB.rollback()
-			raise MixDBError("SQLite3:", e.args[0])
-		else:
-			self.DB.commit()
-			
-	def __del__(self):
-		self.close()
-		
-	def submit(type_, data):
+		self._db.query.execute("CREATE TABLE IF NOT EXISTS \"names_v1\" (\"key\" INT PRIMARY KEY NOT NULL, \"name\" CHAR NOT NULL) WITHOUT ROWID;")
+		self._db.query.execute("CREATE TABLE IF NOT EXISTS \"names_v3\" (\"key\" INT PRIMARY KEY NOT NULL, \"name\" CHAR NOT NULL) WITHOUT ROWID;")
+		self._db.query.execute("CREATE TABLE IF NOT EXISTS \"store\" (\"option\" CHAR PRIMARY KEY NOT NULL, \"value\" INT NOT NULL) WITHOUT ROWID;")
+	
+	def submit(version: int, names):
 		pass
-		
-	def retrieve(type_, keys):
-			
+	
+	def retrieve(version: int, keys):
+		pass
+	
 	def close(self):
-		if not self.__closed:
-			self.DBQuery.close()
-			self.DBQuery = None
-			self.DB.commit()
-			self.DB.close()
-			self.DB = None
-			self.__closed = True
-		
-class MixDBError(Exception):
-	pass
-		
-			
-MixDB()
+		if self._db is not None:
+			self._db.close()
+			self._db = None

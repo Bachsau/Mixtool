@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# coding=utf_8
+# -*- coding: utf-8 -*-
 
-# Copyright (C) 2015-2018 Sven Heinemann (Bachsau)
+#﻿ Copyright (C) 2015-2018 Sven Heinemann (Bachsau)
 #
 # This file is part of Mixtool.
 #
@@ -230,7 +230,7 @@ class Mixtool(Gtk.Application):
 		self._data_path_blocked = False
 		self._builder = None
 		self._files = []
-		self.installation_id = None
+		self.inst_id = None
 		self.home_path = None
 		self.data_path = None
 		self.config_file = None
@@ -247,7 +247,7 @@ class Mixtool(Gtk.Application):
 		app_path = os.path.dirname(os.path.realpath(__file__))
 		gui_file = os.sep.join((app_path, "res", "main.glade"))
 		self._builder = Gtk.Builder.new_from_file(gui_file)
-		dummy_callback = lambda widget: False
+		dummy_callback = lambda *args: False
 		self._builder.connect_signals({
 			"on_new_clicked": self.invoke_new_dialog,
 			"on_open_clicked": self.invoke_open_dialog,
@@ -262,7 +262,8 @@ class Mixtool(Gtk.Application):
 			"on_quit_clicked": self.close_window,
 			"on_version_changed": self.update_properties_dialog,
 			"on_defaults_clicked": self.restore_default_settings,
-			"on_donate_clicked": self.open_donation_website
+			"on_donate_clicked": self.open_donation_website,
+			"on_selection_changed": dummy_callback
 		})
 		
 		# Determine the platform-specific data directory
@@ -309,16 +310,16 @@ class Mixtool(Gtk.Application):
 		
 		# Set up the configuration manager
 		self.settings = Configuration("Mixtool")
-		self.settings.register("installation_id", 0)
+		self.settings.register("instid", 0)
 		self.settings.register("simplenames", True)
 		self.settings.register("insertlower", True)
 		self.settings.register("decrypt", True)
 		self.settings.register("backup", False)
 		self.settings.register("extracttolast", True)
+		self.settings.register("smalltools", False)
 		self.settings.register("nomotd", False)
 		self.settings.register("lastdir", self.home_path)
-		self.settings.register("alpha_warning", True)
-		self.settings.register("deletion_warning", True)
+		self.settings.register("nowarn", 0)
 		
 		if not self._data_path_blocked:
 			try:
@@ -343,19 +344,19 @@ class Mixtool(Gtk.Application):
 			# Initialize the installation id
 			# (to be used with online features)
 			try:
-				installation_id = uuid.UUID(int=self.settings["installation_id"])
+				inst_id = uuid.UUID(int=self.settings["instid"])
 			except ValueError:
-				installation_id = None
+				inst_id = None
 			
-			if installation_id is not None\
-			and installation_id.variant == uuid.RFC_4122\
-			and installation_id.version == 4:
-				self.installation_id = installation_id
+			if inst_id is not None\
+			and inst_id.variant == uuid.RFC_4122\
+			and inst_id.version == 4:
+				self.inst_id = inst_id
 			else:
-				installation_id = uuid.uuid4()
-				self.settings["installation_id"] = installation_id.int
+				inst_id = uuid.uuid4()
+				self.settings["instid"] = inst_id.int
 				if self._save_settings():
-					self.installation_id = installation_id
+					self.inst_id = inst_id
 		
 		# Prepare GUI
 		self.motd = random.choice((
@@ -364,12 +365,24 @@ class Mixtool(Gtk.Application):
 			"For Kane",
 			"If I am cut, do I not bleed?",
 			"Kane lives in death",
+			"Rubber shoes in motion",
 			"The technology of peace",
 			"Tiberium is the way and the life",
-			"You can’t kill the Messiah"
+			"You can’t kill the messiah",
+			"Your orders – My ideas"
 		))
-		if not self.settings["nomotd"]:
-			self._builder.get_object("StatusBar").set_text(self.motd)
+		self._apply_settings()
+	
+	def _apply_settings(self) -> None:
+		"""Apply settings that should have an immediate effect on appearance."""
+		self._builder.get_object("Toolbar").set_style(
+			Gtk.ToolbarStyle.ICONS if self.settings["smalltools"] else Gtk.ToolbarStyle.BOTH
+		)
+		
+		if not self._files:
+			self._builder.get_object("StatusBar").set_text(
+				"Ready" if self.settings["nomotd"] else self.motd
+			)
 	
 	def invoke_properties_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a dialog to modify the current file’s properties."""
@@ -430,13 +443,9 @@ class Mixtool(Gtk.Application):
 			for checkbox, setting in checkboxes:
 				self.settings[setting] = checkbox.get_active()
 			if self._builder.get_object("Settings.ResetWarnings").get_active():
-				del self.settings["alpha_warning"], self.settings["deletion_warning"]
+				del self.settings["nowarn"]
+			self._apply_settings()
 			self._save_settings()
-			
-			if not self._files:
-				self._builder.get_object("StatusBar").set_text(
-					"Ready" if self.settings["nomotd"] else self.motd
-				)
 		return True
 	
 	def restore_default_settings(self, widget: Gtk.Widget) -> bool:
@@ -452,6 +461,7 @@ class Mixtool(Gtk.Application):
 			(self._builder.get_object("Settings.Decrypt"), "decrypt"),
 			(self._builder.get_object("Settings.Backup"), "backup"),
 			(self._builder.get_object("Settings.ExtractToLast"), "extracttolast"),
+			(self._builder.get_object("Settings.SmallTools"), "smalltools"),
 			(self._builder.get_object("Settings.DisableMOTD"), "nomotd")
 		)
 		
@@ -743,33 +753,38 @@ class Mixtool(Gtk.Application):
 			
 			self._files.remove(record)
 			self._files.append(record)
-			self._builder.get_object("ContentList").set_model(record.store)
-			self._builder.get_object("StatusBar").set_text(status)
+			
 			self._builder.get_object("MainWindow").set_title(title)
+			self._builder.get_object("StatusBar").set_text(status)
+			content_list = self._builder.get_object("ContentList")
+			content_list.set_model(record.store)
+			content_list.grab_focus()
 		return True
 	
 	def _update_gui(self) -> None:
 		"""Enable or disable GUI elements based on current state."""
 		if self._files:
-			# Switch to last open file
-			button = self._files[-1].button
-			button.toggled() if button.get_active() else button.set_active(True)
-			
 			# Switch to Close button and enable ContentList
 			self._builder.get_object("Toolbar.Quit").hide()
 			self._builder.get_object("Toolbar.Close").show()
 			self._builder.get_object("Toolbar.Properties").set_sensitive(True)
 			self._builder.get_object("ContentList").set_sensitive(True)
+			
+			# Switch to last open file
+			button = self._files[-1].button
+			button.toggled() if button.get_active() else button.set_active(True)
 		else:
 			# Switch to Quit button and disable ContentList
-			self._builder.get_object("MainWindow").set_title("Mixtool")
-			self._builder.get_object("StatusBar").set_text(
-				"Ready" if self.settings["nomotd"] else self.motd
-			)
 			self._builder.get_object("Toolbar.Close").hide()
 			self._builder.get_object("Toolbar.Quit").show()
 			self._builder.get_object("Toolbar.Properties").set_sensitive(False)
 			self._builder.get_object("ContentList").set_sensitive(False)
+			
+			# Reverse what self.switch_file() does
+			self._builder.get_object("MainWindow").set_title("Mixtool")
+			self._builder.get_object("StatusBar").set_text(
+				"Ready" if self.settings["nomotd"] else self.motd
+			)
 			self._builder.get_object("ContentList").set_model(self._builder.get_object("ContentStore"))
 		
 		# Display tab bar only when two ore more files are open
@@ -792,12 +807,13 @@ class Mixtool(Gtk.Application):
 			self.add_window(window)
 			window.show()
 			
-			if self.settings["alpha_warning"]:
+			nowarn = self.settings["nowarn"]
+			if not nowarn & 1:
 				dialog = self._builder.get_object("AlphaWarning")
 				dialog.run()
 				dialog.hide()
 				if self._builder.get_object("AlphaWarning.Disable").get_active():
-					self.settings["alpha_warning"] = False
+					self.settings["nowarn"] = nowarn | 1
 					self._save_settings()
 		else:
 			window.present()

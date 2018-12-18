@@ -115,11 +115,11 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
           <object class="GtkToolbar" id="Toolbar">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="toolbar_style">both</property>
             <child>
               <object class="GtkToolButton" id="Toolbar.New">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text">Display a file chooser dialog to create a new MIX file at a specified location.</property>
                 <property name="label">_New</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">Toolbar.New.Icon</property>
@@ -135,6 +135,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               <object class="GtkToolButton" id="Toolbar.Open">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text">Display a file chooser dialog to select one or more MIX files for opening.</property>
                 <property name="label">_Open</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">Toolbar.Open.Icon</property>
@@ -151,11 +152,12 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="tooltip_text">View or change the MIX file's properties</property>
+                <property name="tooltip_text">Display a dialog window to view or change the MIX file’s properties.</property>
                 <property name="label">_Properties</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">Toolbar.Properties.Icon</property>
                 <signal name="clicked" handler="on_properties_clicked" swapped="no"/>
+                <accelerator key="p" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -167,7 +169,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="tooltip_text">Optimize MIX for distribution by removing all overhead</property>
+                <property name="tooltip_text">Optimize the MIX file for distribution by removing all overhead and shrinking it to its minimum size.</property>
                 <property name="label">O_ptimize</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">Toolbar.Optimize.Icon</property>
@@ -194,11 +196,12 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="tooltip_text">Add files to the MIX by using a file chooser</property>
+                <property name="tooltip_text">Display a file chooser dialog to select one or more files for adding them to the MIX.</property>
                 <property name="label">_Add</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">Toolbar.Add.Icon</property>
                 <signal name="clicked" handler="on_add_clicked" swapped="no"/>
+                <accelerator key="plus" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -210,11 +213,12 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="tooltip_text">Permanently remove selected files from the MIX</property>
+                <property name="tooltip_text">Permanently delete the selected files from the MIX.</property>
                 <property name="label">_Remove</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">Toolbar.Remove.Icon</property>
                 <signal name="clicked" handler="on_remove_clicked" swapped="no"/>
+                <accelerator key="minus" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -226,10 +230,12 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text">Display a file chooser dialog to select a name or folder for the selected files to be extracted to.</property>
                 <property name="label">_Extract</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">Toolbar.Extract.Icon</property>
                 <signal name="clicked" handler="on_extract_clicked" swapped="no"/>
+                <accelerator key="e" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -250,6 +256,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               <object class="GtkToolButton" id="Toolbar.Settings">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text">Display a dialog window to configure Mixtool’s look and behavior.</property>
                 <property name="label">_Settings</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">Toolbar.Settings.Icon</property>
@@ -264,6 +271,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               <object class="GtkToolButton" id="Toolbar.About">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text">Display a dialog window with information on this version of Mixtool and the genius who created it.</property>
                 <property name="label">A_bout</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">Toolbar.About.Icon</property>
@@ -277,10 +285,12 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <child>
               <object class="GtkToolButton" id="Toolbar.Close">
                 <property name="can_focus">False</property>
+                <property name="tooltip_text">Close the current MIX file.</property>
                 <property name="label">_Close</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">Toolbar.Close.Icon</property>
                 <signal name="clicked" handler="on_close_clicked" swapped="no"/>
+                <accelerator key="w" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -291,6 +301,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               <object class="GtkToolButton" id="Toolbar.Quit">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text">Terminate the application.</property>
                 <property name="label">_Quit</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">Toolbar.Quit.Icon</property>
@@ -332,11 +343,12 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="vexpand">True</property>
+            <property name="propagate_natural_width">True</property>
             <child>
               <object class="GtkTreeView" id="ContentList">
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
-                <property name="can_focus">False</property>
+                <property name="can_focus">True</property>
                 <property name="model">ContentStore</property>
                 <property name="search_column">0</property>
                 <property name="fixed_height_mode">True</property>
@@ -347,6 +359,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <child internal-child="selection">
                   <object class="GtkTreeSelection" id="ContentSelector">
                     <property name="mode">multiple</property>
+                    <signal name="changed" handler="on_selection_changed" swapped="no"/>
                   </object>
                 </child>
                 <child>
@@ -447,7 +460,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <property name="margin_right">10</property>
             <property name="margin_top">6</property>
             <property name="margin_bottom">6</property>
-            <property name="label">Ready</property>
             <property name="ellipsize">end</property>
             <property name="single_line_mode">True</property>
             <property name="track_visited_links">False</property>
@@ -574,7 +586,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="pixbuf">icons/alpha_warning.svg</property>
-            <property name="pixel_size">48</property>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -1172,8 +1183,8 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="Settings.ResetWarnings">
-                    <property name="label">Reset _warnings</property>
+                  <object class="GtkCheckButton" id="Settings.SmallTools">
+                    <property name="label">Show _toolbar without text</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
@@ -1192,7 +1203,7 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                     <property name="can_focus">False</property>
                     <property name="margin_left">25</property>
                     <property name="margin_bottom">10</property>
-                    <property name="label">Re-enable all warning messages you told Mixtool to not display again.</property>
+                    <property name="label">The toolbar becomes much smaller as soon as you know what the buttons do.</property>
                     <property name="wrap">True</property>
                     <property name="max_width_chars">63</property>
                     <property name="xalign">0</property>
@@ -1204,8 +1215,8 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="Settings.DisableMOTD">
-                    <property name="label">Disable _MOTD</property>
+                  <object class="GtkCheckButton" id="Settings.ResetWarnings">
+                    <property name="label">Reset _warnings</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
@@ -1224,7 +1235,7 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                     <property name="can_focus">False</property>
                     <property name="margin_left">25</property>
                     <property name="margin_bottom">10</property>
-                    <property name="label">If you don’t want fancy shit to appear in the status bar, you can disable it here. Every useless feature needs a useless setting.</property>
+                    <property name="label">Re-enable all warning messages you told Mixtool to not display again.</property>
                     <property name="wrap">True</property>
                     <property name="max_width_chars">63</property>
                     <property name="xalign">0</property>
@@ -1233,6 +1244,38 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                     <property name="expand">False</property>
                     <property name="fill">True</property>
                     <property name="position">6</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkCheckButton" id="Settings.DisableMOTD">
+                    <property name="label">Disable _MOTD</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">False</property>
+                    <property name="use_underline">True</property>
+                    <property name="draw_indicator">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">7</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="margin_left">25</property>
+                    <property name="margin_bottom">10</property>
+                    <property name="label">If you don’t want fancy shit to appear in the status bar, you can disable it here. Every useless feature needs a useless setting.</property>
+                    <property name="wrap">True</property>
+                    <property name="max_width_chars">63</property>
+                    <property name="xalign">0</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">8</property>
                   </packing>
                 </child>
               </object>

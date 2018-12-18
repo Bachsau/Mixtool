@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# coding=utf_8
+# -*- coding: utf-8 -*-
 
-# Copyright (C) 2015-2018 Sven Heinemann (Bachsau)
+#﻿ Copyright (C) 2015-2018 Sven Heinemann (Bachsau)
 #
 # This file is part of Mixtool.
 #
@@ -115,7 +115,7 @@ class MixError(Exception):
 		"""Return string representation."""
 		if self.errno is not None and self.strerror is not None:
 			return "[Errno {0!s}] {1!s}".format(self.errno, self.strerror)
-		return super().__str__(self)
+		return super().__str__()
 	
 	@property
 	def characters_written(self) -> int:
@@ -364,7 +364,7 @@ class MixFile(object):
 		self._flags = flags
 	
 	def _allocate(node: _MixNode, space: int) -> None:
-		"""Allocate an amount of `space` additional bytes to `node`."""
+		"""Allocate an amount of `space` bytes to `node` in addition to its size."""
 		# Move, expand, etc...
 	
 	def create(name: str, alloc: int = 0) -> None:
@@ -389,7 +389,7 @@ class MixFile(object):
 	# Dirty bit is only used to prevent file corruption,
 	# not for index-only changes like renames, etc.
 	def __del__(self) -> None:
-		"""Call `self.write_index()` if in inconsistent state.
+		"""Call self.write_index() if in inconsistent state.
 		
 		Suppress any errors as they occur.
 		"""
@@ -458,44 +458,43 @@ class MixFile(object):
 			self._stream.seek(wpos)
 			self._stream.write(buffer)
 	
-	def _reposition(file):
-		pass
-	
 	# Public method to list the MIX file's contents
 	def get_contents(self) -> list:
 		"""Return a list of tuples holding the attributes of each file."""
-		return [MixRecord(hex(node.key) if node.name is None else node.name, node.size, node.offset, node.alloc, id(node)) for node in self._contents]
-		
+		return [MixRecord(
+			node.name or hex(node.key),
+			node.size,
+			node.offset,
+			node.alloc,
+			id(node)
+		) for node in self._contents]
+	
 	# Public method to stat a file
 	# Replaces get_inode() to the public
 	def get_info(self, name: str) -> MixRecord:
 		"""Return a tuple holding the attributes of the file called `name`."""
 		raise NotImplementedError("Stub method")
 	
-	
 	# Public method to get the filecount,
 	# so one doesn't need to run len(self.get_contents()).
 	def get_filecount(self) -> int:
 		"""Return the number of files in the MIX."""
 		return len(self._contents)
-		
-		
+	
 	# Public method to get the MIX version
 	def get_version(self) -> Version:
 		"""Return MIX version."""
 		return self._version
-			
-			
+	
 	# Public method to add missing names
 	def test(self, name: str):
-		"""Return 'True' if a file of 'name' is in the MIX, else 'False'.
+		"""Return True if the MIX contains a file of `name`, else False.
 		
-		Add 'name' to the index if missing.
-		'MixNameError' is raised if 'name' is not valid.
+		Add `name` to its node if it’s missing.
+		
+		ValueError is raised if `name` is not valid.
 		"""
-		
-		return False if self._get_node(name) is None else True
-		
+		return self._get_node(name) is not None
 	
 	# Rename a file in the MIX (New method)
 	def rename(self, old: str, new: str) -> bool:
@@ -904,7 +903,7 @@ class MixFile(object):
 class MixIO(io.BufferedIOBase):
 	"""Access files inside MIXes like files on disk."""
 	
-	__slots__ = ("_container", "_node", "__cursor", "__readable", "__writeable")
+	__slots__ = ("_container", "_node", "__cursor", "__readable", "__writable")
 	
 	def __init__(self, container: MixFile, name: str, flags: int) -> None:
 		"""Initialize an abstract stream for `name` on top of `container`."""
@@ -912,7 +911,7 @@ class MixIO(io.BufferedIOBase):
 		self._node = container._get_node(name)
 		# FIXME: This should probably raise ValueError instead of failing silently on container error
 		self.__readable = flags & 1 and container._stream.readable()
-		self.__writeable = flags & 2 and container._stream.writeable()
+		self.__writable = flags & 2 and container._stream.writable()
 		self.__cursor = 0
 		self._node.links += 1
 	
@@ -924,12 +923,12 @@ class MixIO(io.BufferedIOBase):
 
 		return self._container._stream.readable()
 	
-	def writeable(self) -> bool:
+	def writable(self) -> bool:
 		"""Return True if the stream supports writing. If False, write() and truncate() will raise OSError."""
 		if self.closed:
 			raise ValueError("I/O operation on closed file")
 
-		return self.__writeable()
+		return self.__writable()
 	
 	def seekable(self):
 		"""Return True"""
