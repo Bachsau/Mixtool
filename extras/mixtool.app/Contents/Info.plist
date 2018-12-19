@@ -2,21 +2,23 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 	<dict>
-		<key>CFBundleName</key>
-		<string>mixtool</string>
+		<key>CFBundleDevelopmentRegion</key>
+		<string>en-US</string>
 		<key>CFBundleDisplayName</key>
 		<string>Mixtool</string>
-		<key>CFBundleIdentifier</key>
-		<string>com.bachsau.mixtool</string>
-		<key>CFBundleVersion</key>
-		<string>1</string>
-		<key>CFBundlePackageType</key>
-		<string>APPL</string>
-		<key>CFBundleSignature</key>
-		<string>mixt</string>
 		<key>CFBundleExecutable</key>
 		<string>mixtool</string>
 		<key>CFBundleIconFile</key>
 		<string>mixtool</string>
+		<key>CFBundleIdentifier</key>
+		<string>com.bachsau.mixtool</string>
+		<key>CFBundleInfoDictionaryVersion</key>
+		<string>6.0</string>
+		<key>CFBundleName</key>
+		<string>mixtool</string>
+		<key>CFBundlePackageType</key>
+		<string>APPL</string>
+		<key>CFBundleVersion</key>
+		<string>1.0.0d1</string>
 	</dict>
 </plist>
