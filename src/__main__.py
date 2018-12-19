@@ -242,6 +242,7 @@ class Mixtool(Gtk.Application):
 	def do_startup(self) -> None:
 		"""Set up the application."""
 		Gtk.Application.do_startup(self)
+		Gdk.Screen.get_default().set_resolution(96.0)
 		
 		# Parse GUI file
 		app_path = os.path.dirname(os.path.realpath(__file__))
