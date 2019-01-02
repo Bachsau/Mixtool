@@ -6,7 +6,7 @@ canonical: nav.html
 
 * [Home](home.html)
 * [Using Mixtool](mixtool.html)
-* [Using mixlib](mixlib.html)
+* [Testing](testing.html)
 
 [//]: #
 * Reference

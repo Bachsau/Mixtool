@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-#﻿ Copyright (C) 2015-2018 Sven Heinemann (Bachsau)
+#﻿ Copyright (C) 2015-2019 Sven Heinemann (Bachsau)
 #
 # This file is part of Mixtool.
 #
@@ -221,9 +221,13 @@ class Mixtool(Gtk.Application):
 	file_filter.add_pattern("*.[Mm][Ii][Xx]")
 	
 	# Object initializer
-	def __init__(self, application_id: str, flags: Gio.ApplicationFlags) -> None:
+	def __init__(self) -> None:
 		"""Initialize the Mixtool instance."""
-		Gtk.Application.__init__(self, application_id=application_id, flags=flags)
+		Gtk.Application.__init__(
+			self,
+			application_id="com.bachsau.mixtool",
+			flags=Gio.ApplicationFlags.HANDLES_OPEN
+		)
 		self.set_resource_base_path(None)
 		
 		# Initialize instance attributes
@@ -256,7 +260,7 @@ class Mixtool(Gtk.Application):
 			"on_optimize_clicked": dummy_callback,
 			"on_add_clicked": dummy_callback,
 			"on_remove_clicked": dummy_callback,
-			"on_extract_clicked": dummy_callback,
+			"on_extract_clicked": self.invoke_extract_dialog,
 			"on_settings_clicked": self.invoke_settings_dialog,
 			"on_about_clicked": self.invoke_about_dialog,
 			"on_close_clicked": self.close_current_file,
@@ -264,7 +268,7 @@ class Mixtool(Gtk.Application):
 			"on_version_changed": self.update_properties_dialog,
 			"on_defaults_clicked": self.restore_default_settings,
 			"on_donate_clicked": self.open_donation_website,
-			"on_selection_changed": dummy_callback
+			"on_selection_changed": self.on_selection_changed
 		})
 		
 		# Determine the platform-specific data directory
@@ -319,7 +323,8 @@ class Mixtool(Gtk.Application):
 		self.settings.register("extracttolast", True)
 		self.settings.register("smalltools", False)
 		self.settings.register("nomotd", False)
-		self.settings.register("lastdir", self.home_path)
+		self.settings.register("mixdir", self.home_path)
+		self.settings.register("extdir", self.home_path)
 		self.settings.register("nowarn", 0)
 		
 		if not self._data_path_blocked:
@@ -538,13 +543,74 @@ class Mixtool(Gtk.Application):
 			Gtk.get_current_event_time()
 		)
 		return True
-		
+	
+	def _get_fallback_directory(self, path: str) -> str:
+		"""Return the deepest accessible directory of `path`."""
+		# FIXME: Stub
+		return path if os.path.isdir(path) else self.home_path
+	
+	def invoke_extract_dialog(self, widget: Gtk.Widget) -> bool:
+		"""Show a file chooser dialog and extract selected files."""
+		window = widget.get_toplevel()
+		record = self._files[-1]
+		etl = self.settings["extracttolast"]
+		saved_path = self.settings["extdir"] if etl else os.path.dirname(record.path)
+		browse_path = self._get_fallback_directory(saved_path)
+		selection = self._builder.get_object("ContentSelector").get_selected_rows()[1]
+		if len(selection) > 1:
+			suggested = ""
+			dialog = Gtk.FileChooserDialog(
+				title="Extract multiple files",
+				transient_for=window,
+				action=Gtk.FileChooserAction.SELECT_FOLDER,
+			)
+		else:
+			suggestion = record.store[selection[0]][0]
+			esplit = suggestion.rfind(".")
+			suggested = suggestion
+			if esplit < 0:
+				extension = ""
+			else:
+				extension = suggestion[esplit:]
+				suggestion = suggestion[:esplit]
+			i = 1
+			while os.path.lexists(os.sep.join((browse_path, suggested))):
+				suggested = suggestion + str(i) + extension
+				i += 1
+			dialog = Gtk.FileChooserDialog(
+				title="Extract single file",
+				transient_for=window,
+				action=Gtk.FileChooserAction.SAVE,
+				do_overwrite_confirmation=True
+			)
+		try:
+			dialog.add_buttons(
+				"_Cancel", Gtk.ResponseType.CANCEL,
+				"_Extract", Gtk.ResponseType.ACCEPT
+			)
+			dialog.set_current_folder(browse_path)
+			dialog.set_current_name(suggested)
+			response = dialog.run()
+			dialog.hide()
+			if response == Gtk.ResponseType.ACCEPT:
+				if etl:
+					# Save last used directory
+					browse_path = dialog.get_current_folder()
+					if browse_path != saved_path:
+						self.settings["extdir"] = browse_path
+						self._save_settings()
+				
+				# Mach hin
+		finally:
+			dialog.destroy()
+		return True
+	
 	# Callback to create a new file by using a dialog
 	def invoke_new_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a file chooser dialog and create a new file."""
 		window = widget.get_toplevel()
-		saved_path = self.settings["lastdir"]
-		browse_path = saved_path if os.path.isdir(saved_path) else self.home_path
+		saved_path = self.settings["mixdir"]
+		browse_path = self._get_fallback_directory(saved_path)
 		suggestion = "new"
 		suggested = suggestion + ".mix"
 		i = 1
@@ -587,7 +653,7 @@ class Mixtool(Gtk.Application):
 				# Save last used directory
 				browse_path = dialog.get_current_folder()
 				if browse_path != saved_path:
-					self.settings["lastdir"] = browse_path
+					self.settings["mixdir"] = browse_path
 					self._save_settings()
 				
 				# Open the files
@@ -601,8 +667,8 @@ class Mixtool(Gtk.Application):
 	def invoke_open_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a file chooser dialog and open selected files."""
 		window = widget.get_toplevel()
-		saved_path = self.settings["lastdir"]
-		browse_path = saved_path if os.path.isdir(saved_path) else self.home_path
+		saved_path = self.settings["mixdir"]
+		browse_path = self._get_fallback_directory(saved_path)
 		dialog = Gtk.FileChooserDialog(
 			title="Open MIX file",
 			transient_for=window,
@@ -622,7 +688,7 @@ class Mixtool(Gtk.Application):
 				# Save last used directory
 				browse_path = dialog.get_current_folder()
 				if browse_path != saved_path:
-					self.settings["lastdir"] = browse_path
+					self.settings["mixdir"] = browse_path
 					self._save_settings()
 				
 				# Open the files
@@ -794,9 +860,12 @@ class Mixtool(Gtk.Application):
 		else:
 			self._builder.get_object("TabBar").show()
 	
-	def update_available_actions(self) -> None:
-		"""Depends on number of files in container."""
-		# FIXME: I'm still empty.
+	def on_selection_changed(self, selector: Gtk.TreeSelection) -> None:
+		"""Toggle button sensitivity based on the current selection."""
+		if selector.count_selected_rows():
+			self._builder.get_object("Toolbar.Extract").set_sensitive(True)
+		else:
+			self._builder.get_object("Toolbar.Extract").set_sensitive(False)
 	
 	# Method run on the primary instance whenever the application
 	# is invoked without parameters.
@@ -862,7 +931,7 @@ def main() -> int:
 	# Initialize Application
 	GLib.set_prgname("mixtool")
 	GLib.set_application_name("Mixtool")
-	application = Mixtool("com.bachsau.mixtool", Gio.ApplicationFlags.HANDLES_OPEN)
+	application = Mixtool()
 	
 	# Start GUI
 	# Since GTK+ does not support KeyboardInterrupt, reset SIGINT to default.

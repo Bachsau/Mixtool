@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Generated with glade 3.22.1 
 
-Copyright (C) 2015-2018 Sven Heinemann (Bachsau)
+Copyright (C) 2015-2019 Sven Heinemann (Bachsau)
 
 This file is part of Mixtool.
 
@@ -24,7 +24,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
   <!-- interface-license-type gplv3 -->
   <!-- interface-name Mixtool -->
   <!-- interface-description An editor for Westwood Studios' MIX files -->
-  <!-- interface-copyright 2015-2018 Sven Heinemann (Bachsau) -->
+  <!-- interface-copyright 2015-2019 Sven Heinemann (Bachsau) -->
   <object class="GtkListStore" id="ContentStore">
     <columns>
       <!-- column-name Name -->
@@ -488,7 +488,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="transient_for">MainWindow</property>
     <property name="program_name">Mixtool</property>
     <property name="version">Alpha 0.2 (volatile)</property>
-    <property name="copyright">Copyright © 2015–2018 Sven Heinemann (Bachsau)</property>
+    <property name="copyright">Copyright © 2015–2019 Sven Heinemann (Bachsau)</property>
     <property name="comments">An editor for Westwood Studios’ MIX files</property>
     <property name="website">http://go.bachsau.com/mixtool</property>
     <property name="website_label">Visit Mixtool website</property>
@@ -1010,7 +1010,7 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                     <property name="can_focus">False</property>
                     <property name="margin_left">25</property>
                     <property name="margin_bottom">10</property>
-                    <property name="label">Accept only letters from A to Z, digits and “-._” in file names for maximum compatibility.</property>
+                    <property name="label">Accept only letters from A to Z, digits, dots, hyphens and underscores in file names for maximum compatibility.</property>
                     <property name="wrap">True</property>
                     <property name="max_width_chars">63</property>
                     <property name="xalign">0</property>

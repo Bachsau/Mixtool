@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-#﻿ Copyright (C) 2015-2018 Sven Heinemann (Bachsau)
+#﻿ Copyright (C) 2015-2019 Sven Heinemann (Bachsau)
 #
 # This file is part of Mixtool.
 #
