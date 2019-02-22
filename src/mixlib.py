@@ -204,7 +204,7 @@ class MixFile(object):
 		"""Parse a MIX from `stream`, which must be a buffered file object.
 		
 		If `version` is given, initialize an empty MIX of this version instead.
-		`MixParseError` is raised on parsing errors.
+		MixParseError is raised on parsing errors.
 		"""
 		
 		# Initialize mandatory attributes
@@ -227,6 +227,8 @@ class MixFile(object):
 			# Create a new file
 			if type(version) is not Version:
 				raise TypeError("`version` must be a Version enumeration member or None.")
+			if version is Version.RG:
+				raise NotImplementedError("RG MIX files are not yet supported.")
 			self._stream = stream
 			self._index = {}
 			self._contents = []
@@ -442,11 +444,11 @@ class MixFile(object):
 	def _move_internal(self, rpos, wpos, size):
 		"""Internal move method..."""
 		
-		full, rest = divmod(size, BLOCKSIZE)
+		blocks, rest = divmod(size, BLOCKSIZE)
 
-		if full:
+		if blocks:
 			buffer = bytearray(BLOCKSIZE)
-			for i in range(full):
+			for i in range(blocks):
 				self._stream.seek(rpos)
 				rpos += self._stream.readinto(buffer)
 				self._stream.seek(wpos)
@@ -765,32 +767,33 @@ class MixFile(object):
 
 	# Extract a file to local filesystem
 	def extract(self, name, dest):
-		"""Extract 'name' to 'dest' on the local file system.
-
-		Existing files will be overwritten.
-		'MixError' is raised if the file is not found.
-		'MixNameError' is raised if 'name' is not valid.
-		"""
+		"""Extract `name` to `dest` on the local file system.
 		
-		inode = self._get_node(name)
-
-		if inode is None:
-			raise MixError("File not found")
-
-		size = inode.size
-		full, rest = divmod(size, BLOCKSIZE)
-
-		self._stream.seek(inode.offset)
-		with open(dest, "wb") as OutFile:
-			if full:
-				buffer = bytearray(BLOCKSIZE)
-				for i in range(full):
+		Existing files will be overwritten.
+		MixFSError is raised if the file is not found.
+		ValueError is raised if `name` is not valid.
+		"""
+		node = self._get_node(name)
+		
+		if node is None:
+			raise MixFSError("File not found")
+		
+		self._stream.seek(node.offset)
+		with open(dest, "wb") as outstream:
+			if node.size > BLOCKSIZE:
+				buffer = memoryview(bytearray(BLOCKSIZE))
+				remaining = node.size
+				while remaining >= BLOCKSIZE:
 					self._stream.readinto(buffer)
-					OutFile.write(buffer)
-			if rest:
-				buffer = self._stream.read(rest)
-				OutFile.write(buffer)
-
+					remaining -= outstream.write(buffer)
+				if remaining > 0:
+					rembuf = buffer[:remaining]
+					self._stream.readinto(rembuf)
+					remaining -= outstream.write(rembuf)
+			else:
+				buffer = self._stream.read(node.size)
+				outstream.write(buffer)
+	
 	# Insert a new, empty file
 	def add_inode(self, name, alloc=4096):
 		key = self._get_key(name)
@@ -846,13 +849,13 @@ class MixFile(object):
 		inode = self.allocate(name, size)
 		inode.size = size
 
-		full, rest = divmod(size, BLOCKSIZE)
+		blocks, rest = divmod(size, BLOCKSIZE)
 
 		self._stream.seek(inode.offset)
 		with open(source, "rb") as InFile:
-			if full:
+			if blocks:
 				buffer = bytearray(BLOCKSIZE)
-				for i in range(full):
+				for i in range(blocks):
 					InFile.readinto(buffer)
 					self._stream.write(buffer)
 			if rest:

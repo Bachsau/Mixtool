@@ -393,9 +393,9 @@ class Mixtool(Gtk.Application):
 	def invoke_properties_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a dialog to modify the current file’s properties."""
 		container = self._files[-1].container
-		mixtype = container.get_version().name
+		verstr = container.get_version().name
 		version_chooser = self._builder.get_object("Properties.Version")
-		version_chooser.set_active_id(mixtype)
+		version_chooser.set_active_id(verstr)
 		self.update_properties_dialog(version_chooser)
 		self._builder.get_object("PropertiesDialog.OK").grab_focus()
 		dialog = self._builder.get_object("PropertiesDialog")
@@ -403,14 +403,14 @@ class Mixtool(Gtk.Application):
 		dialog.hide()
 		
 		if response == Gtk.ResponseType.OK:
-			newtype = version_chooser.get_active_id()
-			if newtype != "TD":
+			newver = version_chooser.get_active_id()
+			if newver != "TD":
 				container.has_checksum = self._builder.get_object("Properties.Checksum").get_active()
 				container.is_encrypted = self._builder.get_object("Properties.Encrypt").get_active()
-			if newtype != mixtype:
+			if newver != verstr:
 				messagebox("Conversion is not implemented yet.", "e", widget.get_toplevel())
 				# FIXME: Catch errors
-				#container.convert(getattr(mixlib.Version, newtype))
+				#container.convert(getattr(mixlib.Version, newver))
 		return True
 	
 	def update_properties_dialog(self, version_chooser: Gtk.ComboBoxText) -> bool:
@@ -557,7 +557,8 @@ class Mixtool(Gtk.Application):
 		saved_path = self.settings["extdir"] if etl else os.path.dirname(record.path)
 		browse_path = self._get_fallback_directory(saved_path)
 		selection = self._builder.get_object("ContentSelector").get_selected_rows()[1]
-		if len(selection) > 1:
+		sel_len = len(selection)
+		if sel_len > 1:
 			suggested = ""
 			dialog = Gtk.FileChooserDialog(
 				title="Extract multiple files",
@@ -600,7 +601,20 @@ class Mixtool(Gtk.Application):
 						self.settings["extdir"] = browse_path
 						self._save_settings()
 				
-				# Mach hin
+				# Extract the files
+				destpath = dialog.get_filename()
+				curdest = destpath
+				self.mark_busy()
+				for treepath in selection:
+					filename = record.store[treepath][0]
+					if sel_len > 1:
+						curdest = os.sep.join((destpath, filename))
+					try:
+						record.container.extract(filename, curdest)
+					except Exception:
+						# TODO: Do error handling
+						raise
+				self.unmark_busy()
 		finally:
 			dialog.destroy()
 		return True
@@ -814,8 +828,9 @@ class Mixtool(Gtk.Application):
 	def switch_file(self, button: Gtk.RadioButton, record: FileRecord) -> bool:
 		"""Switch the currently displayed file to `record`."""
 		if button.get_active():
-			mixtype = record.container.get_version().name
-			status = " ".join((str(record.container.get_filecount()), "files in", mixtype, "MIX."))
+			verstr = record.container.get_version().name
+			mixlen = str(record.container.get_filecount())
+			status = " ".join((mixlen, "files in", verstr, "MIX."))
 			title = button.get_label() + " – Mixtool"
 			
 			self._files.remove(record)
