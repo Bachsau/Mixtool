@@ -781,9 +781,10 @@ class MixFile(object):
 		self._stream.seek(node.offset)
 		with open(dest, "wb") as outstream:
 			if node.size > BLOCKSIZE:
-				buffer = memoryview(bytearray(BLOCKSIZE))
+				buflen = BLOCKSIZE
+				buffer = memoryview(bytearray(buflen))
 				remaining = node.size
-				while remaining >= BLOCKSIZE:
+				while remaining >= buflen:
 					self._stream.readinto(buffer)
 					remaining -= outstream.write(buffer)
 				if remaining > 0:

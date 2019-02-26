@@ -549,6 +549,12 @@ class Mixtool(Gtk.Application):
 		# FIXME: Stub
 		return path if os.path.isdir(path) else self.home_path
 	
+	def _get_selected_names(self):
+		"""Return a list of all names selected by the user."""
+		record = self._files[-1]
+		selection = self._builder.get_object("ContentSelector").get_selected_rows()[1]
+		return [record.store[treepath][0] for treepath in selection]
+	
 	def invoke_extract_dialog(self, widget: Gtk.Widget) -> bool:
 		"""Show a file chooser dialog and extract selected files."""
 		window = widget.get_toplevel()
@@ -556,9 +562,9 @@ class Mixtool(Gtk.Application):
 		etl = self.settings["extracttolast"]
 		saved_path = self.settings["extdir"] if etl else os.path.dirname(record.path)
 		browse_path = self._get_fallback_directory(saved_path)
-		selection = self._builder.get_object("ContentSelector").get_selected_rows()[1]
-		sel_len = len(selection)
-		if sel_len > 1:
+		names = self._get_selected_names()
+		multi = len(names) > 1
+		if multi:
 			suggested = ""
 			dialog = Gtk.FileChooserDialog(
 				title="Extract multiple files",
@@ -566,7 +572,7 @@ class Mixtool(Gtk.Application):
 				action=Gtk.FileChooserAction.SELECT_FOLDER,
 			)
 		else:
-			suggestion = record.store[selection[0]][0]
+			suggestion = names[0]
 			esplit = suggestion.rfind(".")
 			suggested = suggestion
 			if esplit < 0:
@@ -605,16 +611,17 @@ class Mixtool(Gtk.Application):
 				destpath = dialog.get_filename()
 				curdest = destpath
 				self.mark_busy()
-				for treepath in selection:
-					filename = record.store[treepath][0]
-					if sel_len > 1:
-						curdest = os.sep.join((destpath, filename))
-					try:
-						record.container.extract(filename, curdest)
-					except Exception:
-						# TODO: Do error handling
-						raise
-				self.unmark_busy()
+				try:
+					for filename in names:
+						if multi:
+							curdest = os.sep.join((destpath, filename))
+						try:
+							record.container.extract(filename, curdest)
+						except Exception:
+							# TODO: Do error handling
+							raise
+				finally:
+					self.unmark_busy()
 		finally:
 			dialog.destroy()
 		return True
@@ -718,84 +725,83 @@ class Mixtool(Gtk.Application):
 		errors = []
 		
 		self.mark_busy()
-		
-		button = self._files[-1].button if self._files else None
-		
-		for file in files:
-			path = os.path.realpath(file.get_path())
-			stat = None
-			
-			# If the file exists, stat it now
-			try:
-				stat = os.stat(path)
-			except OSError as problem:
-				if not (new is not None and isinstance(problem, FileNotFoundError)):
-					errors.append((problem.errno, path))
-					continue
-			else:
-				# File exists. Let's check if it's already open.
-				continue_ = False
-				for existing_record in self._files:
-					if os.path.samestat(existing_record.stat, stat):
-						errors.append((-1, path))
-						continue_ = True
-						break
-				if continue_:
-					continue
-			
-			try:
-				if stat is None:
-					isnew = True
-					stream = open(path, "w+b")
-					# Stat files that didn't exist before
-					stat = os.stat(stream.fileno() if fd_support else path)
-				else:
-					isnew = False
-					stream = open(path, "r+b")
-			except OSError as problem:
-				errors.append((problem.errno, path))
-			else:
-				container = None
+		try:
+			button = self._files[-1].button if self._files else None
+			for file in files:
+				path = os.path.realpath(file.get_path())
+				stat = None
+				
+				# If the file exists, stat it now
 				try:
-					container = mixlib.MixFile(stream, new)
-				except Exception:
-					# FIXME: Implement finer matching as mixlib's error handling evolves
-					traceback.print_exc(file=sys.stderr)
-					errors.append((-2, path))
+					stat = os.stat(path)
+				except OSError as problem:
+					if not (new is not None and isinstance(problem, FileNotFoundError)):
+						errors.append((problem.errno, path))
+						continue
 				else:
-					# Initialize a Gtk.ListStore
-					store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_ULONG, GObject.TYPE_ULONG, GObject.TYPE_ULONG)
-					store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
-					for record in container.get_contents():
-						store.append((
-							record.name,
-							record.size,
-							record.offset,
-							record.alloc - record.size  # = Overhead
-						))
-					
-					# Add a button
-					button = Gtk.RadioButton.new_with_label_from_widget(button, os.path.basename(path))
-					button.set_mode(False)
-					button.get_child().set_ellipsize(Pango.EllipsizeMode.END)
-					button.set_tooltip_text(path)
-					self._builder.get_object("TabBar").pack_start(button, False, True, 0)
-					button.show()
-					
-					# Create the file record
-					record = FileRecord(path, stat, container, store, button, isnew)
-					self._files.append(record)
-					
-					# Connect the signal
-					button.connect("toggled", self.switch_file, record)
-				finally:
-					if container is None:
-						stream.close()
-		
-		if len(files) - len(errors) > 0:
-			self._update_gui()
-		
-		self.unmark_busy()
+					# File exists. Let's check if it's already open.
+					continue_ = False
+					for existing_record in self._files:
+						if os.path.samestat(existing_record.stat, stat):
+							errors.append((-1, path))
+							continue_ = True
+							break
+					if continue_:
+						continue
+				
+				try:
+					if stat is None:
+						isnew = True
+						stream = open(path, "w+b")
+						# Stat files that didn't exist before
+						stat = os.stat(stream.fileno() if fd_support else path)
+					else:
+						isnew = False
+						stream = open(path, "r+b")
+				except OSError as problem:
+					errors.append((problem.errno, path))
+				else:
+					container = None
+					try:
+						container = mixlib.MixFile(stream, new)
+					except Exception:
+						# FIXME: Implement finer matching as mixlib's error handling evolves
+						traceback.print_exc(file=sys.stderr)
+						errors.append((-2, path))
+					else:
+						# Initialize a Gtk.ListStore
+						store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_ULONG, GObject.TYPE_ULONG, GObject.TYPE_ULONG)
+						store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
+						for record in container.get_contents():
+							store.append((
+								record.name,
+								record.size,
+								record.offset,
+								record.alloc - record.size  # = Overhead
+							))
+						
+						# Add a button
+						button = Gtk.RadioButton.new_with_label_from_widget(button, os.path.basename(path))
+						button.set_mode(False)
+						button.get_child().set_ellipsize(Pango.EllipsizeMode.END)
+						button.set_tooltip_text(path)
+						self._builder.get_object("TabBar").pack_start(button, False, True, 0)
+						button.show()
+						
+						# Create the file record
+						record = FileRecord(path, stat, container, store, button, isnew)
+						self._files.append(record)
+						
+						# Connect the signal
+						button.connect("toggled", self.switch_file, record)
+					finally:
+						if container is None:
+							stream.close()
+			
+			if len(files) - len(errors) > 0:
+				self._update_gui()
+		finally:
+			self.unmark_busy()
 		
 		# Now handle the errors
 		if errors:
@@ -821,7 +827,7 @@ class Mixtool(Gtk.Application):
 				err_strings.append("\xa0\xa0\xa0\xa0" + GLib.markup_escape_text(path))
 			del err_strings[0]
 			err_text = "\n".join(err_strings)
-					
+			
 			messagebox(err_title, "e", window, secondary=err_text, markup=2)
 	
 	# Switch to another tab
