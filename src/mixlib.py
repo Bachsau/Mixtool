@@ -20,7 +20,18 @@
 
 """Routines to access MIX files."""
 
-__all__ = ["MixError", "MixParseError", "MixFSError", "MixIOError", "Version", "MixRecord", "MixFile", "MixIO", "genkey"]
+__all__ = [
+	"MixError",
+	"MixPermissionError",
+	"MixNotFoundError",
+	"MixExistsError",
+	"MixReservedError",
+	"Version",
+	"MixRecord",
+	"MixFile",
+	"MixIO",
+	"genkey"
+]
 __version__ = "0.2.0-volatile"
 __author__ = "Bachsau"
 
@@ -83,10 +94,10 @@ class MixError(Exception):
 		if cls is MixError and 2 <= len(args) <= 4:
 			if cls.__errnomap is None:
 				cls.__errnomap = {
-					1: MixParseError,
-					2: MixFSError,  # File not found
-					3: MixFSError,  # File exists
-					4: MixFSError   # Evaluation to reserved key
+					1: MixPermissionError,  # Container not writable
+					2: MixNotFoundError,    # File not found
+					3: MixExistsError,      # File exists
+					4: MixReservedError     # Reserved key (namelists)
 				}
 			newcls = cls.__errnomap.get(args[0])
 			if newcls is not None:
@@ -153,6 +164,34 @@ class MixError(Exception):
 		self._characters_written = None
 
 
+class MixPermissionError(MixError):
+	"""Raised when trying to run write operations in read-only containers.
+	
+	See help(MixError) for accurate signature.
+	"""
+
+
+class MixNotFoundError(MixError):
+	"""Raised when content is requested that doesn’t exist.
+	
+	See help(MixError) for accurate signature.
+	"""
+
+
+class MixExistsError(MixError):
+	"""Raised when trying to set a name evaluating to an existing key.
+	
+	See help(MixError) for accurate signature.
+	"""
+
+
+class MixReservedError(MixError):
+	"""Raised when trying to set a name evaluating to a reserved key.
+	
+	See help(MixError) for accurate signature.
+	"""
+
+# START Concept
 class MixParseError(MixError):
 	"""Exception raised on errors in the MIX file.
 	
@@ -160,19 +199,12 @@ class MixParseError(MixError):
 	"""
 
 
-class MixFSError(MixError):
-	"""Exception raised on errors on content access.
-	
-	See help(MixError) for accurate signature.
-	"""
-
-
-class MixIOError(MixError):
+class MixIOError(OSError):
 	"""Exception raised on invalid MixIO operations.
 	
-	See help(MixError) for accurate signature.
+	See help(OSError) for accurate signature.
 	"""
-
+# END Concept
 
 # MIX versions
 class Version(enum.Enum):
@@ -196,7 +228,7 @@ class Version(enum.Enum):
 
 
 # A named tuple for metadata returned to the user
-MixRecord = collections.namedtuple("MixRecord", ("name", "size", "offset", "alloc", "node_id"))
+MixRecord = collections.namedtuple("MixRecord", ("name", "size", "offset", "alloc"))
 
 
 # Instances represent a single MIX file.
@@ -473,8 +505,7 @@ class MixFile(object):
 			node.name or hex(node.key),
 			node.size,
 			node.offset,
-			node.alloc,
-			id(node)
+			node.alloc
 		) for node in self._contents]
 	
 	# Public method to stat a file
@@ -540,12 +571,19 @@ class MixFile(object):
 			node.name = new
 			return True
 		
-		if newkey in self._index:
+		conflict_node = self._index.get(newkey)
+		if conflict_node is not None:
 			# In this case a different file named `new` already exists,
 			# but we never miss a chance to add missing names
 			if node.name is None and not old.startswith(("0x", "0X")):
 				node.name = old
-			raise MixError(3, new, None, "File exists")
+			if conflict_node.name is None:
+				conflict_name = hex(conflict_node.key)
+				if not new.startswith(("0x", "0X")):
+					conflict_node.name = new
+			else:
+				conflict_name = conflict_node.name
+			raise MixError(3, new, conflict_name, "File exists")
 		
 		if newkey in (1422054725, 913179935):
 			# These are namelists
@@ -599,7 +637,7 @@ class MixFile(object):
 	def write_index(self, optimize: bool = False):
 		"""Write current index to file and flush the buffer.
 
-		If 'optimize' is given and true, the MIX's contents will be concatenated
+		If `optimize` is given and true, the MIX’s contents will be concatenated
 		and overhead removed, so it is ready for distribution.
 		"""
 		
@@ -761,20 +799,17 @@ class MixFile(object):
 		# there's no reason in adding a name to a file,
 		# that's going to be deleted.
 		key = self._get_key(name)
-		node = self._contents.get(key)
+		node = self._index.pop(key, None)
 		
 		if node is None:
-			raise MixFSError("File not found")
+			raise MixError(2, name, None, "File not found")
 		
 		index = self._contents.index(node)
-
 		if index:
-			self._contents[index-1].alloc += inode.alloc
-
+			self._contents[index-1].alloc += node.alloc
 		del self._contents[index]
-		del self._index[key]
-
-	# Extract a file to local filesystem
+	
+	# Extract a file to the local filesystem
 	def extract(self, name, dest):
 		"""Extract `name` to `dest` on the local file system.
 		
@@ -973,7 +1008,6 @@ def genkey(name: str, version: Version) -> int:
 	This is a low-level function that rarely needs to be used directly.
 	"""
 	n = name.encode(ENCODING, "strict").upper()
-	
 	if version is Version.TD or version is Version.RA:
 		l = len(n)
 		i = 0
@@ -987,7 +1021,6 @@ def genkey(name: str, version: Version) -> int:
 					i += 1
 			k = (k << 1 | k >> 31) + a & 4294967295
 		return k
-	
 	if version is Version.TS:
 		l = len(n)
 		a = l & -4
@@ -995,8 +1028,6 @@ def genkey(name: str, version: Version) -> int:
 			n += bytes((l - a,))
 			n += bytes((n[a],)) * (3 - (l & 3))
 		return binascii.crc32(n)
-	
 	if version is Version.RG:
 		return binascii.crc32(n)
-	
 	raise TypeError("`version` must be a Version enumeration member.")

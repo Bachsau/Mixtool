@@ -376,6 +376,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                     <child>
                       <object class="GtkCellRendererText" id="ContentList.Name.Renderer">
                         <property name="xalign">0</property>
+                        <property name="editable">True</property>
                       </object>
                       <attributes>
                         <attribute name="text">0</attribute>

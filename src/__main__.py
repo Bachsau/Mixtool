@@ -561,11 +561,13 @@ class Mixtool(Gtk.Application):
 				self.settings["nowarn"] = nowarn | 2
 				self._save_settings()
 		
-		window = widget.get_toplevel()
 		record = self._files[-1]
 		names = self._get_selected_names()
-		# FIXME: Do real work here
-		messagebox("The following files would be removed:\n" + str(names), "i", window)
+		for filename in names:
+			# FIXME: Add error handling
+			record.container.delete(filename)
+		# TODO: Save index
+		self._reload_contents()
 	
 	def invoke_extract_dialog(self, widget: Gtk.Widget, *junk) -> None:
 		"""Show a file chooser dialog and extract selected files."""
@@ -727,6 +729,18 @@ class Mixtool(Gtk.Application):
 		finally:
 			dialog.destroy()
 	
+	def _reload_contents(self) -> None:
+		"""Refresh contents from container data."""
+		record = self._files[-1]
+		record.store.clear()
+		for content in record.container.get_contents():
+			record.store.append((
+				content.name,
+				content.size,
+				content.offset,
+				content.alloc - content.size  # = Overhead
+			))
+	
 	def _open_files(self, files: list, new: mixlib.Version = None) -> None:
 		"""Open `files` and create a new tab for each one."""
 		window = self.get_active_window()
@@ -781,12 +795,12 @@ class Mixtool(Gtk.Application):
 						# Initialize a Gtk.ListStore
 						store = Gtk.ListStore(GObject.TYPE_STRING, GObject.TYPE_ULONG, GObject.TYPE_ULONG, GObject.TYPE_ULONG)
 						store.set_sort_column_id(0, Gtk.SortType.ASCENDING)
-						for record in container.get_contents():
+						for content in container.get_contents():
 							store.append((
-								record.name,
-								record.size,
-								record.offset,
-								record.alloc - record.size  # = Overhead
+								content.name,
+								content.size,
+								content.offset,
+								content.alloc - content.size  # = Overhead
 							))
 						
 						# Add a button
@@ -843,16 +857,12 @@ class Mixtool(Gtk.Application):
 	def switch_file(self, button: Gtk.RadioButton, record: FileRecord) -> None:
 		"""Switch the currently displayed file to `record`."""
 		if button.get_active():
-			verstr = record.container.get_version().name
-			mixlen = str(record.container.get_filecount())
-			status = " ".join((mixlen, "files in", verstr, "MIX."))
-			title = button.get_label() + " – Mixtool"
-			
 			self._files.remove(record)
 			self._files.append(record)
 			
+			title = button.get_label() + " – Mixtool"
 			self._builder.get_object("MainWindow").set_title(title)
-			self._builder.get_object("StatusBar").set_text(status)
+			
 			content_list = self._builder.get_object("ContentList")
 			content_list.set_model(record.store)
 			content_list.grab_focus()
@@ -891,14 +901,25 @@ class Mixtool(Gtk.Application):
 	
 	def handle_selection_change(self, selector: Gtk.TreeSelection) -> None:
 		"""Toggle button sensitivity based on the current selection."""
-		state = bool(selector.count_selected_rows())
-		self._builder.get_object("Toolbar.Remove").set_sensitive(state)
-		self._builder.get_object("Toolbar.Extract").set_sensitive(state)
+		selcount = selector.count_selected_rows()
+		valid = bool(selcount)
+		self._builder.get_object("Toolbar.Remove").set_sensitive(valid)
+		self._builder.get_object("Toolbar.Extract").set_sensitive(valid)
+		
+		record = self._files[-1]
+		mixlen = record.container.get_filecount()
+		verstr = record.container.get_version().name
+		if valid:
+			status = "{0} of {1} files selected in {2} MIX.".format(selcount, mixlen, verstr)
+		else:
+			status = "{0} files in {1} MIX.".format(mixlen, verstr)
+		self._builder.get_object("StatusBar").set_text(status)
 	
 	def handle_custom_keys(self, widget: Gtk.Widget, evkey: Gdk.EventKey) -> bool:
 		"""React to pressing delete on the content list."""
-		if evkey.keyval == Gdk.KEY_Delete and not evkey.state & 67108877:
-			self.delete_selected_files(widget)
+		if evkey.keyval == Gdk.KEY_Delete:
+			if not evkey.state & 67108877:
+				self.delete_selected_files(widget)
 			return True
 		return False
 	
