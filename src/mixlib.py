@@ -83,11 +83,17 @@ class MixError(Exception):
 		if cls is MixError and 2 <= len(args) <= 4:
 			if cls.__errnomap is None:
 				cls.__errnomap = {
-					1: MixParseError
+					1: MixParseError,
+					2: MixFSError,  # File not found
+					3: MixFSError,  # File exists
+					4: MixFSError   # Evaluation to reserved key
 				}
-			self = Exception.__new__(cls.__errnomap.get(args[0], cls), *args)
-		else:
-			self = super().__new__(cls, *args)
+			newcls = cls.__errnomap.get(args[0])
+			if newcls is not None:
+				return newcls(*args)
+		
+		# Initialize special attributes
+		self = super().__new__(cls, *args)
 		for attr in MixError.__slots__:
 			setattr(self, attr, None)
 		return self
@@ -511,7 +517,7 @@ class MixFile(object):
 		node = self._index.get(oldkey)
 		
 		if node is None:
-			raise MixFSError("File not found")
+			raise MixError(2, old, None, "File not found")
 		
 		if old == new:
 			# Maybe the user wants to add a missing name
@@ -539,11 +545,11 @@ class MixFile(object):
 			# but we never miss a chance to add missing names
 			if node.name is None and not old.startswith(("0x", "0X")):
 				node.name = old
-			raise MixFSError("File exists")
+			raise MixError(3, new, None, "File exists")
 		
 		if newkey in (1422054725, 913179935):
 			# These are namelists
-			raise MixFSError("Evaluation to reserved key")
+			raise MixError(4, new, None, "Evaluation to reserved key")
 		
 		# Checks complete. It's going to be a "real" name change
 		del self._index[oldkey]
@@ -745,19 +751,22 @@ class MixFile(object):
 
 	# Remove a file from the MIX
 	def delete(self, name):
-		"""Remove 'name' from the MIX
+		"""Remove `name` from the MIX
 
-		'MixError' is raised if the file is not found.
-		'MixNameError' is raised if 'name' is not valid.
+		MixFSError is raised if the file is open or does not exist.
+		ValueError is raised if `name` is not valid.
 		"""
 		
+		# We're not using self._get_node() here, because
+		# there's no reason in adding a name to a file,
+		# that's going to be deleted.
 		key = self._get_key(name)
-		inode = self._contents.get(key)
-
-		if inode is None:
-			raise MixError("File not found")
-
-		index = self._contents._index(inode)
+		node = self._contents.get(key)
+		
+		if node is None:
+			raise MixFSError("File not found")
+		
+		index = self._contents.index(node)
 
 		if index:
 			self._contents[index-1].alloc += inode.alloc

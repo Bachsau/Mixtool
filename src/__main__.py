@@ -259,7 +259,7 @@ class Mixtool(Gtk.Application):
 			"on_properties_clicked": self.invoke_properties_dialog,
 			"on_optimize_clicked": dummy_callback,
 			"on_add_clicked": dummy_callback,
-			"on_remove_clicked": dummy_callback,
+			"on_delete_clicked": self.delete_selected_files,
 			"on_extract_clicked": self.invoke_extract_dialog,
 			"on_settings_clicked": self.invoke_settings_dialog,
 			"on_about_clicked": self.invoke_about_dialog,
@@ -268,7 +268,8 @@ class Mixtool(Gtk.Application):
 			"on_version_changed": self.update_properties_dialog,
 			"on_defaults_clicked": self.restore_default_settings,
 			"on_donate_clicked": self.open_donation_website,
-			"on_selection_changed": self.on_selection_changed
+			"on_selection_changed": self.handle_selection_change,
+			"on_key_pressed": self.handle_custom_keys
 		})
 		
 		# Determine the platform-specific data directory
@@ -390,7 +391,7 @@ class Mixtool(Gtk.Application):
 				"Ready" if self.settings["nomotd"] else self.motd
 			)
 	
-	def invoke_properties_dialog(self, widget: Gtk.Widget) -> bool:
+	def invoke_properties_dialog(self, widget: Gtk.Widget) -> None:
 		"""Show a dialog to modify the current file’s properties."""
 		container = self._files[-1].container
 		verstr = container.get_version().name
@@ -411,9 +412,8 @@ class Mixtool(Gtk.Application):
 				messagebox("Conversion is not implemented yet.", "e", widget.get_toplevel())
 				# FIXME: Catch errors
 				#container.convert(getattr(mixlib.Version, newver))
-		return True
 	
-	def update_properties_dialog(self, version_chooser: Gtk.ComboBoxText) -> bool:
+	def update_properties_dialog(self, version_chooser: Gtk.ComboBoxText) -> None:
 		"""Update the properties dialog to reflect the chosen version."""
 		container = self._files[-1].container
 		decrypt = self.settings["decrypt"]
@@ -432,9 +432,8 @@ class Mixtool(Gtk.Application):
 			checkbox_encrypted.set_sensitive(not decrypt)
 			checkbox_encrypted.set_active(container.is_encrypted)
 			checkbox_encrypted.set_has_tooltip(decrypt)
-		return True
 	
-	def invoke_settings_dialog(self, widget: Gtk.Widget) -> bool:
+	def invoke_settings_dialog(self, widget: Gtk.Widget) -> None:
 		"""Show a dialog with current settings and save any changes."""
 		# The updater returns a tuple of checkboxes to not repeat
 		# ourselfs when it comes to saving
@@ -452,12 +451,10 @@ class Mixtool(Gtk.Application):
 				del self.settings["nowarn"]
 			self._apply_settings()
 			self._save_settings()
-		return True
 	
-	def restore_default_settings(self, widget: Gtk.Widget) -> bool:
+	def restore_default_settings(self, widget: Gtk.Widget) -> None:
 		"""Set all widgets in the settings dialog to reflect the defaults."""
 		self._update_settings_dialog(True)
-		return True
 	
 	def _update_settings_dialog(self, defaults: bool) -> tuple:
 		"""Populate the settings dialog with the current or default settings."""
@@ -499,11 +496,10 @@ class Mixtool(Gtk.Application):
 			except OSError:
 				pass
 	
-	def close_current_file(self, widget: Gtk.Widget) -> bool:
+	def close_current_file(self, widget: Gtk.Widget) -> None:
 		"""Close the currently active file."""
 		self._close_file(-1)
 		self._update_gui()
-		return True
 	
 	# This method is labeled as "Quit" in the GUI,
 	# because it is the ultimate result.
@@ -527,22 +523,20 @@ class Mixtool(Gtk.Application):
 		finally:
 			Gtk.Application.do_shutdown(self)
 	
-	def invoke_about_dialog(self, widget: Gtk.Widget) -> bool:
+	def invoke_about_dialog(self, widget: Gtk.Widget) -> None:
 		"""Display a dialog with information on Mixtool."""
 		dialog = self._builder.get_object("AboutDialog")
 		dialog.get_widget_for_response(Gtk.ResponseType.DELETE_EVENT).grab_focus()
 		dialog.run()
 		dialog.hide()
-		return True
 	
-	def open_donation_website(self, widget: Gtk.Widget) -> bool:
+	def open_donation_website(self, widget: Gtk.Widget) -> None:
 		"""Open donation website in default browser."""
 		Gtk.show_uri_on_window(
 			widget.get_toplevel(),
 			"http://go.bachsau.com/mtdonate",
 			Gtk.get_current_event_time()
 		)
-		return True
 	
 	def _get_fallback_directory(self, path: str) -> str:
 		"""Return the deepest accessible directory of `path`."""
@@ -551,11 +545,29 @@ class Mixtool(Gtk.Application):
 	
 	def _get_selected_names(self):
 		"""Return a list of all names selected by the user."""
-		record = self._files[-1]
-		selection = self._builder.get_object("ContentSelector").get_selected_rows()[1]
-		return [record.store[treepath][0] for treepath in selection]
+		store, rows = self._builder.get_object("ContentSelector").get_selected_rows()
+		return [store[treepath][0] for treepath in rows]
 	
-	def invoke_extract_dialog(self, widget: Gtk.Widget) -> bool:
+	def delete_selected_files(self, widget: Gtk.Widget) -> None:
+		"""Delete selected files after showing an optional warning."""
+		nowarn = self.settings["nowarn"]
+		if not nowarn & 2:
+			dialog = self._builder.get_object("DeletionWarning")
+			response = dialog.run()
+			dialog.hide()
+			if response != Gtk.ResponseType.YES:
+				return
+			if self._builder.get_object("DeletionWarning.Disable").get_active():
+				self.settings["nowarn"] = nowarn | 2
+				self._save_settings()
+		
+		window = widget.get_toplevel()
+		record = self._files[-1]
+		names = self._get_selected_names()
+		# FIXME: Do real work here
+		messagebox("The following files would be removed:\n" + str(names), "i", window)
+	
+	def invoke_extract_dialog(self, widget: Gtk.Widget, *junk) -> None:
 		"""Show a file chooser dialog and extract selected files."""
 		window = widget.get_toplevel()
 		record = self._files[-1]
@@ -624,10 +636,9 @@ class Mixtool(Gtk.Application):
 					self.unmark_busy()
 		finally:
 			dialog.destroy()
-		return True
 	
 	# Callback to create a new file by using a dialog
-	def invoke_new_dialog(self, widget: Gtk.Widget) -> bool:
+	def invoke_new_dialog(self, widget: Gtk.Widget) -> None:
 		"""Show a file chooser dialog and create a new file."""
 		window = widget.get_toplevel()
 		saved_path = self.settings["mixdir"]
@@ -682,10 +693,9 @@ class Mixtool(Gtk.Application):
 				self._open_files(dialog.get_files(), version)
 		finally:
 			dialog.destroy()
-		return True
 	
 	# Callback to open files by using a dialog
-	def invoke_open_dialog(self, widget: Gtk.Widget) -> bool:
+	def invoke_open_dialog(self, widget: Gtk.Widget) -> None:
 		"""Show a file chooser dialog and open selected files."""
 		window = widget.get_toplevel()
 		saved_path = self.settings["mixdir"]
@@ -716,7 +726,6 @@ class Mixtool(Gtk.Application):
 				self._open_files(dialog.get_files())
 		finally:
 			dialog.destroy()
-		return True
 	
 	def _open_files(self, files: list, new: mixlib.Version = None) -> None:
 		"""Open `files` and create a new tab for each one."""
@@ -831,7 +840,7 @@ class Mixtool(Gtk.Application):
 			messagebox(err_title, "e", window, secondary=err_text, markup=2)
 	
 	# Switch to another tab
-	def switch_file(self, button: Gtk.RadioButton, record: FileRecord) -> bool:
+	def switch_file(self, button: Gtk.RadioButton, record: FileRecord) -> None:
 		"""Switch the currently displayed file to `record`."""
 		if button.get_active():
 			verstr = record.container.get_version().name
@@ -847,7 +856,6 @@ class Mixtool(Gtk.Application):
 			content_list = self._builder.get_object("ContentList")
 			content_list.set_model(record.store)
 			content_list.grab_focus()
-		return True
 	
 	def _update_gui(self) -> None:
 		"""Enable or disable GUI elements based on current state."""
@@ -881,12 +889,18 @@ class Mixtool(Gtk.Application):
 		else:
 			self._builder.get_object("TabBar").show()
 	
-	def on_selection_changed(self, selector: Gtk.TreeSelection) -> None:
+	def handle_selection_change(self, selector: Gtk.TreeSelection) -> None:
 		"""Toggle button sensitivity based on the current selection."""
-		if selector.count_selected_rows():
-			self._builder.get_object("Toolbar.Extract").set_sensitive(True)
-		else:
-			self._builder.get_object("Toolbar.Extract").set_sensitive(False)
+		state = bool(selector.count_selected_rows())
+		self._builder.get_object("Toolbar.Remove").set_sensitive(state)
+		self._builder.get_object("Toolbar.Extract").set_sensitive(state)
+	
+	def handle_custom_keys(self, widget: Gtk.Widget, evkey: Gdk.EventKey) -> bool:
+		"""React to pressing delete on the content list."""
+		if evkey.keyval == Gdk.KEY_Delete and not evkey.state & 67108877:
+			self.delete_selected_files(widget)
+			return True
+		return False
 	
 	# Method run on the primary instance whenever the application
 	# is invoked without parameters.
@@ -912,7 +926,7 @@ class Mixtool(Gtk.Application):
 	
 	# Method run on the primary instance whenever the application
 	# is told to open files from outside.
-	def do_open(self, files: list, *args) -> None:
+	def do_open(self, files: list, *junk) -> None:
 		"""Open `files` in a new or existing main window."""
 		self.activate()
 		self._open_files(files)

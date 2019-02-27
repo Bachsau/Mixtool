@@ -217,7 +217,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="label">_Remove</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">Toolbar.Remove.Icon</property>
-                <signal name="clicked" handler="on_remove_clicked" swapped="no"/>
+                <signal name="clicked" handler="on_delete_clicked" swapped="no"/>
                 <accelerator key="minus" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
@@ -355,6 +355,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="show_expanders">False</property>
                 <property name="rubber_banding">True</property>
                 <property name="enable_grid_lines">vertical</property>
+                <signal name="key-press-event" handler="on_key_pressed" swapped="no"/>
                 <signal name="row-activated" handler="on_extract_clicked" swapped="no"/>
                 <child internal-child="selection">
                   <object class="GtkTreeSelection" id="ContentSelector">
@@ -712,7 +713,7 @@ Do you want to continue?</property>
           </packing>
         </child>
         <child>
-          <object class="GtkCheckButton" id="RemoveDialog.Disable">
+          <object class="GtkCheckButton" id="DeletionWarning.Disable">
             <property name="label">Do not display this warning again</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
