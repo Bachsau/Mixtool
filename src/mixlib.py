@@ -884,7 +884,7 @@ class MixFile(object):
 		return inode
 
 	# Insert a file from local filesystem
-	def insert_file(self, path: str, name: str) -> None:
+	def insert(self, path: str, name: str) -> None:
 		"""Insert 'path' from the local file system as 'name'.
 
 		`MixInternalError` is raised if a file by that name already exists.
@@ -907,8 +907,8 @@ class MixFile(object):
 				buffer = InFile.read(rest)
 				self._stream.write(buffer)
 	
-	# Create a file out of bytes
-	def insert_bytes(self, data: bytes, name: str) -> None:
+	# Put a file's contents in a 'bytes' object
+	def get_bytes(self, name: str) -> bytes:
 		"""!!! STUB !!!"""
 		raise NotImplementedError("Stub method")
 	

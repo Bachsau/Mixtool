@@ -42,20 +42,25 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="can_focus">False</property>
     <property name="pixbuf">icons/toolbar_about.svg</property>
   </object>
-  <object class="GtkImage" id="Toolbar.Add.Icon">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="pixbuf">icons/toolbar_add.svg</property>
-  </object>
   <object class="GtkImage" id="Toolbar.Close.Icon">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="pixbuf">icons/toolbar_close.svg</property>
   </object>
+  <object class="GtkImage" id="Toolbar.Delete.Icon">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="pixbuf">icons/toolbar_delete.svg</property>
+  </object>
   <object class="GtkImage" id="Toolbar.Extract.Icon">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="pixbuf">icons/toolbar_extract.svg</property>
+  </object>
+  <object class="GtkImage" id="Toolbar.Insert.Icon">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="pixbuf">icons/toolbar_insert.svg</property>
   </object>
   <object class="GtkImage" id="Toolbar.New.Icon">
     <property name="visible">True</property>
@@ -81,11 +86,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="pixbuf">icons/toolbar_quit.svg</property>
-  </object>
-  <object class="GtkImage" id="Toolbar.Remove.Icon">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="pixbuf">icons/toolbar_remove.svg</property>
   </object>
   <object class="GtkImage" id="Toolbar.Settings.Icon">
     <property name="visible">True</property>
@@ -192,15 +192,15 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="Toolbar.Add">
+              <object class="GtkToolButton" id="Toolbar.Insert">
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
                 <property name="tooltip_text">Display a file chooser dialog to select one or more files for adding them to the MIX.</property>
                 <property name="label">_Add</property>
                 <property name="use_underline">True</property>
-                <property name="icon_widget">Toolbar.Add.Icon</property>
-                <signal name="clicked" handler="on_add_clicked" swapped="no"/>
+                <property name="icon_widget">Toolbar.Insert.Icon</property>
+                <signal name="clicked" handler="on_insert_clicked" swapped="no"/>
                 <accelerator key="plus" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
@@ -209,14 +209,14 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="Toolbar.Remove">
+              <object class="GtkToolButton" id="Toolbar.Delete">
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
                 <property name="tooltip_text">Permanently delete the selected files from the MIX.</property>
                 <property name="label">_Remove</property>
                 <property name="use_underline">True</property>
-                <property name="icon_widget">Toolbar.Remove.Icon</property>
+                <property name="icon_widget">Toolbar.Delete.Icon</property>
                 <signal name="clicked" handler="on_delete_clicked" swapped="no"/>
                 <accelerator key="minus" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
@@ -489,7 +489,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="skip_pager_hint">True</property>
     <property name="transient_for">MainWindow</property>
     <property name="program_name">Mixtool</property>
-    <property name="version">Alpha 0.2 (volatile)</property>
+    <property name="version">Alpha 0.2 (WIP)</property>
     <property name="copyright">Copyright © 2015–2019 Sven Heinemann (Bachsau)</property>
     <property name="comments">An editor for Westwood Studios’ MIX files</property>
     <property name="website">http://go.bachsau.com/mixtool</property>
@@ -536,100 +536,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
         </child>
       </object>
     </child>
-  </object>
-  <object class="GtkDialog" id="AlphaWarning">
-    <property name="can_focus">False</property>
-    <property name="border_width">5</property>
-    <property name="title">Alpha version</property>
-    <property name="resizable">False</property>
-    <property name="window_position">center-on-parent</property>
-    <property name="destroy_with_parent">True</property>
-    <property name="type_hint">dialog</property>
-    <property name="skip_taskbar_hint">True</property>
-    <property name="skip_pager_hint">True</property>
-    <property name="transient_for">MainWindow</property>
-    <child>
-      <placeholder/>
-    </child>
-    <child internal-child="vbox">
-      <object class="GtkBox">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="orientation">vertical</property>
-        <property name="spacing">5</property>
-        <child internal-child="action_area">
-          <object class="GtkButtonBox">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <child>
-              <object class="GtkButton" id="AlphaWarning.OK">
-                <property name="label">_OK</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="has_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="use_underline">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">0</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkImage">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="pixbuf">icons/alpha_warning.svg</property>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">0</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkLabel">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="label">You are testing software in alpha development state. It might destroy any files you open with it. Its behaviour and user interface are subject to massive changes. Use at your own risk!</property>
-            <property name="use_markup">True</property>
-            <property name="wrap">True</property>
-            <property name="max_width_chars">50</property>
-            <property name="xalign">0</property>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">1</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkCheckButton" id="AlphaWarning.Disable">
-            <property name="label">Do not display this warning again</property>
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="receives_default">False</property>
-            <property name="draw_indicator">True</property>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">2</property>
-          </packing>
-        </child>
-      </object>
-    </child>
-    <action-widgets>
-      <action-widget response="-5">AlphaWarning.OK</action-widget>
-    </action-widgets>
   </object>
   <object class="GtkDialog" id="DeletionWarning">
     <property name="can_focus">False</property>
@@ -1338,6 +1244,100 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
     <action-widgets>
       <action-widget response="-6">SettingsDialog.Cancel</action-widget>
       <action-widget response="-5">SettingsDialog.OK</action-widget>
+    </action-widgets>
+  </object>
+  <object class="GtkDialog" id="VersionWarning">
+    <property name="can_focus">False</property>
+    <property name="border_width">5</property>
+    <property name="title">Alpha version</property>
+    <property name="resizable">False</property>
+    <property name="window_position">center-on-parent</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="type_hint">dialog</property>
+    <property name="skip_taskbar_hint">True</property>
+    <property name="skip_pager_hint">True</property>
+    <property name="transient_for">MainWindow</property>
+    <child>
+      <placeholder/>
+    </child>
+    <child internal-child="vbox">
+      <object class="GtkBox">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">5</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <child>
+              <object class="GtkButton" id="VersionWarning.OK">
+                <property name="label">_OK</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="has_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_underline">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkImage">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="pixbuf">icons/warning.svg</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label">You are testing software in alpha development state. It might destroy any files you open with it. Its behaviour and user interface are subject to massive changes. Use at your own risk!</property>
+            <property name="use_markup">True</property>
+            <property name="wrap">True</property>
+            <property name="max_width_chars">50</property>
+            <property name="xalign">0</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkCheckButton" id="VersionWarning.Disable">
+            <property name="label">Do not display this warning again</property>
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">False</property>
+            <property name="draw_indicator">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">2</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+    <action-widgets>
+      <action-widget response="-5">VersionWarning.OK</action-widget>
     </action-widgets>
   </object>
 </interface>

@@ -258,7 +258,7 @@ class Mixtool(Gtk.Application):
 			"on_open_clicked": self.invoke_open_dialog,
 			"on_properties_clicked": self.invoke_properties_dialog,
 			"on_optimize_clicked": dummy_callback,
-			"on_add_clicked": dummy_callback,
+			"on_insert_clicked": dummy_callback,
 			"on_delete_clicked": self.delete_selected_files,
 			"on_extract_clicked": self.invoke_extract_dialog,
 			"on_settings_clicked": self.invoke_settings_dialog,
@@ -470,14 +470,13 @@ class Mixtool(Gtk.Application):
 		
 		# Push current settings to dialog
 		self._builder.get_object("Settings.ExtractToSource").set_active(True)
+		self._builder.get_object("Settings.ResetWarnings").set_active(defaults)
 		if defaults:
 			for checkbox, setting in checkboxes:
 				checkbox.set_active(self.settings.get_default(setting))
-			self._builder.get_object("Settings.ResetWarnings").set_active(True)
 		else:
 			for checkbox, setting in checkboxes:
 				checkbox.set_active(self.settings[setting])
-			self._builder.get_object("Settings.ResetWarnings").set_active(False)
 		
 		# Return the tuple of checkboxes to be used for saving
 		return checkboxes
@@ -903,7 +902,7 @@ class Mixtool(Gtk.Application):
 		"""Toggle button sensitivity based on the current selection."""
 		selcount = selector.count_selected_rows()
 		valid = bool(selcount)
-		self._builder.get_object("Toolbar.Remove").set_sensitive(valid)
+		self._builder.get_object("Toolbar.Delete").set_sensitive(valid)
 		self._builder.get_object("Toolbar.Extract").set_sensitive(valid)
 		
 		record = self._files[-1]
@@ -935,10 +934,10 @@ class Mixtool(Gtk.Application):
 			
 			nowarn = self.settings["nowarn"]
 			if not nowarn & 1:
-				dialog = self._builder.get_object("AlphaWarning")
+				dialog = self._builder.get_object("VersionWarning")
 				dialog.run()
 				dialog.hide()
-				if self._builder.get_object("AlphaWarning.Disable").get_active():
+				if self._builder.get_object("VersionWarning.Disable").get_active():
 					self.settings["nowarn"] = nowarn | 1
 					self._save_settings()
 		else:

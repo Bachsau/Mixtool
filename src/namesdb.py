@@ -20,6 +20,10 @@
 
 """Mixtool’s names database module"""
 
+__all__ = [
+	"SQLiteDB",
+	"NamesDB"
+]
 __version__ = "0.2.0-volatile"
 __author__ = "Bachsau"
 
