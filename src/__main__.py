@@ -900,19 +900,22 @@ class Mixtool(Gtk.Application):
 	
 	def handle_selection_change(self, selector: Gtk.TreeSelection) -> None:
 		"""Toggle button sensitivity based on the current selection."""
-		selcount = selector.count_selected_rows()
-		valid = bool(selcount)
+		if self._files:
+			record = self._files[-1]
+			selcount = selector.count_selected_rows()
+			mixlen = record.container.get_filecount()
+			verstr = record.container.get_version().name
+			valid = bool(selcount)
+			if valid:
+				status = "{0} of {1} files selected in {2} MIX.".format(selcount, mixlen, verstr)
+			else:
+				status = "{0} files in {1} MIX.".format(mixlen, verstr)
+			self._builder.get_object("StatusBar").set_text(status)
+		else:
+			valid = False
+		
 		self._builder.get_object("Toolbar.Delete").set_sensitive(valid)
 		self._builder.get_object("Toolbar.Extract").set_sensitive(valid)
-		
-		record = self._files[-1]
-		mixlen = record.container.get_filecount()
-		verstr = record.container.get_version().name
-		if valid:
-			status = "{0} of {1} files selected in {2} MIX.".format(selcount, mixlen, verstr)
-		else:
-			status = "{0} files in {1} MIX.".format(mixlen, verstr)
-		self._builder.get_object("StatusBar").set_text(status)
 	
 	def handle_custom_keys(self, widget: Gtk.Widget, evkey: Gdk.EventKey) -> bool:
 		"""React to pressing delete on the content list."""
