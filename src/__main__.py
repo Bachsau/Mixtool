@@ -305,7 +305,7 @@ class Mixtool(Gtk.Application):
 					problem_description = problem.strerror
 				else:
 					problem_description = "Internal error"
-				messagebox(
+				alert(
 					"Mixtool was not able to create its data directory.", "w",
 					secondary="{0}:\n{1}\n\n".format(problem_description, self.data_path)
 					+ "Your settings will not be retained."
@@ -342,7 +342,7 @@ class Mixtool(Gtk.Application):
 					problem_description = "Contains incomprehensible structures"
 				else:
 					problem_description = "Internal error"
-				messagebox(
+				alert(
 					"Mixtool is unable to read its configuration file.", "w",
 					secondary="{0}:\n{1}\n\n".format(problem_description, self.data_path)
 					+ "Your settings will be reset."
@@ -409,7 +409,7 @@ class Mixtool(Gtk.Application):
 				container.has_checksum = self._builder.get_object("Properties.Checksum").get_active()
 				container.is_encrypted = self._builder.get_object("Properties.Encrypt").get_active()
 			if newver != verstr:
-				messagebox("Conversion is not implemented yet.", "e", widget.get_toplevel())
+				alert("Conversion is not implemented yet.", "e", widget.get_toplevel())
 				# FIXME: Catch errors
 				#container.convert(getattr(mixlib.Version, newver))
 	
@@ -539,8 +539,18 @@ class Mixtool(Gtk.Application):
 	
 	def _get_fallback_directory(self, path: str) -> str:
 		"""Return the deepest accessible directory of `path`."""
-		# FIXME: Stub
-		return path if os.path.isdir(path) else self.home_path
+		if not os.path.isabs(path):
+			path = self.home_path
+		else:
+			path = os.path.normpath(path)
+		
+		while not (os.access(path, 5) and os.path.isdir(path)):
+			ppath = os.path.dirname(path)
+			if ppath == path:
+				break
+			path = ppath
+		
+		return path
 	
 	def _get_selected_names(self):
 		"""Return a list of all names selected by the user."""
@@ -578,24 +588,26 @@ class Mixtool(Gtk.Application):
 		names = self._get_selected_names()
 		multi = len(names) > 1
 		if multi:
-			suggested = ""
+			suggestion = ""
 			dialog = Gtk.FileChooserDialog(
 				title="Extract multiple files",
 				transient_for=window,
 				action=Gtk.FileChooserAction.SELECT_FOLDER,
 			)
 		else:
-			suggestion = names[0]
-			esplit = suggestion.rfind(".")
-			suggested = suggestion
-			if esplit < 0:
-				extension = ""
+			suggestion = names[0].replace(os.sep, "_")
+			dotpos = suggestion.rfind(".")
+			# Include 0, so files beginning with a dot
+			# still count as not having an extension
+			if dotpos <= 0:
+				name_base = suggestion
+				name_ext = ""
 			else:
-				extension = suggestion[esplit:]
-				suggestion = suggestion[:esplit]
+				name_base = suggestion[:dotpos]
+				name_ext = suggestion[dotpos:]
 			i = 1
-			while os.path.lexists(os.sep.join((browse_path, suggested))):
-				suggested = suggestion + str(i) + extension
+			while os.path.lexists(os.sep.join((browse_path, suggestion))):
+				suggestion = name_base + str(i) + name_ext
 				i += 1
 			dialog = Gtk.FileChooserDialog(
 				title="Extract single file",
@@ -609,7 +621,7 @@ class Mixtool(Gtk.Application):
 				"_Extract", Gtk.ResponseType.ACCEPT
 			)
 			dialog.set_current_folder(browse_path)
-			dialog.set_current_name(suggested)
+			dialog.set_current_name(suggestion)
 			response = dialog.run()
 			dialog.hide()
 			if response == Gtk.ResponseType.ACCEPT:
@@ -627,6 +639,7 @@ class Mixtool(Gtk.Application):
 				try:
 					for filename in names:
 						if multi:
+							# TODO: Replace invalid characters
 							curdest = os.sep.join((destpath, filename))
 						try:
 							record.container.extract(filename, curdest)
@@ -644,11 +657,12 @@ class Mixtool(Gtk.Application):
 		window = widget.get_toplevel()
 		saved_path = self.settings["mixdir"]
 		browse_path = self._get_fallback_directory(saved_path)
-		suggestion = "new"
-		suggested = suggestion + ".mix"
+		name_base = "new"
+		name_ext = ".mix"
+		suggestion = name_base + name_ext
 		i = 1
-		while os.path.lexists(os.sep.join((browse_path, suggested))):
-			suggested = suggestion + str(i) + ".mix"
+		while os.path.lexists(os.sep.join((browse_path, suggestion))):
+			suggestion = name_base + str(i) + name_ext
 			i += 1
 		version_chooser = Gtk.ComboBoxText()
 		version_chooser.append("TD", "1 – TD")
@@ -679,7 +693,7 @@ class Mixtool(Gtk.Application):
 				"_Save", Gtk.ResponseType.ACCEPT
 			)
 			dialog.set_current_folder(browse_path)
-			dialog.set_current_name(suggested)
+			dialog.set_current_name(suggestion)
 			response = dialog.run()
 			dialog.hide()
 			if response == Gtk.ResponseType.ACCEPT:
@@ -850,7 +864,7 @@ class Mixtool(Gtk.Application):
 			del err_strings[0]
 			err_text = "\n".join(err_strings)
 			
-			messagebox(err_title, "e", window, secondary=err_text, markup=2)
+			alert(err_title, "e", window, secondary=err_text, markup=2)
 	
 	# Switch to another tab
 	def switch_file(self, button: Gtk.RadioButton, record: FileRecord) -> None:
@@ -890,7 +904,7 @@ class Mixtool(Gtk.Application):
 			self._builder.get_object("StatusBar").set_text(
 				"Ready" if self.settings["nomotd"] else self.motd
 			)
-			self._builder.get_object("ContentList").set_model(self._builder.get_object("ContentStore"))
+			self._builder.get_object("ContentList").set_model(self._builder.get_object("EmptyStore"))
 		
 		# Display tab bar only when two ore more files are open
 		if len(self._files) < 2:
@@ -967,7 +981,7 @@ class Mixtool(Gtk.Application):
 				else:
 					problem_description = "Internal error"
 				
-				messagebox(
+				alert(
 					"Mixtool was not able to write its configuration file.", "w",
 					secondary="{0}:\n{1}\n\n".format(problem_description, self.data_path)
 					+ "Changed settings will not be retained."
@@ -1002,7 +1016,7 @@ def main() -> int:
 
 
 # A simple, instance-independent messagebox
-def messagebox(text: str, severity: str = "i", parent: Gtk.Window = None, *, secondary: str = None, markup: int = 0) -> None:
+def alert(text: str, severity: str = "i", parent: Gtk.Window = None, *, secondary: str = None, markup: int = 0) -> None:
 	"""Display a dialog box containing `text` and an OK button.
 	
 	`severity` can be 'i' for information, 'e' for error or 'w' for warning.
