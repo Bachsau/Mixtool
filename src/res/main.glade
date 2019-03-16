@@ -540,7 +540,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
   <object class="GtkDialog" id="DeletionWarning">
     <property name="can_focus">False</property>
     <property name="border_width">5</property>
-    <property name="title">Delete files…</property>
+    <property name="title">Delete files</property>
     <property name="resizable">False</property>
     <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>

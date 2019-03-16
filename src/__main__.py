@@ -1019,7 +1019,7 @@ def main() -> int:
 def alert(text: str, severity: str = "i", parent: Gtk.Window = None, *, secondary: str = None, markup: int = 0) -> None:
 	"""Display a dialog box containing `text` and an OK button.
 	
-	`severity` can be 'i' for information, 'e' for error or 'w' for warning.
+	`severity` can be 'i' for info, 'w' for warning, or 'e' for error.
 	
 	If `parent` is given, the dialog will be a child of that window and
 	centered upon it.
@@ -1030,17 +1030,17 @@ def alert(text: str, severity: str = "i", parent: Gtk.Window = None, *, secondar
 	if severity == "i":
 		message_type = Gtk.MessageType.INFO
 		title = "Notice"
-		icon = "gtk-dialog-info"
-	elif severity == "e":
-		message_type = Gtk.MessageType.ERROR
-		title = "Error"
-		icon = "gtk-dialog-error"
+		icon = "dialog-info"
 	elif severity == "w":
 		message_type = Gtk.MessageType.WARNING
 		title = "Warning"
-		icon = "gtk-dialog-warning"
+		icon = "dialog-warning"
+	elif severity == "e":
+		message_type = Gtk.MessageType.ERROR
+		title = "Error"
+		icon = "dialog-error"
 	else:
-		raise ValueError("Invalid severity level.")
+		raise ValueError("Invalid severity level")
 	
 	if parent is None:
 		position = Gtk.WindowPosition.CENTER
@@ -1070,6 +1070,58 @@ def alert(text: str, severity: str = "i", parent: Gtk.Window = None, *, secondar
 	
 	dialog.run()
 	dialog.destroy()
+
+
+# Messageboxes for when the user has a choice
+def ask(text: str, buttons: str = "yn", parent: Gtk.Window = None, *, secondary: str = None, markup: int = 0) -> bool:
+	"""Display a dialog box containing `text` and two buttons.
+	
+	`buttons` can be 'yn' for Yes and No, or 'oc' for OK and Cancel.
+	
+	If `parent` is given, the dialog will be a child of that window and
+	centered upon it.
+	
+	`secondary` can be used to display additional text. The primary text
+	will appear bolder in that case.
+	"""
+	if buttons == "yn":
+		buttons_type = Gtk.ButtonsType.YES_NO
+		positive_response = Gtk.ResponseType.YES
+	elif buttons == "oc":
+		buttons_type = Gtk.ButtonsType.OK_CANCEL
+		positive_response = Gtk.ResponseType.OK
+	else:
+		raise ValueError("Invalid buttons")
+	
+	if parent is None:
+		position = Gtk.WindowPosition.CENTER
+		skip_hint = False
+	else:
+		position = Gtk.WindowPosition.CENTER_ON_PARENT
+		skip_hint = True
+	
+	dialog = Gtk.MessageDialog(
+		message_type=Gtk.MessageType.QUESTION,
+		buttons=buttons_type,
+		text=str(text),
+		use_markup=bool(markup & 1),
+		title="Question",
+		icon_name="dialog-question",
+		window_position=position,
+		skip_taskbar_hint=skip_hint,
+		skip_pager_hint=skip_hint,
+		transient_for=parent
+	)
+	
+	if secondary is not None:
+		if markup & 2:
+			dialog.format_secondary_markup(str(secondary))
+		else:
+			dialog.format_secondary_text(str(secondary))
+	
+	response = dialog.run()
+	dialog.destroy()
+	return response == positive_response
 
 
 # Run the application
