@@ -31,6 +31,7 @@ import random
 import uuid
 import collections
 import collections.abc
+import re
 import configparser
 from urllib import parse
 import traceback  # for debugging
@@ -232,6 +233,8 @@ class Mixtool(Gtk.Application):
 		
 		# Initialize instance attributes
 		self._data_path_blocked = False
+		self._reserved_filenames = None
+		self._reserved_filechars = None
 		self._builder = None
 		self._files = []
 		self.inst_id = None
@@ -283,9 +286,17 @@ class Mixtool(Gtk.Application):
 			else:
 				self.data_path = os.path.realpath(os_appdata) + "\\Bachsau\\Mixtool"
 			del os_appdata
+			self._reserved_filenames = (
+				"AUX", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7",
+				"COM8", "COM9", "CON", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5",
+				"LPT6", "LPT7", "LPT8", "LPT9", "NUL", "PRN"
+			)
+			self._reserved_filechars = re.compile("[\"*/:<>?\\\\|]|\\.$")
 		elif sys.platform.startswith("darwin"):
 			# Apple macOS
 			self.data_path = self.home_path + "/Library/Application Support/com.bachsau.mixtool"
+			self._reserved_filenames = (".", "..")
+			self._reserved_filechars = re.compile("[/]")
 		else:
 			# Linux and others
 			os_appdata = os.environ.get("XDG_DATA_HOME")
@@ -294,6 +305,8 @@ class Mixtool(Gtk.Application):
 			else:
 				self.data_path = os.path.realpath(os_appdata) + "/mixtool"
 			del os_appdata
+			self._reserved_filenames = (".", "..")
+			self._reserved_filechars = re.compile("[/]")
 		
 		# Create non-existent directories
 		if not os.path.isdir(self.data_path):
@@ -578,6 +591,32 @@ class Mixtool(Gtk.Application):
 		# TODO: Save index
 		self._reload_contents()
 	
+	def _adapt_filenames(self, names: list) -> list:
+		"""Return a list of names changed to comply with local file system rules."""
+		adapted_names = []
+		for name in names:
+			if name.upper() in self._reserved_filenames:
+				adapted_name = "_" + name
+			else:
+				adapted_name = self._reserved_filechars.sub("_", name)
+			if adapted_name in adapted_names:
+				dotpos = adapted_name.rfind(".")
+				# Include 0, so files beginning with a dot
+				# still count as not having an extension
+				if dotpos <= 0:
+					name_base = adapted_name
+					name_ext = ""
+				else:
+					name_base = adapted_name[:dotpos]
+					name_ext = adapted_name[dotpos:]
+				adapted_name = name_base + "1" + name_ext
+				i = 1
+				while adapted_name in adapted_names:
+					i += 1
+					adapted_name = name_base + str(i) + name_ext
+			adapted_names.append(adapted_name)
+		return adapted_names
+	
 	def invoke_extract_dialog(self, widget: Gtk.Widget, *junk) -> None:
 		"""Show a file chooser dialog and extract selected files."""
 		window = widget.get_toplevel()
@@ -588,66 +627,87 @@ class Mixtool(Gtk.Application):
 		names = self._get_selected_names()
 		multi = len(names) > 1
 		if multi:
-			suggestion = ""
+			adapted_names = [nt for nt in zip(names, self._adapt_filenames(names))]
+			adaption_changes = [nt for nt in adapted_names if nt[0] != nt[1]]
+			if adaption_changes:
+				if len(adaption_changes) == 1:
+					msg_title = "The following filename will be adjusted due to operating system’s limitations:"
+				else:
+					msg_title = "The following filenames will be adjusted due to operating system’s limitations:"
+				msg_lines = []
+				for source_name, dest_name in adaption_changes:
+					msg_lines.append(source_name + "\xa0→\xa0" + dest_name)
+				msg_text = "\n".join(msg_lines)
+				alert(msg_title, "i", window, secondary=msg_text)
 			dialog = Gtk.FileChooserDialog(
 				title="Extract multiple files",
 				transient_for=window,
-				action=Gtk.FileChooserAction.SELECT_FOLDER,
+				action=Gtk.FileChooserAction.SELECT_FOLDER
 			)
 		else:
 			suggestion = names[0].replace(os.sep, "_")
-			dotpos = suggestion.rfind(".")
-			# Include 0, so files beginning with a dot
-			# still count as not having an extension
-			if dotpos <= 0:
-				name_base = suggestion
-				name_ext = ""
-			else:
-				name_base = suggestion[:dotpos]
-				name_ext = suggestion[dotpos:]
-			i = 1
-			while os.path.lexists(os.sep.join((browse_path, suggestion))):
-				suggestion = name_base + str(i) + name_ext
-				i += 1
+			if os.path.lexists(os.sep.join((browse_path, suggestion))):
+				dotpos = suggestion.rfind(".")
+				# Include 0, so files beginning with a dot
+				# still count as not having an extension
+				if dotpos <= 0:
+					name_base = suggestion
+					name_ext = ""
+				else:
+					name_base = suggestion[:dotpos]
+					name_ext = suggestion[dotpos:]
+				suggestion = name_base + "1" + name_ext
+				i = 1
+				while os.path.lexists(os.sep.join((browse_path, suggestion))):
+					i += 1
+					suggestion = name_base + str(i) + name_ext
 			dialog = Gtk.FileChooserDialog(
 				title="Extract single file",
 				transient_for=window,
-				action=Gtk.FileChooserAction.SAVE,
-				do_overwrite_confirmation=True
+				action=Gtk.FileChooserAction.SAVE
 			)
-		try:
-			dialog.add_buttons(
-				"_Cancel", Gtk.ResponseType.CANCEL,
-				"_Extract", Gtk.ResponseType.ACCEPT
-			)
-			dialog.set_current_folder(browse_path)
 			dialog.set_current_name(suggestion)
-			response = dialog.run()
-			dialog.hide()
-			if response == Gtk.ResponseType.ACCEPT:
-				if etl:
-					# Save last used directory
-					browse_path = dialog.get_current_folder()
-					if browse_path != saved_path:
-						self.settings["extdir"] = browse_path
-						self._save_settings()
-				
-				# Extract the files
+		dialog.add_buttons(
+			"_Cancel", Gtk.ResponseType.CANCEL,
+			"_Extract", Gtk.ResponseType.ACCEPT
+		)
+		try:
+			while True:
+				dialog.set_current_folder(browse_path)  # Weird but necessary ↓
+				response = dialog.run()
+				dialog.hide()
+				if response != Gtk.ResponseType.ACCEPT:
+					return
+				browse_path = dialog.get_current_folder()  # Weird but necessary ↑
 				destpath = dialog.get_filename()
-				curdest = destpath
-				self.mark_busy()
-				try:
-					for filename in names:
-						if multi:
-							# TODO: Replace invalid characters
-							curdest = os.sep.join((destpath, filename))
-						try:
-							record.container.extract(filename, curdest)
-						except Exception:
-							# TODO: Do error handling
-							raise
-				finally:
-					self.unmark_busy()
+				if not multi:
+					# FIXME: Test filename validity here
+					pass
+				if ask("The following files already exist in\n" + browse_path + ":", "yn", window, secondary="These files will be overwritten. Is that OK?"):
+					# FIXME: Test and build nice message
+					break
+			
+			if etl:
+				# Save last used directory
+				if browse_path != saved_path:
+					self.settings["extdir"] = browse_path
+					self._save_settings()
+			
+			# Extract the files
+			curdest = destpath
+			self.mark_busy()
+			try:
+				for filename in names:
+					if multi:
+						# FIXME: Use adapted_names
+						curdest = os.sep.join((destpath, filename))
+					try:
+						record.container.extract(filename, curdest)
+					except Exception:
+						# TODO: Do error handling
+						raise
+			finally:
+				self.unmark_busy()
 		finally:
 			dialog.destroy()
 	
@@ -660,10 +720,10 @@ class Mixtool(Gtk.Application):
 		name_base = "new"
 		name_ext = ".mix"
 		suggestion = name_base + name_ext
-		i = 1
+		i = 0
 		while os.path.lexists(os.sep.join((browse_path, suggestion))):
-			suggestion = name_base + str(i) + name_ext
 			i += 1
+			suggestion = name_base + str(i) + name_ext
 		version_chooser = Gtk.ComboBoxText()
 		version_chooser.append("TD", "1 – TD")
 		version_chooser.append("RA", "2 – RA")
