@@ -22,7 +22,9 @@
 
 __all__ = [
 	"MixError",
-	"MixPermissionError",
+	"MixParseError",
+	"MixFSError",
+	"MixReadOnlyError",
 	"MixNotFoundError",
 	"MixExistsError",
 	"MixReservedError",
@@ -35,11 +37,13 @@ __all__ = [
 __version__ = "0.2.0-volatile"
 __author__ = "Bachsau"
 
+# Standard modules
 import sys
 import os
 import io
 import collections
 import enum
+import struct
 import binascii
 
 
@@ -74,11 +78,19 @@ class _MixNode(object):
 		raise TypeError("Cannot delete node attributes.")
 
 
-# A custom exception class that closely resembles Python's OSError
 class MixError(Exception):
-	"""MixError(errno: int, strerror: str, filename: str, filename2: str)
+	"""Base exception for all MIX related errors."""
+
+
+class MixParseError(MixError):
+	"""Exception raised on errors while loading a MIX file."""
+
+
+# A custom exception class that closely resembles Python's OSError
+class MixFSError(MixError):
+	"""MixFSError(errno: int, strerror: str, filename: str, filename2: str)
 	
-	Base exception for all MIX related errors.
+	Base exception for errors on content access.
 	"""
 	
 	__slots__ = ("_characters_written", "errno", "filename", "filename2", "strerror")
@@ -86,18 +98,18 @@ class MixError(Exception):
 	__errnomap = None
 	
 	def __new__(cls, *args):
-		"""Return a new instance of MixError or one of its subclasses.
+		"""Return a new instance of MixFSError or one of its subclasses.
 		
 		The subclass is chosen based on the value of the first argument,
 		as long as a second argument is present.
 		"""
-		if cls is MixError and 2 <= len(args) <= 4:
+		if cls is MixFSError and 2 <= len(args) <= 4:
 			if cls.__errnomap is None:
 				cls.__errnomap = {
-					1: MixPermissionError,  # Container not writable
-					2: MixNotFoundError,    # File not found
-					3: MixExistsError,      # File exists
-					4: MixReservedError     # Reserved key (namelists)
+					1: MixReadOnlyError,  # Container not writable
+					2: MixNotFoundError,  # File not found
+					3: MixExistsError,    # File exists
+					4: MixReservedError   # Reserved key (name tables)
 				}
 			newcls = cls.__errnomap.get(args[0])
 			if newcls is not None:
@@ -105,12 +117,12 @@ class MixError(Exception):
 		
 		# Initialize special attributes
 		self = super().__new__(cls, *args)
-		for attr in MixError.__slots__:
+		for attr in MixFSError.__slots__:
 			setattr(self, attr, None)
 		return self
 	
 	def __init__(self, *args):
-		"""Initialize MixError with the given values."""
+		"""Initialize MixFSError with the given values."""
 		a = len(args)
 		if 2 <= a <= 4:
 			self.errno = args[0]
@@ -123,7 +135,7 @@ class MixError(Exception):
 	
 	def __delattr__(self, attr):
 		"""Delete the attribute if it’s not a special one, else set it to None."""
-		if attr in MixError.__slots__:
+		if attr in MixFSError.__slots__:
 			setattr(self, attr, None)
 		else:
 			super().__delattr__(attr)
@@ -164,47 +176,33 @@ class MixError(Exception):
 		self._characters_written = None
 
 
-class MixPermissionError(MixError):
+class MixReadOnlyError(MixFSError):
 	"""Raised when trying to run write operations in read-only containers.
 	
-	See help(MixError) for accurate signature.
+	See help(MixFSError) for accurate signature.
 	"""
 
 
-class MixNotFoundError(MixError):
+class MixNotFoundError(MixFSError):
 	"""Raised when content is requested that doesn’t exist.
 	
-	See help(MixError) for accurate signature.
+	See help(MixFSError) for accurate signature.
 	"""
 
 
-class MixExistsError(MixError):
+class MixExistsError(MixFSError):
 	"""Raised when trying to set a name evaluating to an existing key.
 	
-	See help(MixError) for accurate signature.
+	See help(MixFSError) for accurate signature.
 	"""
 
 
-class MixReservedError(MixError):
+class MixReservedError(MixFSError):
 	"""Raised when trying to set a name evaluating to a reserved key.
 	
-	See help(MixError) for accurate signature.
+	See help(MixFSError) for accurate signature.
 	"""
 
-# START Concept
-class MixParseError(MixError):
-	"""Exception raised on errors in the MIX file.
-	
-	See help(MixError) for accurate signature.
-	"""
-
-
-class MixIOError(OSError):
-	"""Exception raised on invalid MixIO operations.
-	
-	See help(OSError) for accurate signature.
-	"""
-# END Concept
 
 # MIX versions
 class Version(enum.Enum):
@@ -316,18 +314,16 @@ class MixFile(object):
 
 		# OK, time to read the index
 		index = {}
-		for i in range(filecount):
-			key    = int.from_bytes(stream.read(4), "little")
-			offset = int.from_bytes(stream.read(4), "little") + bodyoffset
-			size   = int.from_bytes(stream.read(4), "little")
-
+		for key, offset, size in struct.iter_unpack("<LLL", stream.read(indexsize)):
+			offset += bodyoffset
+			
 			if offset + size > filesize:
 				raise MixParseError("Content extends beyond end of file.")
 
 			index[key] = _MixNode(key, offset, size, size, None)
 
 		if len(index) != filecount:
-			raise MixError("Duplicate key.")
+			raise MixParseError("Duplicate key.")
 
 		# Now read the names
 		# TD/RA: 1422054725; TS: 913179935
@@ -342,7 +338,7 @@ class MixFile(object):
 				dbsize  = int.from_bytes(stream.read(4), "little")  # Total filesize
 
 				if dbsize != index[dbkey].size or dbsize > 16777216:
-					raise MixParseError("Invalid database.")
+					raise MixParseError("Invalid name table.")
 
 				# Skip four bytes for XCC type; 0 for LMD, 2 for XIF
 				# Skip four bytes for DB version; Always zero
@@ -367,7 +363,7 @@ class MixFile(object):
 				namelist  = stream.read(bodysize).split(b"\x00") if bodysize > 0 else []
 				
 				if len(namelist) != namecount:
-					raise MixError("Invalid database.")
+					raise MixParseError("Invalid name table.")
 				
 				# Remove Database from index
 				del index[dbkey]
@@ -394,7 +390,7 @@ class MixFile(object):
 			contents[i].alloc = contents[i+1].offset - contents[i].offset
 
 			if contents[i].alloc < contents[i].size:
-				raise MixError("Overlapping file boundaries.")
+				raise MixParseError("Overlapping file boundaries.")
 
 		# Populate the object
 		self._stream = stream
@@ -548,7 +544,7 @@ class MixFile(object):
 		node = self._index.get(oldkey)
 		
 		if node is None:
-			raise MixError(2, old, None, "File not found")
+			raise MixFSError(2, old, None, "File not found")
 		
 		if old == new:
 			# Maybe the user wants to add a missing name
@@ -583,11 +579,11 @@ class MixFile(object):
 					conflict_node.name = new
 			else:
 				conflict_name = conflict_node.name
-			raise MixError(3, new, conflict_name, "File exists")
+			raise MixFSError(3, new, conflict_name, "File exists")
 		
 		if newkey in (1422054725, 913179935):
 			# These are namelists
-			raise MixError(4, new, None, "Evaluation to reserved key")
+			raise MixFSError(4, new, None, "Evaluation to reserved key")
 		
 		# Checks complete. It's going to be a "real" name change
 		del self._index[oldkey]
@@ -618,7 +614,7 @@ class MixFile(object):
 				newindex[newkey] = node
 			
 			if len(newindex) != len(self._contents):
-				raise MixError("Key collision")
+				raise MixFSError("Key collision")
 			
 			self._index = newindex
 			
@@ -776,13 +772,13 @@ class MixFile(object):
 	def get_file(self, name):
 		"""Return the contents of 'name' as a single bytes object.
 
-		'MixError' is raised if the file is not found.
+		'MixFSError' is raised if the file is not found.
 		"""
 		
 		inode = self._get_node(name)
 
 		if inode is None:
-			raise MixError("File not found")
+			raise MixFSError("File not found")
 
 		self._stream.seek(inode.offset)
 		return self._stream.read(inode.size)
@@ -802,7 +798,7 @@ class MixFile(object):
 		node = self._index.pop(key, None)
 		
 		if node is None:
-			raise MixError(2, name, None, "File not found")
+			raise MixFSError(2, name, None, "File not found")
 		
 		index = self._contents.index(node)
 		if index:
@@ -824,17 +820,17 @@ class MixFile(object):
 		
 		self._stream.seek(node.offset)
 		with open(dest, "wb") as outstream:
-			if node.size > BLOCKSIZE:
-				buflen = BLOCKSIZE
+			buflen = BLOCKSIZE
+			if node.size > buflen:
 				buffer = memoryview(bytearray(buflen))
 				remaining = node.size
 				while remaining >= buflen:
 					self._stream.readinto(buffer)
 					remaining -= outstream.write(buffer)
 				if remaining > 0:
-					rembuf = buffer[:remaining]
-					self._stream.readinto(rembuf)
-					remaining -= outstream.write(rembuf)
+					buffer = buffer[:remaining]
+					self._stream.readinto(buffer)
+					outstream.write(buffer)
 			else:
 				buffer = self._stream.read(node.size)
 				outstream.write(buffer)
@@ -847,7 +843,7 @@ class MixFile(object):
 		if inode is not None:
 			if inode.name.startswith("0x"):
 				inode.name = name
-			raise MixError("File exists.")
+			raise MixFSError("File exists.")
 
 		filecount   = len(self._contents)
 		indexoffset = 6 if self._version == Version.TD else 10
@@ -1010,8 +1006,8 @@ def genkey(name: str, version: Version) -> int:
 	n = name.encode(ENCODING, "strict").upper()
 	if version is Version.TD or version is Version.RA:
 		l = len(n)
-		i = 0
 		k = 0
+		i = 0
 		while i < l:
 			a = 0
 			for j in range(4):

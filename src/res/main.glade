@@ -494,6 +494,11 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="comments">An editor for Westwood Studios’ MIX files</property>
     <property name="website">http://go.bachsau.com/mixtool</property>
     <property name="website_label">Visit Mixtool website</property>
+    <property name="authors">Sven Heinemann (Bachsau)</property>
+    <property name="documenters">Sven Heinemann (Bachsau)</property>
+    <property name="artists">Sven Heinemann (Bachsau)
+Daniel Foré (danrabbit)
+Sam Hewitt (snwh)</property>
     <property name="logo">icons/mixtool.png</property>
     <property name="license_type">gpl-3-0</property>
     <child>

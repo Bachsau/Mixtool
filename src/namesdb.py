@@ -45,6 +45,7 @@ class SQLiteDB(sqlite3.Connection):
 	
 	def close(self):
 		"""Close the connection."""
+		self.query.close()
 		self.query = None
 		sqlite3.Connection.close(self)
 	

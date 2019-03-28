@@ -26,12 +26,12 @@ __author__ = "Bachsau"
 # Standard modules
 import sys
 import os
-import signal
-import random
-import uuid
 import collections
 import collections.abc
 import re
+import signal
+import random
+import uuid
 import configparser
 from urllib import parse
 import traceback  # for debugging
@@ -51,7 +51,7 @@ import mixlib
 FileRecord = collections.namedtuple("FileRecord", ("path", "stat", "container", "store", "button", "isnew"))
 
 
-# A simple abstraction for Python's ConfigParser.
+# A simple abstraction of Python's ConfigParser.
 # It features implicit type conversion and defaults through prior
 # registration of settings. It can be used to save and read settings
 # without bothering about the specifics of ConfigParser or the INI files
@@ -83,28 +83,22 @@ class Configuration(collections.abc.MutableMapping):
 	def __getitem__(self, identifier: str):
 		"""Return value of `identifier` or the registered default on errors.
 		
-		`KeyError` is raised if there is no such identifier.
+		KeyError is raised if there is no such identifier.
 		"""
 		default = self._defaults[identifier]
-		
 		if self._parser.has_option(self._section, identifier):
 			dtype = type(default)
 			try:
 				if dtype is bool:
 					return self._parser.getboolean(self._section, identifier)
-				
 				if dtype is int:
 					return self._parser.getint(self._section, identifier)
-				
 				if dtype is float:
 					return self._parser.getfloat(self._section, identifier)
-				
 				if dtype is str:
 					return parse.unquote(self._parser.get(self._section, identifier), errors="strict")
-				
 				if dtype is bytes:
 					return parse.unquote_to_bytes(self._parser.get(self._section, identifier))
-			
 			except ValueError:
 				self._parser.remove_option(self._section, identifier)
 				return default
@@ -114,24 +108,19 @@ class Configuration(collections.abc.MutableMapping):
 	def __setitem__(self, identifier: str, value) -> None:
 		"""Set `identifier` to `value`.
 		
-		`KeyError` is raised if `identifier` was not registered.
-		`TypeError` is raised if `value` does not match the registered type.
+		KeyError is raised if `identifier` was not registered.
+		TypeError is raised if `value` does not match the registered type.
 		"""
 		dtype = type(self._defaults[identifier])
-		
 		if dtype is bool and type(value) is bool:
 			self._parser.set(self._section, identifier, "yes" if value else "no")
-		
 		elif dtype is int and type(value) is int\
 		  or dtype is float and type(value) is float:
 			self._parser.set(self._section, identifier, str(value))
-		
 		elif dtype is str and type(value) is str:
 			self._parser.set(self._section, identifier, parse.quote(value))
-		
 		elif dtype is bytes and type(value) is bytes:
 			self._parser.set(self._section, identifier, parse.quote_from_bytes(value))
-		
 		else:
 			raise TypeError("Not matching registered type.")
 	
@@ -139,7 +128,7 @@ class Configuration(collections.abc.MutableMapping):
 		"""Remove customized value of `identifier`.
 		
 		Nothing is done if the value was not customized,
-		but `KeyError` is raised if `identifier` was not registered."""
+		but KeyError is raised if `identifier` was not registered."""
 		if identifier in self._defaults:
 			self._parser.remove_option(self._section, identifier)
 		else:
@@ -175,26 +164,22 @@ class Configuration(collections.abc.MutableMapping):
 		The type of `default` also specifies the type returned later
 		and what can be assigned.
 		
-		Supported types are `bool`, `int`, `float`, `str` and `bytes`.
+		Supported types are bool, int, float, str, and bytes.
 		"""
 		if type(identifier) is not str:
 			raise TypeError("Identifiers must be strings.")
-		
 		if not self.key_chars.issuperset(identifier):
 			raise ValueError("Identifier contains invalid characters.")
-			
 		if identifier in self._defaults:
 			raise ValueError("Identifier already registered.")
-		
 		if type(default) not in (bool, int, float, str, bytes):
 			raise TypeError("Unsupported type.")
-		
 		self._defaults[identifier] = default
 	
 	def get_default(self, identifier: str):
 		"""Return the default value of `identifier`.
 		
-		`KeyError` is raised if there is no such identifier.
+		KeyError is raised if there is no such identifier.
 		"""
 		return self._defaults[identifier]
 	
@@ -1055,6 +1040,10 @@ class Mixtool(Gtk.Application):
 # Starter
 def main() -> int:
 	"""Run the Mixtool application and return a status code."""
+	
+	# Keep the app from crashing on legacy terminal encondings
+	sys.stdout.reconfigure(errors="replace")
+	sys.stderr.reconfigure(errors="replace")
 	
 	# FIXME: Remove in final version
 	print("Mixtool is running on Python {0[0]}.{0[1]} using PyGObject {1[0]}.{1[1]} and GTK+ {2[0]}.{2[1]}.".
