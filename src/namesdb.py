@@ -60,24 +60,56 @@ class NamesDB(object):
 	
 	__slots__ = ("_db",)
 	
-	def __init__(self, data_path: str, inst_id: uuid.UUID):
+	def __init__(self, data_path: str):
 		"""Create or open the database file."""
+		dbfile = os.sep.join((data_path, "names.db"))
 		# SQLite:
 		# 'keyword'    A keyword in single quotes is a string literal.
 		# "keyword"    A keyword in double-quotes is an identifier.
-		dbfile = os.sep.join((data_path, "cache.db"))
-		self._db = SQLiteDB(dbfile, isolation_level=None, check_same_thread=False)
-		self._db.query.execute("PRAGMA journal_mode = TRUNCATE;")
-		self._db.query.execute("PRAGMA synchronous = NORMAL;")
 		
-		self._db.query.execute("CREATE TABLE IF NOT EXISTS \"names_v1\" (\"key\" INT PRIMARY KEY NOT NULL, \"name\" CHAR NOT NULL) WITHOUT ROWID;")
-		self._db.query.execute("CREATE TABLE IF NOT EXISTS \"names_v3\" (\"key\" INT PRIMARY KEY NOT NULL, \"name\" CHAR NOT NULL) WITHOUT ROWID;")
-		self._db.query.execute("CREATE TABLE IF NOT EXISTS \"store\" (\"option\" CHAR PRIMARY KEY NOT NULL, \"value\" INT NOT NULL) WITHOUT ROWID;")
+		for attempt in range(2):
+			if attempt:
+				bakfile = dbfile + ".bak"
+				# No error handling here. It fails on second attempt.
+				if not os.path.exists(bakfile):
+					os.rename(dbfile, bakfile)
+				else:
+					os.remove(dbfile)
+			try:
+				self._db = SQLiteDB(dbfile, isolation_level=None, check_same_thread=False)
+			except sqlite3.OperationalError:
+				if attempt:
+					raise
+				continue  # Something's foul. Discard db and start over.
+			else:
+				self._db.query.execute("PRAGMA locking_mode = EXCLUSIVE;")
+				self._db.query.execute("PRAGMA journal_mode = TRUNCATE;")
+				self._db.query.execute("PRAGMA synchronous = FULL;")
+				try:
+					self._db.query.execute("SELECT COUNT(*) FROM \"sqlite_master\" WHERE \"name\" NOT GLOB 'sqlite_*'")
+				except sqlite3.OperationalError:
+					if attempt:
+						raise
+					continue  # Something's foul. Discard db and start over.
+				else:
+					if self._db.query.fetchone()[0]:
+						# TODO: Check meta table
+						pass
+					else:
+						self._db.query.execute("CREATE TABLE \"meta\" (\"property\" CHAR PRIMARY KEY NOT NULL, \"value\" CHAR NOT NULL) WITHOUT ROWID;")
+						self._db.query.execute("CREATE TABLE \"names_lo\" (\"key\" INT PRIMARY KEY NOT NULL, \"name\" CHAR NOT NULL) WITHOUT ROWID;")
+						self._db.query.execute("CREATE TABLE \"names_hi\" (\"key\" INT PRIMARY KEY NOT NULL, \"name\" CHAR NOT NULL) WITHOUT ROWID;")
+						self._db.query.executemany("INSERT INTO \"meta\" VALUES (?, ?);", (("vendor", "Bachsau"), ("product", "Mixtool"), ("schema", "0")))
+			break
 	
 	def submit(version: int, names):
 		pass
 	
 	def retrieve(version: int, keys):
+		pass
+	
+	# To get instid for comparison
+	def query_instid() -> uuid.UUID:
 		pass
 	
 	def close(self):
