@@ -1,8 +1,8 @@
 ﻿Changes to Mixtool
 ===================
 
-Alpha 0.2 (Work in progress)
------------------------------
+Goals for Alpha 0.2
+--------------------
 * Ability to create new files
 * Ability to open multiple files in tabs
 * Supports checksums

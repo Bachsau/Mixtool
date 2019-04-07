@@ -226,7 +226,7 @@ class Version(enum.Enum):
 
 
 # A named tuple for metadata returned to the user
-MixRecord = collections.namedtuple("MixRecord", ("name", "size", "offset", "alloc"))
+MixRecord = collections.namedtuple("MixRecord", ("name", "size", "alloc", "offset"))
 
 
 # Instances represent a single MIX file.
@@ -260,7 +260,7 @@ class MixFile(object):
 			raise ValueError("`stream` must be seekable.")
 		
 		if version is not None:
-			# Create a new file
+			# Start empty (new file)
 			if type(version) is not Version:
 				raise TypeError("`version` must be a Version enumeration member or None.")
 			if version is Version.RG:
@@ -289,8 +289,15 @@ class MixFile(object):
 			if flags & 2:
 				raise NotImplementedError("Encrypted MIX files are not yet supported.")
 			
+			# FIXME HERE: 80 bytes of westwood key_source if encrypted,
+			#             to create a 56 byte long blowfish key from it.
+			#
+			#             They are followed by a number of 8 byte blocks,
+			#             the first of them decrypting to filecount and bodysize.
+			
 			# Encrypted TS MIXes have a key.ini we can check for later,
-			# so at this point assume Version.TS only if unencrypted
+			# so at this point assume Version.TS only if unencrypted.
+			# Stock RA MIXes seem to be always encrypted.
 			version = Version.TS
 			
 			# RA/TS MIXes hold their filecount after the flags,
@@ -309,6 +316,7 @@ class MixFile(object):
 		bodyoffset  = indexoffset + indexsize
 
 		# Check if data is sane
+		# FIXME: Checksummed MIXes have 20 additional bytes after the body.
 		if filesize - bodyoffset != bodysize:
 			raise MixParseError("Incorrect filesize or invalid header.")
 
@@ -360,7 +368,7 @@ class MixFile(object):
 				
 				namecount = int.from_bytes(stream.read(4), "little")
 				bodysize  = dbsize - 53  # Size - Header - Last byte
-				namelist  = stream.read(bodysize).split(b"\x00") if bodysize > 0 else []
+				namelist  = stream.read(bodysize).split(b"\x00") if bodysize else []
 				
 				if len(namelist) != namecount:
 					raise MixParseError("Invalid name table.")
@@ -500,14 +508,19 @@ class MixFile(object):
 		return [MixRecord(
 			node.name or hex(node.key),
 			node.size,
-			node.offset,
-			node.alloc
+			node.alloc,
+			node.offset
 		) for node in self._contents]
 	
-	# Public method to stat a file
-	# Replaces get_inode() to the public
-	def get_info(self, name: str) -> MixRecord:
+	def get_overhead(self) -> int:
+		"""Return the amount of unused space in the MIX file."""
+		# TODO: Implement
+		raise NotImplementedError("Stub method")
+	
+	# Public version of get_node()
+	def stat(self, name: str) -> MixRecord:
 		"""Return a tuple holding the attributes of the file called `name`."""
+		# TODO: Implement
 		raise NotImplementedError("Stub method")
 	
 	# Public method to get the filecount,
@@ -827,7 +840,7 @@ class MixFile(object):
 				while remaining >= buflen:
 					self._stream.readinto(buffer)
 					remaining -= outstream.write(buffer)
-				if remaining > 0:
+				if remaining:
 					buffer = buffer[:remaining]
 					self._stream.readinto(buffer)
 					outstream.write(buffer)
@@ -930,12 +943,12 @@ class MixFile(object):
 	
 	@property
 	def is_encrypted(self) -> bool:
-		"""Define if MIX headers are encrypted."""
+		"""Define if MIX header is encrypted."""
 		return bool(self._flags & 2)
 	
 	@is_encrypted.setter
 	def is_encrypted(self, value: bool) -> None:
-		"""Define if MIX headers are encrypted."""
+		"""Define if MIX header is encrypted."""
 		if self._version is not Version.TD:
 			if value:
 				self._flags |= 2

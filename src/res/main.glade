@@ -25,18 +25,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
   <!-- interface-name Mixtool -->
   <!-- interface-description An editor for Westwood Studios' MIX files -->
   <!-- interface-copyright 2015-2019 Sven Heinemann (Bachsau) -->
-  <object class="GtkListStore" id="EmptyStore">
-    <columns>
-      <!-- column-name Name -->
-      <column type="gchararray"/>
-      <!-- column-name Size -->
-      <column type="gulong"/>
-      <!-- column-name Offset -->
-      <column type="gulong"/>
-      <!-- column-name Overhead -->
-      <column type="gulong"/>
-    </columns>
-  </object>
+  <object class="GtkListStore" id="DummyStore"/>
   <object class="GtkImage" id="Toolbar.About.Icon">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -349,7 +338,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">True</property>
-                <property name="model">EmptyStore</property>
+                <property name="model">DummyStore</property>
                 <property name="search_column">0</property>
                 <property name="fixed_height_mode">True</property>
                 <property name="show_expanders">False</property>
@@ -373,15 +362,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                     <property name="expand">True</property>
                     <property name="clickable">True</property>
                     <property name="sort_column_id">0</property>
-                    <child>
-                      <object class="GtkCellRendererText" id="ContentList.Name.Renderer">
-                        <property name="xalign">0</property>
-                        <property name="editable">True</property>
-                      </object>
-                      <attributes>
-                        <attribute name="text">0</attribute>
-                      </attributes>
-                    </child>
                   </object>
                 </child>
                 <child>
@@ -394,14 +374,18 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                     <property name="clickable">True</property>
                     <property name="alignment">1</property>
                     <property name="sort_column_id">1</property>
-                    <child>
-                      <object class="GtkCellRendererText" id="ContentList.Size.Renderer">
-                        <property name="xalign">1</property>
-                      </object>
-                      <attributes>
-                        <attribute name="text">1</attribute>
-                      </attributes>
-                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkTreeViewColumn" id="ContentList.Allocation">
+                    <property name="resizable">True</property>
+                    <property name="sizing">fixed</property>
+                    <property name="fixed_width">150</property>
+                    <property name="min_width">30</property>
+                    <property name="title">Allocation</property>
+                    <property name="clickable">True</property>
+                    <property name="alignment">1</property>
+                    <property name="sort_column_id">2</property>
                   </object>
                 </child>
                 <child>
@@ -413,36 +397,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                     <property name="title">Offset</property>
                     <property name="clickable">True</property>
                     <property name="alignment">1</property>
-                    <property name="sort_column_id">2</property>
-                    <child>
-                      <object class="GtkCellRendererText" id="ContentList.Offset.Renderer">
-                        <property name="xalign">1</property>
-                      </object>
-                      <attributes>
-                        <attribute name="text">2</attribute>
-                      </attributes>
-                    </child>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkTreeViewColumn" id="ContentList.Overhead">
-                    <property name="resizable">True</property>
-                    <property name="sizing">fixed</property>
-                    <property name="fixed_width">150</property>
-                    <property name="min_width">30</property>
-                    <property name="title">Overhead</property>
-                    <property name="clickable">True</property>
-                    <property name="alignment">1</property>
                     <property name="sort_column_id">3</property>
-                    <child>
-                      <object class="GtkCellRendererText" id="ContentList.Overhead.Renderer">
-                        <property name="xalign">1</property>
-                      </object>
-                      <attributes>
-                        <attribute name="visible">2</attribute>
-                        <attribute name="text">3</attribute>
-                      </attributes>
-                    </child>
                   </object>
                 </child>
               </object>
@@ -1096,13 +1051,13 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="Settings.SmallTools">
-                    <property name="label">Show _toolbar without text</property>
+                  <object class="GtkLabel">
                     <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">False</property>
-                    <property name="use_underline">True</property>
-                    <property name="draw_indicator">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label">Display file sizes in</property>
+                    <property name="wrap">True</property>
+                    <property name="max_width_chars">65</property>
+                    <property name="xalign">0</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -1111,15 +1066,15 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkLabel">
+                  <object class="GtkComboBoxText" id="Settings.Units">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="margin_left">25</property>
                     <property name="margin_bottom">10</property>
-                    <property name="label">The toolbar becomes much smaller as soon as you know what the buttons do.</property>
-                    <property name="wrap">True</property>
-                    <property name="max_width_chars">63</property>
-                    <property name="xalign">0</property>
+                    <items>
+                      <item id="iec">IEC units (base 1024)</item>
+                      <item id="si">SI units (base 1000)</item>
+                      <item id="none">Raw bytes (full precision)</item>
+                    </items>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -1128,8 +1083,8 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="Settings.ResetWarnings">
-                    <property name="label">Reset _warnings</property>
+                  <object class="GtkCheckButton" id="Settings.SmallTools">
+                    <property name="label">Show _toolbar without text</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
@@ -1148,7 +1103,7 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                     <property name="can_focus">False</property>
                     <property name="margin_left">25</property>
                     <property name="margin_bottom">10</property>
-                    <property name="label">Re-enable all warning messages you told Mixtool to not display again.</property>
+                    <property name="label">The toolbar becomes much smaller as soon as you know what the buttons do.</property>
                     <property name="wrap">True</property>
                     <property name="max_width_chars">63</property>
                     <property name="xalign">0</property>
@@ -1160,8 +1115,8 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="Settings.DisableMOTD">
-                    <property name="label">Disable _MOTD</property>
+                  <object class="GtkCheckButton" id="Settings.ResetWarnings">
+                    <property name="label">Reset _warnings</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
@@ -1180,7 +1135,7 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                     <property name="can_focus">False</property>
                     <property name="margin_left">25</property>
                     <property name="margin_bottom">10</property>
-                    <property name="label">If you don’t want fancy shit to appear in the status bar, you can disable it here. Every useless feature needs a useless setting.</property>
+                    <property name="label">Re-enable all warning messages you told Mixtool to not display again.</property>
                     <property name="wrap">True</property>
                     <property name="max_width_chars">63</property>
                     <property name="xalign">0</property>
@@ -1189,6 +1144,38 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                     <property name="expand">False</property>
                     <property name="fill">True</property>
                     <property name="position">8</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkCheckButton" id="Settings.DisableMOTD">
+                    <property name="label">Disable _MOTD</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">False</property>
+                    <property name="use_underline">True</property>
+                    <property name="draw_indicator">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">9</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="margin_left">25</property>
+                    <property name="margin_bottom">10</property>
+                    <property name="label">If you don’t want fancy shit to appear in the status bar, you can disable it here. Every useless feature needs a useless setting.</property>
+                    <property name="wrap">True</property>
+                    <property name="max_width_chars">63</property>
+                    <property name="xalign">0</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">10</property>
                   </packing>
                 </child>
               </object>

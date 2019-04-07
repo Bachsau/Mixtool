@@ -50,8 +50,8 @@ printf '\nMixtool has quit with EXIT CODE %u.\n\n' $status >>"$elog"
 unset LC_ALL G_SLICE GTK_THEME
 if [ $status -ne 0 ]; then
 	if [ -n "$(command -v xdg-open)" ]; then
-		exec xdg-open "$elog"
+		xdg-open "$elog" &
 	elif [ -n "$(command -v open)" ]; then
-		exec open "$elog"
+		open "$elog" &
 	fi
 fi

@@ -99,7 +99,12 @@ class NamesDB(object):
 						self._db.query.execute("CREATE TABLE \"meta\" (\"property\" CHAR PRIMARY KEY NOT NULL, \"value\" CHAR NOT NULL) WITHOUT ROWID;")
 						self._db.query.execute("CREATE TABLE \"names_lo\" (\"key\" INT PRIMARY KEY NOT NULL, \"name\" CHAR NOT NULL) WITHOUT ROWID;")
 						self._db.query.execute("CREATE TABLE \"names_hi\" (\"key\" INT PRIMARY KEY NOT NULL, \"name\" CHAR NOT NULL) WITHOUT ROWID;")
-						self._db.query.executemany("INSERT INTO \"meta\" VALUES (?, ?);", (("vendor", "Bachsau"), ("product", "Mixtool"), ("schema", "0")))
+						self._db.query.executemany("INSERT INTO \"meta\" VALUES (?, ?);", (
+							("vendor", "Bachsau"),
+							("product", "Mixtool"),
+							("purpose", "names"),
+							("schema", "0")
+						))
 			break
 	
 	def submit(version: int, names):

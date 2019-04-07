@@ -194,9 +194,8 @@ class Configuration(collections.abc.MutableMapping):
 			self._parser.write(config_stream, False)
 
 
-# Main application controller
 class Mixtool(Gtk.Application):
-	"""Application management class"""
+	"""Main application controller"""
 	
 	# Characters allowed when simple names are enforced
 	simple_chars = frozenset("-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz")
@@ -227,6 +226,7 @@ class Mixtool(Gtk.Application):
 		self.data_path = None
 		self.config_file = None
 		self.settings = None
+		self.size_units = None
 		self.motd = None
 	
 	# This is run when Gtk.Application initializes the first instance.
@@ -240,13 +240,12 @@ class Mixtool(Gtk.Application):
 		app_path = os.path.dirname(os.path.realpath(__file__))
 		gui_file = os.sep.join((app_path, "res", "main.glade"))
 		self._builder = Gtk.Builder.new_from_file(gui_file)
-		dummy_callback = lambda *args: False
 		self._builder.connect_signals({
 			"on_new_clicked": self.invoke_new_dialog,
 			"on_open_clicked": self.invoke_open_dialog,
 			"on_properties_clicked": self.invoke_properties_dialog,
-			"on_optimize_clicked": dummy_callback,
-			"on_insert_clicked": dummy_callback,
+			"on_optimize_clicked": noop,
+			"on_insert_clicked": noop,
 			"on_delete_clicked": self.delete_selected_files,
 			"on_extract_clicked": self.invoke_extract_dialog,
 			"on_settings_clicked": self.invoke_settings_dialog,
@@ -322,6 +321,7 @@ class Mixtool(Gtk.Application):
 		self.settings.register("extracttolast", True)
 		self.settings.register("smalltools", False)
 		self.settings.register("nomotd", False)
+		self.settings.register("units", "iec")
 		self.settings.register("mixdir", self.home_path)
 		self.settings.register("extdir", self.home_path)
 		self.settings.register("nowarn", 0)
@@ -364,6 +364,19 @@ class Mixtool(Gtk.Application):
 					self.inst_id = inst_id
 		
 		# Prepare GUI
+		renderer = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
+		column = self._builder.get_object("ContentList.Name")
+		column.pack_start(renderer, False)
+		column.add_attribute(renderer, "text", 0)
+		for column_id, data in (
+			("ContentList.Size", 1),
+			("ContentList.Allocation", 2),
+			("ContentList.Offset", 3)
+		):
+			renderer = Gtk.CellRendererText(xalign=1.0)
+			column = self._builder.get_object(column_id)
+			column.pack_start(renderer, False)
+			column.set_cell_data_func(renderer, self.render_formatted_size, data)
 		self.motd = random.choice((
 			"CABAL is order",
 			"Don’t throw stones in glass houses without proper protection",
@@ -383,6 +396,14 @@ class Mixtool(Gtk.Application):
 		self._builder.get_object("Toolbar").set_style(
 			Gtk.ToolbarStyle.ICONS if self.settings["smalltools"] else Gtk.ToolbarStyle.BOTH
 		)
+		
+		units = self.settings["units"].lower()
+		if units == "iec":
+			self.size_units = (1024.0, ("B", "KiB", "MiB", "GiB"))
+		elif units == "si":
+			self.size_units = (1000.0, ("B", "kB", "MB", "GB"))
+		else:
+			self.size_units = None
 		
 		if not self._files:
 			self._builder.get_object("StatusBar").set_text(
@@ -445,6 +466,7 @@ class Mixtool(Gtk.Application):
 			# Save new settings
 			for checkbox, setting in checkboxes:
 				self.settings[setting] = checkbox.get_active()
+			self.settings["units"] = self._builder.get_object("Settings.Units").get_active_id()
 			if self._builder.get_object("Settings.ResetWarnings").get_active():
 				del self.settings["nowarn"]
 			self._apply_settings()
@@ -465,6 +487,7 @@ class Mixtool(Gtk.Application):
 			(self._builder.get_object("Settings.SmallTools"), "smalltools"),
 			(self._builder.get_object("Settings.DisableMOTD"), "nomotd")
 		)
+		units_dropdown = self._builder.get_object("Settings.Units")
 		
 		# Push current settings to dialog
 		self._builder.get_object("Settings.ExtractToSource").set_active(True)
@@ -472,9 +495,11 @@ class Mixtool(Gtk.Application):
 		if defaults:
 			for checkbox, setting in checkboxes:
 				checkbox.set_active(self.settings.get_default(setting))
+			units_dropdown.set_active_id(self.settings.get_default("units"))
 		else:
 			for checkbox, setting in checkboxes:
 				checkbox.set_active(self.settings[setting])
+			units_dropdown.set_active_id(self.settings["units"].lower())
 		
 		# Return the tuple of checkboxes to be used for saving
 		return checkboxes
@@ -585,15 +610,7 @@ class Mixtool(Gtk.Application):
 			else:
 				adapted_name = self._reserved_filechars.sub("_", name)
 			if adapted_name in adapted_names:
-				dotpos = adapted_name.rfind(".")
-				# Include 0, so files beginning with a dot
-				# still count as not having an extension
-				if dotpos <= 0:
-					name_base = adapted_name
-					name_ext = ""
-				else:
-					name_base = adapted_name[:dotpos]
-					name_ext = adapted_name[dotpos:]
+				name_base, name_ext = splitext(adapted_name)
 				adapted_name = name_base + "1" + name_ext
 				i = 1
 				while adapted_name in adapted_names:
@@ -601,6 +618,22 @@ class Mixtool(Gtk.Application):
 					adapted_name = name_base + str(i) + name_ext
 			adapted_names.append(adapted_name)
 		return adapted_names
+	
+	def _format_size(self, value: int) -> str:
+		"""Convert `value` to a human-readable size string."""
+		if self.size_units is None:
+			return str(value)
+		base, units = self.size_units
+		dimensions = len(units)
+		dimension = 0
+		while value > base and dimension < dimensions:
+			dimension += 1
+			value /= base
+		return "{0:.2F} {1}".format(value, units[dimension])
+	
+	def render_formatted_size(self, column, renderer, tree_model, tree_iter, data):
+		value = tree_model.get_value(tree_iter, data)
+		renderer.set_property("text", self._format_size(value))
 	
 	def invoke_extract_dialog(self, widget: Gtk.Widget, *junk) -> None:
 		"""Show a file chooser dialog and extract selected files."""
@@ -632,15 +665,7 @@ class Mixtool(Gtk.Application):
 		else:
 			suggestion = names[0].replace(os.sep, "_")
 			if os.path.lexists(os.sep.join((browse_path, suggestion))):
-				dotpos = suggestion.rfind(".")
-				# Include 0, so files beginning with a dot
-				# still count as not having an extension
-				if dotpos <= 0:
-					name_base = suggestion
-					name_ext = ""
-				else:
-					name_base = suggestion[:dotpos]
-					name_ext = suggestion[dotpos:]
+				name_base, name_ext = splitext(suggestion)
 				suggestion = name_base + "1" + name_ext
 				i = 1
 				while os.path.lexists(os.sep.join((browse_path, suggestion))):
@@ -857,8 +882,8 @@ class Mixtool(Gtk.Application):
 							store.append((
 								content.name,
 								content.size,
-								content.offset,
-								content.alloc - content.size  # = Overhead
+								content.alloc,
+								content.offset
 							))
 						
 						# Add a button
@@ -879,7 +904,7 @@ class Mixtool(Gtk.Application):
 						if container is None:
 							stream.close()
 			
-			if len(files) - len(errors) > 0:
+			if len(files) - len(errors):
 				self._update_gui()
 		finally:
 			self.unmark_busy()
@@ -949,7 +974,8 @@ class Mixtool(Gtk.Application):
 			self._builder.get_object("StatusBar").set_text(
 				"Ready" if self.settings["nomotd"] else self.motd
 			)
-			self._builder.get_object("ContentList").set_model(self._builder.get_object("EmptyStore"))
+			dummy_store = self._builder.get_object("DummyStore")
+			self._builder.get_object("ContentList").set_model(dummy_store)
 		
 		# Display tab bar only when two ore more files are open
 		if len(self._files) < 2:
@@ -1171,6 +1197,20 @@ def ask(text: str, buttons: str = "yn", parent: Gtk.Window = None, *, secondary:
 	response = dialog.run()
 	dialog.destroy()
 	return response == positive_response
+
+
+def splitext(name: str) -> tuple:
+	"""Split the extension from a filename."""
+	dotpos = name.rfind(".")
+	# Include 0, so files beginning with a dot
+	# still count as not having an extension
+	if dotpos <= 0:
+		return (name, "")
+	return (name[:dotpos], name[dotpos:])
+
+
+def noop(*args) -> None:
+	"""Do nothing."""
 
 
 # Run the application
