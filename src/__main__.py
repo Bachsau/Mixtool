@@ -353,6 +353,16 @@ class Mixtool(Gtk.Application):
 				if self._save_settings():
 					self.inst_id = inst_id
 		
+		# Sanitize settings
+		units = self.settings["units"]
+		valunits = ("iec", "si", "none")
+		if units not in valunits:
+			units = units.lower()
+			if units in valunits:
+				self.settings["units"] = units
+			else:
+				del self.settings["units"]
+		
 		# Prepare GUI
 		renderer = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
 		column = self._builder.get_object("ContentList.Name")
@@ -387,11 +397,11 @@ class Mixtool(Gtk.Application):
 			Gtk.ToolbarStyle.ICONS if self.settings["smalltools"] else Gtk.ToolbarStyle.BOTH
 		)
 		
-		units = self.settings["units"].lower()
+		units = self.settings["units"]
 		if units == "iec":
-			self.size_units = (1024.0, ("B", "KiB", "MiB", "GiB"))
+			self.size_units = (1024.0, ("B", "KiB", "MiB", "GiB", "TiB"))
 		elif units == "si":
-			self.size_units = (1000.0, ("B", "kB", "MB", "GB"))
+			self.size_units = (1000.0, ("B", "kB", "MB", "GB", "TB"))
 		else:
 			self.size_units = None
 		
@@ -489,7 +499,7 @@ class Mixtool(Gtk.Application):
 		else:
 			for checkbox, setting in checkboxes:
 				checkbox.set_active(self.settings[setting])
-			units_dropdown.set_active_id(self.settings["units"].lower())
+			units_dropdown.set_active_id(self.settings["units"])
 		
 		# Return the tuple of checkboxes to be used for saving
 		return checkboxes
@@ -619,9 +629,18 @@ class Mixtool(Gtk.Application):
 		while value > base and dimension < dimensions:
 			dimension += 1
 			value /= base
-		return "{0:.2F} {1}".format(value, units[dimension])
+		fstring = "{0:.2F} {1}" if dimension else "{0:d} {1}"
+		return fstring.format(value, units[dimension])
 	
-	def render_formatted_size(self, column, renderer, tree_model, tree_iter, data):
+	def render_formatted_size(
+		self,
+		column: Gtk.TreeViewColumn,
+		renderer: Gtk.CellRendererText,
+		tree_model: Gtk.TreeModel,
+		tree_iter: Gtk.TreeIter,
+		data: int
+	):
+		"""Set text of `renderer` to a size in a human-readable format."""
 		value = tree_model.get_value(tree_iter, data)
 		renderer.set_property("text", self._format_size(value))
 	

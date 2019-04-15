@@ -838,8 +838,8 @@ class MixFile(object):
 				buffer = memoryview(bytearray(buflen))
 				remaining = node.size
 				while remaining >= buflen:
-					self._stream.readinto(buffer)
-					remaining -= outstream.write(buffer)
+					remaining -= self._stream.readinto(buffer)
+					outstream.write(buffer)
 				if remaining:
 					buffer = buffer[:remaining]
 					self._stream.readinto(buffer)
