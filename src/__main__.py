@@ -215,19 +215,9 @@ class Mixtool(Gtk.Application):
 		)
 		self.set_resource_base_path(None)
 		
-		# Initialize instance attributes
+		# Initialize mandatory attributes
 		self._data_path_blocked = False
-		self._reserved_filenames = None
-		self._reserved_filechars = None
-		self._builder = None
 		self._files = []
-		self.inst_id = None
-		self.home_path = None
-		self.data_path = None
-		self.config_file = None
-		self.settings = None
-		self.size_units = None
-		self.motd = None
 	
 	# This is run when Gtk.Application initializes the first instance.
 	# It is not run on any remote controllers.
@@ -373,7 +363,7 @@ class Mixtool(Gtk.Application):
 			("ContentList.Allocation", 2),
 			("ContentList.Offset", 3)
 		):
-			renderer = Gtk.CellRendererText(xalign=1.0)
+			renderer = Gtk.CellRendererText(xalign=1.0, font="Monospace")
 			column = self._builder.get_object(column_id)
 			column.pack_start(renderer, False)
 			column.set_cell_data_func(renderer, self.render_formatted_size, data)
