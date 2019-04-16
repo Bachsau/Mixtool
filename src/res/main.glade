@@ -377,24 +377,24 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                   </object>
                 </child>
                 <child>
-                  <object class="GtkTreeViewColumn" id="ContentList.Allocation">
-                    <property name="resizable">True</property>
-                    <property name="sizing">fixed</property>
-                    <property name="fixed_width">150</property>
-                    <property name="min_width">30</property>
-                    <property name="title">Allocation</property>
-                    <property name="clickable">True</property>
-                    <property name="alignment">1</property>
-                    <property name="sort_column_id">2</property>
-                  </object>
-                </child>
-                <child>
                   <object class="GtkTreeViewColumn" id="ContentList.Offset">
                     <property name="resizable">True</property>
                     <property name="sizing">fixed</property>
                     <property name="fixed_width">150</property>
                     <property name="min_width">30</property>
                     <property name="title">Offset</property>
+                    <property name="clickable">True</property>
+                    <property name="alignment">1</property>
+                    <property name="sort_column_id">2</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkTreeViewColumn" id="ContentList.Overhead">
+                    <property name="resizable">True</property>
+                    <property name="sizing">fixed</property>
+                    <property name="fixed_width">150</property>
+                    <property name="min_width">30</property>
+                    <property name="title">Overhead</property>
                     <property name="clickable">True</property>
                     <property name="alignment">1</property>
                     <property name="sort_column_id">3</property>
@@ -1054,8 +1054,10 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                   <object class="GtkLabel">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="label">Display file sizes in</property>
+                    <property name="label">Display file _sizes in</property>
+                    <property name="use_underline">True</property>
                     <property name="wrap">True</property>
+                    <property name="mnemonic_widget">Settings.Units</property>
                     <property name="max_width_chars">65</property>
                     <property name="xalign">0</property>
                   </object>
@@ -1115,8 +1117,8 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="Settings.ResetWarnings">
-                    <property name="label">Reset _warnings</property>
+                  <object class="GtkCheckButton" id="Settings.DisableMOTD">
+                    <property name="label">Disable _MOTD</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
@@ -1135,7 +1137,7 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                     <property name="can_focus">False</property>
                     <property name="margin_left">25</property>
                     <property name="margin_bottom">10</property>
-                    <property name="label">Re-enable all warning messages you told Mixtool to not display again.</property>
+                    <property name="label">If you don’t want fancy shit to appear in the status bar, you can disable it here.</property>
                     <property name="wrap">True</property>
                     <property name="max_width_chars">63</property>
                     <property name="xalign">0</property>
@@ -1147,8 +1149,8 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="Settings.DisableMOTD">
-                    <property name="label">Disable _MOTD</property>
+                  <object class="GtkCheckButton" id="Settings.ResetWarnings">
+                    <property name="label">Reset _warnings</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
@@ -1167,7 +1169,7 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                     <property name="can_focus">False</property>
                     <property name="margin_left">25</property>
                     <property name="margin_bottom">10</property>
-                    <property name="label">If you don’t want fancy shit to appear in the status bar, you can disable it here. Every useless feature needs a useless setting.</property>
+                    <property name="label">Re-enable all warning messages you told Mixtool not to display again.</property>
                     <property name="wrap">True</property>
                     <property name="max_width_chars">63</property>
                     <property name="xalign">0</property>

@@ -370,10 +370,10 @@ class Mixtool(Gtk.Application):
 		column.add_attribute(renderer, "text", 0)
 		for column_id, data in (
 			("ContentList.Size", 1),
-			("ContentList.Allocation", 2),
-			("ContentList.Offset", 3)
+			("ContentList.Offset", 2),
+			("ContentList.Overhead", 3)
 		):
-			renderer = Gtk.CellRendererText(xalign=1.0, font="Monospace")
+			renderer = Gtk.CellRendererText(xalign=1.0, family="Monospace")
 			column = self._builder.get_object(column_id)
 			column.pack_start(renderer, False)
 			column.set_cell_data_func(renderer, self.render_formatted_size, data)
@@ -382,6 +382,7 @@ class Mixtool(Gtk.Application):
 			"Don’t throw stones in glass houses without proper protection",
 			"For Kane",
 			"If I am cut, do I not bleed?",
+			"I’ve got a present for ya",
 			"Kane lives in death",
 			"Rubber shoes in motion",
 			"The technology of peace",
@@ -830,7 +831,7 @@ class Mixtool(Gtk.Application):
 				content.name,
 				content.size,
 				content.offset,
-				content.alloc - content.size  # = Overhead
+				content.alloc - content.size
 			))
 	
 	def _open_files(self, files: list, new: mixlib.Version = None) -> None:
@@ -891,8 +892,8 @@ class Mixtool(Gtk.Application):
 							store.append((
 								content.name,
 								content.size,
-								content.alloc,
-								content.offset
+								content.offset,
+								content.alloc - content.size
 							))
 						
 						# Add a button
@@ -1211,11 +1212,7 @@ def ask(text: str, buttons: str = "yn", parent: Gtk.Window = None, *, secondary:
 def splitext(name: str) -> tuple:
 	"""Split the extension from a filename."""
 	dotpos = name.rfind(".")
-	# Include 0, so files beginning with a dot
-	# still count as not having an extension
-	if dotpos <= 0:
-		return (name, "")
-	return (name[:dotpos], name[dotpos:])
+	return (name[:dotpos], name[dotpos:]) if dotpos > 0 else (name, "")
 
 
 def noop(*args) -> None:
