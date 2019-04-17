@@ -406,10 +406,54 @@ class Mixtool(Gtk.Application):
 		else:
 			self.size_units = None
 		
-		if not self._files:
-			self._builder.get_object("StatusBar").set_text(
-				"Ready" if self.settings["nomotd"] else self.motd
-			)
+		if self._files:
+			self._set_status(overhead=self._files[-1].container.get_overhead())
+		else:
+			self._set_status(None, None, None)
+	
+	def _set_status(self, text = Ellipsis, version = Ellipsis, overhead = Ellipsis):
+		"""Update the specified fields of the status bar.
+		
+		Passing None sets the default *not-applicable* value.
+		Passing ... does not change a fields current value.
+		"""
+		if text is not Ellipsis:
+			label_widget = self._builder.get_object("StatusBar.Text")
+			if text is None:
+				label_widget.set_text(
+					"Ready" if self.settings["nomotd"] else self.motd
+				)
+			else:
+				label_widget.set_text(text)
+		
+		if version is not Ellipsis:
+			label_widget = self._builder.get_object("StatusBar.Version")
+			if version is None:
+				label_widget.set_text("–")
+			else:
+				label_widget.set_text(version.name)
+		
+		if overhead is not Ellipsis:
+			label_widget = self._builder.get_object("StatusBar.Overhead")
+			if overhead is None:
+				label_widget.set_text("–")
+			elif overhead == 0:
+				label_widget.set_text("No overhead")
+			else:
+				ohstr = self._format_size(overhead)
+				if len(ohstr) > 11:
+					spcpos = ohstr.find(" ")
+					if spcpos == -1:
+						ohstr = ">9999999999"
+					else:
+						suffix = ohstr[spcpos:]
+						maxnln = 11 - len(suffix)
+						dotpos = ohstr.find(".")
+						if maxnln - 3 < dotpos < maxnln:
+							ohstr = ohstr[:dotpos] + "+" + suffix
+						else:
+							ohstr = ">" + "9" * (maxnln - 1) + suffix
+				label_widget.set_text(ohstr + " overhead")
 	
 	def invoke_properties_dialog(self, widget: Gtk.Widget) -> None:
 		"""Show a dialog to modify the current file’s properties."""
@@ -625,9 +669,9 @@ class Mixtool(Gtk.Application):
 		if self.size_units is None:
 			return str(value)
 		base, units = self.size_units
-		dimensions = len(units)
+		maxdimension = len(units) - 1
 		dimension = 0
-		while value > base and dimension < dimensions:
+		while value >= base and dimension < maxdimension:
 			dimension += 1
 			value /= base
 		fstring = "{0:.2F} {1}" if dimension else "{0:d} {1}"
@@ -981,11 +1025,9 @@ class Mixtool(Gtk.Application):
 			
 			# Reverse what self.switch_file() does
 			self._builder.get_object("MainWindow").set_title("Mixtool")
-			self._builder.get_object("StatusBar").set_text(
-				"Ready" if self.settings["nomotd"] else self.motd
-			)
 			dummy_store = self._builder.get_object("DummyStore")
 			self._builder.get_object("ContentList").set_model(dummy_store)
+			self._set_status(None, None, None)
 		
 		# Display tab bar only when two ore more files are open
 		if len(self._files) < 2:
@@ -997,15 +1039,14 @@ class Mixtool(Gtk.Application):
 		"""Toggle button sensitivity based on the current selection."""
 		if self._files:
 			record = self._files[-1]
-			selcount = selector.count_selected_rows()
 			mixlen = record.container.get_filecount()
-			verstr = record.container.get_version().name
+			selcount = selector.count_selected_rows()
 			valid = bool(selcount)
 			if valid:
-				status = "{0} of {1} files selected in {2} MIX.".format(selcount, mixlen, verstr)
+				status = "{0} files in MIX, {1} selected".format(mixlen, selcount)
 			else:
-				status = "{0} files in {1} MIX.".format(mixlen, verstr)
-			self._builder.get_object("StatusBar").set_text(status)
+				status = "{0} files in MIX".format(mixlen)
+			self._set_status(status, record.container.get_version(), record.container.get_overhead())
 		else:
 			valid = False
 		

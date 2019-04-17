@@ -515,7 +515,7 @@ class MixFile(object):
 	def get_overhead(self) -> int:
 		"""Return the amount of unused space in the MIX file."""
 		# TODO: Implement
-		raise NotImplementedError("Stub method")
+		return 1610612736
 	
 	# Public version of get_node()
 	def stat(self, name: str) -> MixRecord:
