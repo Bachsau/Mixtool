@@ -440,20 +440,7 @@ class Mixtool(Gtk.Application):
 			elif overhead == 0:
 				label_widget.set_text("No overhead")
 			else:
-				ohstr = self._format_size(overhead)
-				if len(ohstr) > 11:
-					spcpos = ohstr.find(" ")
-					if spcpos == -1:
-						ohstr = ">9999999999"
-					else:
-						suffix = ohstr[spcpos:]
-						maxnln = 11 - len(suffix)
-						dotpos = ohstr.find(".")
-						if maxnln - 3 < dotpos < maxnln:
-							ohstr = ohstr[:dotpos] + "+" + suffix
-						else:
-							ohstr = ">" + "9" * (maxnln - 1) + suffix
-				label_widget.set_text(ohstr + " overhead")
+				label_widget.set_text(self._format_size(overhead) + " overhead")
 	
 	def invoke_properties_dialog(self, widget: Gtk.Widget) -> None:
 		"""Show a dialog to modify the current file’s properties."""
