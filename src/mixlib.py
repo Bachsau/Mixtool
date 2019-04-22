@@ -631,7 +631,7 @@ class MixFile(object):
 			
 			self._index = newindex
 			
-			for key, node in self._index:
+			for key, node in self._index.items():
 				node.key = key
 		
 		if version is Version.TD:

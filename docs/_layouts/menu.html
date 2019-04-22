@@ -24,7 +24,7 @@
 				text-decoration:none;
 			}
 			
-			h1 {
+			h1, p {
 				text-align:center;
 			}
 			
@@ -40,7 +40,9 @@
 		</style>
 	</head>
 	<body>
-		<h1><img src="assets/mixtool.png" alt="[Logo]" height="96" width="96"><br>Mixtool</h1>
+		<!-- FIXME: Rework style sheet -->
+		<h1 style="margin-bottom:0;"><img src="assets/mixtool.png" alt="[Logo]" height="96" width="96"><br>Mixtool</h1>
+		<p style="margin-bottom:20px;font-style:italic;">Alpha 0.2 (WIP)</p>
 {{ content | strip }}
 		<div style="margin-top:60px;text-align:center;">
 			<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_parent">

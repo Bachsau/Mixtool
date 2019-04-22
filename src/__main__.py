@@ -62,7 +62,7 @@ class Configuration(collections.abc.MutableMapping):
 	
 	__slots__ = ("_defaults", "_parser", "_section")
 	
-	key_chars = frozenset("0123456789_abcdefghijklmnopqrstuvwxyz")
+	key_chars = re.compile("[0-9_a-z]*", re.ASCII)
 	
 	def __init__(self, product: str) -> None:
 		"""Initialize the configuration manager."""
@@ -101,9 +101,7 @@ class Configuration(collections.abc.MutableMapping):
 					return parse.unquote_to_bytes(self._parser.get(self._section, identifier))
 			except ValueError:
 				self._parser.remove_option(self._section, identifier)
-				return default
-		else:
-			return default
+		return default
 	
 	def __setitem__(self, identifier: str, value) -> None:
 		"""Set `identifier` to `value`.
@@ -168,7 +166,9 @@ class Configuration(collections.abc.MutableMapping):
 		"""
 		if type(identifier) is not str:
 			raise TypeError("Identifiers must be strings.")
-		if not self.key_chars.issuperset(identifier):
+		if not identifier:
+			raise ValueError("Identifiers must not be empty.")
+		if not self.key_chars.fullmatch(identifier):
 			raise ValueError("Identifier contains invalid characters.")
 		if identifier in self._defaults:
 			raise ValueError("Identifier already registered.")
@@ -198,7 +198,7 @@ class Mixtool(Gtk.Application):
 	"""Main application controller"""
 	
 	# Characters allowed when simple names are enforced
-	simple_chars = frozenset("-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz")
+	simple_chars = re.compile("[-.\w]*", re.ASCII)
 	
 	# The GtkFileFilter used by open/save dialogs
 	file_filter = Gtk.FileFilter()
@@ -207,7 +207,7 @@ class Mixtool(Gtk.Application):
 	
 	# Object initializer
 	def __init__(self) -> None:
-		"""Initialize the Mixtool instance."""
+		"""Initialize the application controller."""
 		Gtk.Application.__init__(
 			self,
 			application_id="com.bachsau.mixtool",
@@ -260,17 +260,17 @@ class Mixtool(Gtk.Application):
 			else:
 				self.data_path = os.path.realpath(os_appdata) + "\\Bachsau\\Mixtool"
 			del os_appdata
-			self._reserved_filenames = (
+			self._reserved_filenames = frozenset((
 				"AUX", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7",
 				"COM8", "COM9", "CON", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5",
 				"LPT6", "LPT7", "LPT8", "LPT9", "NUL", "PRN"
-			)
-			self._reserved_filechars = re.compile("[\"*/:<>?\\\\|]|\\.$")
+			))
+			self._reserved_filechars = re.compile("[\"*/:<>?\\\\|]|\\.$", re.ASCII)
 		elif sys.platform.startswith("darwin"):
 			# Apple macOS
 			self.data_path = self.home_path + "/Library/Application Support/com.bachsau.mixtool"
-			self._reserved_filenames = (".", "..")
-			self._reserved_filechars = re.compile("[/]")
+			self._reserved_filenames = frozenset((".", ".."))
+			self._reserved_filechars = re.compile("[/]", re.ASCII)
 		else:
 			# Linux and others
 			os_appdata = os.environ.get("XDG_DATA_HOME")
@@ -279,8 +279,8 @@ class Mixtool(Gtk.Application):
 			else:
 				self.data_path = os.path.realpath(os_appdata) + "/mixtool"
 			del os_appdata
-			self._reserved_filenames = (".", "..")
-			self._reserved_filechars = re.compile("[/]")
+			self._reserved_filenames = frozenset((".", ".."))
+			self._reserved_filechars = re.compile("[/]", re.ASCII)
 		
 		# Create non-existent directories
 		if not os.path.isdir(self.data_path):
@@ -661,7 +661,7 @@ class Mixtool(Gtk.Application):
 		while value >= base and dimension < maxdimension:
 			dimension += 1
 			value /= base
-		fstring = "{0:.2F} {1}" if dimension else "{0:d} {1}"
+		fstring = "{0:.2f} {1}" if dimension else "{0:d} {1}"
 		return fstring.format(value, units[dimension])
 	
 	def render_formatted_size(
@@ -1109,9 +1109,15 @@ def main() -> int:
 	sys.stdout.reconfigure(errors="replace")
 	sys.stderr.reconfigure(errors="replace")
 	
-	# FIXME: Remove in final version
-	print("Mixtool is running on Python {0[0]}.{0[1]} using PyGObject {1[0]}.{1[1]} and GTK+ {2[0]}.{2[1]}.".
-		format(sys.version_info, gi.version_info, (Gtk.get_major_version(), Gtk.get_minor_version())), file=sys.stderr)
+	print("Mixtool is running on Python {0}.{1} using PyGObject {2}.{3} and GTK+ {4}.{5}.".
+		format(
+			sys.version_info[0],
+			sys.version_info[1],
+			gi.version_info[0],
+			gi.version_info[1],
+			Gtk.get_major_version(),
+			Gtk.get_minor_version()
+		), file=sys.stderr)
 	
 	# Initialize Application
 	GLib.set_prgname("mixtool")
@@ -1129,7 +1135,7 @@ def main() -> int:
 
 
 # A simple, instance-independent messagebox
-def alert(text: str, severity: str = "i", parent: Gtk.Window = None, *, secondary: str = None, markup: int = 0) -> None:
+def alert(text, severity: str = "i", parent: Gtk.Window = None, *, secondary = None, markup: int = 0) -> None:
 	"""Display a dialog box containing `text` and an OK button.
 	
 	`severity` can be 'i' for info, 'w' for warning, or 'e' for error.
@@ -1186,7 +1192,7 @@ def alert(text: str, severity: str = "i", parent: Gtk.Window = None, *, secondar
 
 
 # Messageboxes for when the user has a choice
-def ask(text: str, buttons: str = "yn", parent: Gtk.Window = None, *, secondary: str = None, markup: int = 0) -> bool:
+def ask(text, buttons: str = "yn", parent: Gtk.Window = None, *, secondary = None, markup: int = 0) -> bool:
 	"""Display a dialog box containing `text` and two buttons.
 	
 	`buttons` can be 'yn' for Yes and No, or 'oc' for OK and Cancel.

@@ -480,9 +480,9 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="margin_top">6</property>
                 <property name="margin_bottom">6</property>
                 <property name="ellipsize">end</property>
-                <property name="width_chars">19</property>
+                <property name="width_chars">20</property>
                 <property name="single_line_mode">True</property>
-                <property name="max_width_chars">19</property>
+                <property name="max_width_chars">20</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -1139,6 +1139,11 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                   <object class="GtkComboBoxText" id="Settings.Units">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="tooltip_text">Microsoft Windows uses IEC units with wrong prefixes.
+
+Apple macOS uses SI units since version 10.6 (“Snow Leopard”).
+
+Most Linux desktops can be configured to use either.</property>
                     <property name="margin_bottom">10</property>
                     <items>
                       <item id="iec">IEC units (base 1024)</item>
