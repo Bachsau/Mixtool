@@ -447,6 +447,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               <object class="GtkLabel" id="StatusBar.Version">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text">TS, RA2 and YR share the same file format version.</property>
                 <property name="margin_left">10</property>
                 <property name="margin_right">10</property>
                 <property name="margin_top">6</property>
@@ -475,6 +476,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               <object class="GtkLabel" id="StatusBar.Overhead">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text">Having overhead means there is unused space inside the MIX caused by prior editing. Choose “Optimize” to reclaim it.</property>
                 <property name="margin_left">10</property>
                 <property name="margin_right">10</property>
                 <property name="margin_top">6</property>
@@ -608,8 +610,9 @@ Sam Hewitt (snwh)</property>
                 <property name="label">_Yes</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="has_focus">True</property>
-                <property name="receives_default">True</property>
+                <property name="can_default">True</property>
+                <property name="has_default">True</property>
+                <property name="receives_default">False</property>
                 <property name="use_underline">True</property>
                 <style>
                   <class name="destructive-action"/>
@@ -649,10 +652,11 @@ Do you want to continue?</property>
         </child>
         <child>
           <object class="GtkCheckButton" id="DeletionWarning.Disable">
-            <property name="label">Do not display this warning again</property>
+            <property name="label">Do not _display this warning again</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">False</property>
+            <property name="use_underline">True</property>
             <property name="draw_indicator">True</property>
           </object>
           <packing>
@@ -711,8 +715,9 @@ Do you want to continue?</property>
                 <property name="label">_OK</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="has_focus">True</property>
-                <property name="receives_default">True</property>
+                <property name="can_default">True</property>
+                <property name="has_default">True</property>
+                <property name="receives_default">False</property>
                 <property name="use_underline">True</property>
               </object>
               <packing>
@@ -754,7 +759,6 @@ Do you want to continue?</property>
                 <property name="can_focus">False</property>
                 <property name="tooltip_text">Selecting another version will convert the file as soon as you click “OK”.
 MIX files of version 1 support neither checksums nor encrypted headers.</property>
-                <property name="hexpand">True</property>
                 <items>
                   <item id="TD">1 – TD</item>
                   <item id="RA">2 – RA</item>
@@ -882,8 +886,9 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                 <property name="label">_OK</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="has_focus">True</property>
-                <property name="receives_default">True</property>
+                <property name="can_default">True</property>
+                <property name="has_default">True</property>
+                <property name="receives_default">False</property>
                 <property name="use_underline">True</property>
               </object>
               <packing>
@@ -894,11 +899,12 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
             </child>
             <child>
               <object class="GtkButton" id="SettingsDialog.Defaults">
-                <property name="label">Defaults</property>
+                <property name="label">_Defaults</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="tooltip_text">Reset all settings to build-in defaults. Nothing is applied until you click the “OK” button.</property>
+                <property name="use_underline">True</property>
                 <signal name="clicked" handler="on_defaults_clicked" swapped="no"/>
               </object>
               <packing>
@@ -1059,7 +1065,8 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
               <object class="GtkLabel">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label">File handling</property>
+                <property name="label">_File handling</property>
+                <property name="use_underline">True</property>
               </object>
               <packing>
                 <property name="tab_fill">False</property>
@@ -1103,7 +1110,7 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                 </child>
                 <child>
                   <object class="GtkRadioButton" id="Settings.ExtractToSource">
-                    <property name="label">the directory of the MIX _file.</property>
+                    <property name="label">the directory of the _MIX file.</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
@@ -1191,7 +1198,7 @@ Most Linux desktops can be configured to use either.</property>
                 </child>
                 <child>
                   <object class="GtkCheckButton" id="Settings.DisableMOTD">
-                    <property name="label">Disable _MOTD</property>
+                    <property name="label">D_isable MOTD</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
@@ -1262,7 +1269,8 @@ Most Linux desktops can be configured to use either.</property>
               <object class="GtkLabel">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label">Appearance</property>
+                <property name="label">_Appearance</property>
+                <property name="use_underline">True</property>
               </object>
               <packing>
                 <property name="position">1</property>
@@ -1292,7 +1300,8 @@ Most Linux desktops can be configured to use either.</property>
               <object class="GtkLabel">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label">Online settings</property>
+                <property name="label">O_nline features</property>
+                <property name="use_underline">True</property>
               </object>
               <packing>
                 <property name="position">2</property>
@@ -1342,8 +1351,9 @@ Most Linux desktops can be configured to use either.</property>
                 <property name="label">_OK</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="has_focus">True</property>
-                <property name="receives_default">True</property>
+                <property name="can_default">True</property>
+                <property name="has_default">True</property>
+                <property name="receives_default">False</property>
                 <property name="use_underline">True</property>
               </object>
               <packing>
@@ -1389,10 +1399,11 @@ Most Linux desktops can be configured to use either.</property>
         </child>
         <child>
           <object class="GtkCheckButton" id="VersionWarning.Disable">
-            <property name="label">Do not display this warning again</property>
+            <property name="label">Do not _display this warning again</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">False</property>
+            <property name="use_underline">True</property>
             <property name="draw_indicator">True</property>
           </object>
           <packing>

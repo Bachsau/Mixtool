@@ -75,7 +75,7 @@ class _MixNode(object):
 
 	def __delattr__(self, attr):
 		"""Raise TypeError."""
-		raise TypeError("Cannot delete node attributes.")
+		raise TypeError("Cannot delete node attributes")
 
 
 class MixError(Exception):
@@ -168,7 +168,7 @@ class MixFSError(MixError):
 			if type(value) is int:
 				self._characters_written = value
 				return
-		raise TypeError("Value cannot be interpreted as an integer.")
+		raise TypeError("Value cannot be interpreted as an integer")
 	
 	@characters_written.deleter
 	def characters_written(self) -> None:
@@ -222,7 +222,7 @@ class Version(enum.Enum):
 			if self in lowers:
 				return other not in lowers
 			return self is not other
-		raise TypeError("Operands must be Version enumeration members.")
+		raise TypeError("Operands must be Version enumeration members")
 
 
 # A named tuple for metadata returned to the user
@@ -236,10 +236,10 @@ class MixFile(object):
 	
 	__slots__ = ("_dirty", "_stream", "_open", "_index", "_contents", "_version", "_flags")
 	
-	def __init__(self, stream: io.BufferedIOBase, version: Version = None):
+	def __init__(self, stream: io.BufferedIOBase, new: Version = None):
 		"""Parse a MIX from `stream`, which must be a buffered file object.
 		
-		If `version` is given, initialize an empty MIX of this version instead.
+		If `new` is not None, initialize an empty MIX of this version instead.
 		MixParseError is raised on parsing errors.
 		"""
 		
@@ -251,20 +251,20 @@ class MixFile(object):
 		# If stream is, for example, a raw I/O object, files could be destroyed
 		# without ever raising an error, so check this.
 		if not isinstance(stream, io.BufferedIOBase):
-			raise TypeError("`stream` must be an instance of io.BufferedIOBase.")
+			raise TypeError("`stream` must be an instance of io.BufferedIOBase")
 		
 		if not stream.readable():
-			raise ValueError("`stream` must be readable.")
+			raise ValueError("`stream` must be readable")
 		
 		if not stream.seekable():
-			raise ValueError("`stream` must be seekable.")
+			raise ValueError("`stream` must be seekable")
 		
-		if version is not None:
+		if new is not None:
 			# Start empty (new file)
-			if type(version) is not Version:
-				raise TypeError("`version` must be a Version enumeration member or None.")
+			if type(new) is not Version:
+				raise TypeError("`new` must be a Version enumeration member or None")
 			if version is Version.RG:
-				raise NotImplementedError("RG MIX files are not yet supported.")
+				raise NotImplementedError("RG MIX files are not yet supported")
 			self._stream = stream
 			self._index = {}
 			self._contents = []
@@ -275,19 +275,19 @@ class MixFile(object):
 		# Parse an existing file
 		filesize = stream.seek(0, io.SEEK_END)
 		if filesize <= 6:
-			raise MixParseError("File too small.")
+			raise MixParseError("File too small")
 		stream.seek(0)
 		
 		first4 = stream.read(4)
 		if first4 == b"MIX1":
-			raise NotImplementedError("RG MIX files are not yet supported.")
+			raise NotImplementedError("RG MIX files are not yet supported")
 		elif first4[:2] == b"\x00\x00":
 			# It seems we have a RA or TS MIX so check the flags
 			flags = int.from_bytes(first4[2:], "little")
 			if flags > 3:
-				raise MixParseError("Unsupported properties.")
+				raise MixParseError("Unsupported properties")
 			if flags & 2:
-				raise NotImplementedError("Encrypted MIX files are not yet supported.")
+				raise NotImplementedError("Encrypted MIX files are not yet supported")
 			
 			# FIXME HERE: 80 bytes of westwood key_source if encrypted,
 			#             to create a 56 byte long blowfish key from it.
@@ -318,7 +318,7 @@ class MixFile(object):
 		# Check if data is sane
 		# FIXME: Checksummed MIXes have 20 additional bytes after the body.
 		if filesize - bodyoffset != bodysize:
-			raise MixParseError("Incorrect filesize or invalid header.")
+			raise MixParseError("Incorrect filesize or invalid header")
 
 		# OK, time to read the index
 		index = {}
@@ -326,12 +326,12 @@ class MixFile(object):
 			offset += bodyoffset
 			
 			if offset + size > filesize:
-				raise MixParseError("Content extends beyond end of file.")
+				raise MixParseError("Content extends beyond end of file")
 
 			index[key] = _MixNode(key, offset, size, size, None)
 
 		if len(index) != filecount:
-			raise MixParseError("Duplicate key.")
+			raise MixParseError("Duplicate key")
 
 		# Now read the names
 		# TD/RA: 1422054725; TS: 913179935
@@ -346,7 +346,7 @@ class MixFile(object):
 				dbsize  = int.from_bytes(stream.read(4), "little")  # Total filesize
 
 				if dbsize != index[dbkey].size or dbsize > 16777216:
-					raise MixParseError("Invalid name table.")
+					raise MixParseError("Invalid name table")
 
 				# Skip four bytes for XCC type; 0 for LMD, 2 for XIF
 				# Skip four bytes for DB version; Always zero
@@ -371,7 +371,7 @@ class MixFile(object):
 				namelist  = stream.read(bodysize).split(b"\x00") if bodysize else []
 				
 				if len(namelist) != namecount:
-					raise MixParseError("Invalid name table.")
+					raise MixParseError("Invalid name table")
 				
 				# Remove Database from index
 				del index[dbkey]
@@ -398,7 +398,7 @@ class MixFile(object):
 			contents[i].alloc = contents[i+1].offset - contents[i].offset
 
 			if contents[i].alloc < contents[i].size:
-				raise MixParseError("Overlapping file boundaries.")
+				raise MixParseError("Overlapping file boundaries")
 
 		# Populate the object
 		self._stream = stream
@@ -466,20 +466,17 @@ class MixFile(object):
 		ValueError is raised if `name` is not valid.
 		"""
 		if not isinstance(name, str):
-			raise TypeError("Names must be strings.")
-		
+			raise TypeError("Names must be strings")
 		if not name:
-			raise ValueError("Names must not be empty.")
-		
+			raise ValueError("Names must not be empty")
 		if name.startswith(("0x", "0X")):
 			key = int(name, 16)
 			if not key:
-				raise ValueError("Keys must not be zero.")
+				raise ValueError("Keys must not be zero")
 			if key > 4294967295:
-				raise ValueError("Key exceeds maximum value.")
+				raise ValueError("Key exceeds maximum value")
 			return key
 		return genkey(name, self._version)
-		
 		
 	# Move contents in stream
 	# Not to be called from outside
@@ -618,7 +615,7 @@ class MixFile(object):
 			reserved = (1422054725, 913179935)
 			for node in self._contents:
 				if node.name is None:
-					raise MixFSError("Conversion impossible with names missing.")
+					raise MixFSError("Conversion impossible with names missing")
 				
 				newkey = genkey(node.name, version)
 				if newkey in reserved:
@@ -627,6 +624,7 @@ class MixFile(object):
 				newindex[newkey] = node
 			
 			if len(newindex) != len(self._contents):
+				# FIXME: Check in conversion, put filenames in exception
 				raise MixFSError("Key collision")
 			
 			self._index = newindex
@@ -815,6 +813,7 @@ class MixFile(object):
 		
 		index = self._contents.index(node)
 		if index:
+			# FIXME: Handle end of file
 			self._contents[index-1].alloc += node.alloc
 		del self._contents[index]
 	
@@ -856,7 +855,7 @@ class MixFile(object):
 		if inode is not None:
 			if inode.name.startswith("0x"):
 				inode.name = name
-			raise MixFSError("File exists.")
+			raise MixFSError("File exists")
 
 		filecount   = len(self._contents)
 		indexoffset = 6 if self._version == Version.TD else 10
@@ -1039,4 +1038,4 @@ def genkey(name: str, version: Version) -> int:
 		return binascii.crc32(n)
 	if version is Version.RG:
 		return binascii.crc32(n)
-	raise TypeError("`version` must be a Version enumeration member.")
+	raise TypeError("`version` must be a Version enumeration member")

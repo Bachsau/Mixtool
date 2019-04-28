@@ -120,7 +120,7 @@ class Configuration(collections.abc.MutableMapping):
 		elif dtype is bytes and type(value) is bytes:
 			self._parser.set(self._section, identifier, parse.quote_from_bytes(value))
 		else:
-			raise TypeError("Not matching registered type.")
+			raise TypeError("Not matching registered type")
 	
 	def __delitem__(self, identifier: str) -> None:
 		"""Remove customized value of `identifier`.
@@ -165,15 +165,15 @@ class Configuration(collections.abc.MutableMapping):
 		Supported types are bool, int, float, str, and bytes.
 		"""
 		if type(identifier) is not str:
-			raise TypeError("Identifiers must be strings.")
+			raise TypeError("Identifiers must be strings")
 		if not identifier:
-			raise ValueError("Identifiers must not be empty.")
+			raise ValueError("Identifiers must not be empty")
 		if not self.key_chars.fullmatch(identifier):
-			raise ValueError("Identifier contains invalid characters.")
+			raise ValueError("Identifier contains invalid characters")
 		if identifier in self._defaults:
-			raise ValueError("Identifier already registered.")
+			raise ValueError("Identifier already registered")
 		if type(default) not in (bool, int, float, str, bytes):
-			raise TypeError("Unsupported type.")
+			raise TypeError("Unsupported type")
 		self._defaults[identifier] = default
 	
 	def get_default(self, identifier: str):
@@ -249,9 +249,8 @@ class Mixtool(Gtk.Application):
 			"on_key_pressed": self.handle_custom_keys
 		})
 		
-		# Determine the platform-specific data directory
+		# Determine platform-specific conditions
 		self.home_path = os.path.realpath(os.path.expanduser("~"))
-		
 		if sys.platform.startswith("win"):
 			# Microsoft Windows
 			os_appdata = os.environ.get("APPDATA")
@@ -411,7 +410,7 @@ class Mixtool(Gtk.Application):
 		else:
 			self._set_status(None, None, None)
 	
-	def _set_status(self, text = Ellipsis, version = Ellipsis, overhead = Ellipsis):
+	def _set_status(self, text=Ellipsis, version=Ellipsis, overhead=Ellipsis) -> None:
 		"""Update the specified fields of the status bar.
 		
 		Passing None sets the default *not-applicable* value.
@@ -432,15 +431,19 @@ class Mixtool(Gtk.Application):
 				label_widget.set_text("–")
 			else:
 				label_widget.set_text(version.name)
+			label_widget.set_has_tooltip(version is mixlib.Version.TS)
 		
 		if overhead is not Ellipsis:
 			label_widget = self._builder.get_object("StatusBar.Overhead")
-			if overhead is None:
-				label_widget.set_text("–")
-			elif overhead == 0:
-				label_widget.set_text("No overhead")
-			else:
+			if overhead:
 				label_widget.set_text(self._format_size(overhead) + " overhead")
+				label_widget.set_has_tooltip(True)
+			else:
+				if overhead is None:
+					label_widget.set_text("–")
+				else:
+					label_widget.set_text("No overhead")
+				label_widget.set_has_tooltip(False)
 	
 	def invoke_properties_dialog(self, widget: Gtk.Widget) -> None:
 		"""Show a dialog to modify the current file’s properties."""
@@ -616,6 +619,7 @@ class Mixtool(Gtk.Application):
 		"""Delete selected files after showing an optional warning."""
 		nowarn = self.settings["nowarn"]
 		if not nowarn & 2:
+			self._builder.get_object("DeletionWarning.Yes").grab_focus()
 			dialog = self._builder.get_object("DeletionWarning")
 			response = dialog.run()
 			dialog.hide()
@@ -656,13 +660,13 @@ class Mixtool(Gtk.Application):
 		if self.size_units is None:
 			return str(value)
 		base, units = self.size_units
-		maxdimension = len(units) - 1
-		dimension = 0
-		while value >= base and dimension < maxdimension:
-			dimension += 1
+		maxdim = len(units) - 1
+		curdim = 0
+		while value >= base and curdim < maxdim:
+			curdim += 1
 			value /= base
-		fstring = "{0:.2f} {1}" if dimension else "{0:d} {1}"
-		return fstring.format(value, units[dimension])
+		fstring = "{0:.2f} {1}" if curdim else "{0:d} {1}"
+		return fstring.format(value, units[curdim])
 	
 	def render_formatted_size(
 		self,
@@ -671,7 +675,7 @@ class Mixtool(Gtk.Application):
 		tree_model: Gtk.TreeModel,
 		tree_iter: Gtk.TreeIter,
 		data: int
-	):
+	) -> None:
 		"""Set text of `renderer` to a size in a human-readable format."""
 		value = tree_model.get_value(tree_iter, data)
 		renderer.set_property("text", self._format_size(value))
@@ -1028,11 +1032,12 @@ class Mixtool(Gtk.Application):
 			record = self._files[-1]
 			mixlen = record.container.get_filecount()
 			selcount = selector.count_selected_rows()
-			valid = bool(selcount)
-			if valid:
+			if selcount:
 				status = "{0} files in MIX, {1} selected".format(mixlen, selcount)
+				valid = True
 			else:
 				status = "{0} files in MIX".format(mixlen)
+				valid = False
 			self._set_status(status, record.container.get_version(), record.container.get_overhead())
 		else:
 			valid = False
@@ -1043,7 +1048,7 @@ class Mixtool(Gtk.Application):
 	def handle_custom_keys(self, widget: Gtk.Widget, evkey: Gdk.EventKey) -> bool:
 		"""React to pressing delete on the content list."""
 		if evkey.keyval == Gdk.KEY_Delete:
-			if not evkey.state & 67108877:
+			if not evkey.state & 13:
 				self.delete_selected_files(widget)
 			return True
 		return False
@@ -1060,6 +1065,7 @@ class Mixtool(Gtk.Application):
 			
 			nowarn = self.settings["nowarn"]
 			if not nowarn & 1:
+				self._builder.get_object("VersionWarning.OK").grab_focus()
 				dialog = self._builder.get_object("VersionWarning")
 				dialog.run()
 				dialog.hide()
@@ -1135,7 +1141,7 @@ def main() -> int:
 
 
 # A simple, instance-independent messagebox
-def alert(text, severity: str = "i", parent: Gtk.Window = None, *, secondary = None, markup: int = 0) -> None:
+def alert(text, severity: str = "i", parent: Gtk.Window = None, *, secondary=None, markup: int = 0) -> None:
 	"""Display a dialog box containing `text` and an OK button.
 	
 	`severity` can be 'i' for info, 'w' for warning, or 'e' for error.
@@ -1192,7 +1198,7 @@ def alert(text, severity: str = "i", parent: Gtk.Window = None, *, secondary = N
 
 
 # Messageboxes for when the user has a choice
-def ask(text, buttons: str = "yn", parent: Gtk.Window = None, *, secondary = None, markup: int = 0) -> bool:
+def ask(text, buttons: str = "yn", parent: Gtk.Window = None, *, secondary=None, markup: int = 0) -> bool:
 	"""Display a dialog box containing `text` and two buttons.
 	
 	`buttons` can be 'yn' for Yes and No, or 'oc' for OK and Cancel.
