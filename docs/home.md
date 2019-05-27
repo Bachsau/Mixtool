@@ -10,16 +10,9 @@ Welcome to Mixtool!
 Mixtool is a platform independent editor for Westwood&nbsp;Studios’ MIX files.  
 These files are used by the classic Command&nbsp;&amp;&nbsp;Conquer games.
 
-<div style="display:inline-block;">
-	<a href="assets/screenshot.png" rel="lightbox" title="Mixtool Alpha 0.2 (volatile)">
-		<img src="assets/screenshot_small.png" alt="Mixtool Alpha 0.2 (volatile)" width="300" height="147">
-	</a>
-</div>
-<div style="display:inline-block;">
-	<p>Download released sources:</p>
-	<p>Download latest sources:</p>
-	<p>View GitHub repository:</p>
-</div>
+<a href="assets/screenshot.png" rel="lightbox" title="Mixtool Alpha 0.2 (volatile)">
+	<img src="assets/screenshot_small.png" alt="Mixtool Alpha 0.2 (volatile)" width="300" height="147">
+</a>
 
 At the current development state, the software is able to extract from,
 insert into and list the contents of *unecrypted* MIX files from Tiberian&nbsp;Dawn,

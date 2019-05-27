@@ -5,9 +5,10 @@ canonical: nav.html
 ---
 
 * [Home](home.html)
+* [Installation](installation.html)
 * [Usage](usage.html)
-* [Installing](installing.html)
 * [Packaging](packaging.html)
+<!-- * Contributing -->
 
 
 [//]: #

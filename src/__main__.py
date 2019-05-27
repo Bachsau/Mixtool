@@ -48,7 +48,7 @@ import mixlib
 
 
 # The data type used to keep track of open files
-FileRecord = collections.namedtuple("FileRecord", ("path", "stat", "container", "store", "button", "isnew"))
+FileRecord = collections.namedtuple("FileRecord", ("path", "stat", "container", "store", "button", "existed"))
 
 
 # A simple abstraction of Python's ConfigParser.
@@ -198,7 +198,7 @@ class Mixtool(Gtk.Application):
 	"""Main application controller"""
 	
 	# Characters allowed when simple names are enforced
-	simple_chars = re.compile("[-.\w]*", re.ASCII)
+	simple_chars = re.compile("[-.\\w]*", re.ASCII)
 	
 	# The GtkFileFilter used by open/save dialogs
 	file_filter = Gtk.FileFilter()
@@ -302,6 +302,7 @@ class Mixtool(Gtk.Application):
 		
 		# Set up the configuration manager
 		self.settings = Configuration("Mixtool")
+		self.settings.register("version", "")
 		self.settings.register("instid", 0)
 		self.settings.register("simplenames", True)
 		self.settings.register("insertlower", True)
@@ -316,6 +317,7 @@ class Mixtool(Gtk.Application):
 		self.settings.register("nowarn", 0)
 		
 		if not self._data_path_blocked:
+			# Read configuration file
 			try:
 				self.settings.load(self.config_file)
 			except FileNotFoundError:
@@ -328,20 +330,30 @@ class Mixtool(Gtk.Application):
 				elif isinstance(problem, configparser.Error):
 					problem_description = "Contains incomprehensible structures"
 				else:
-					problem_description = "Internal error"
+					problem_description = repr(problem)
 				alert(
 					"Mixtool is unable to read its configuration file.", "w",
 					secondary="{0}:\n{1}\n\n".format(problem_description, self.data_path)
 					+ "Your settings will be reset."
 				)
-		
+			
+			# Sanitize settings
+			self.settings["version"] = __version__
+			units = self.settings["units"]
+			valunits = ("iec", "si", "none")
+			if units not in valunits:
+				units = units.lower()
+				if units in valunits:
+					self.settings["units"] = units
+				else:
+					del self.settings["units"]
+			
 			# Initialize the installation id
 			# (to be used with online features)
 			try:
 				inst_id = uuid.UUID(int=self.settings["instid"])
 			except ValueError:
 				inst_id = None
-			
 			if inst_id is not None\
 			and inst_id.variant == uuid.RFC_4122\
 			and inst_id.version == 4:
@@ -351,16 +363,6 @@ class Mixtool(Gtk.Application):
 				self.settings["instid"] = inst_id.int
 				if self._save_settings():
 					self.inst_id = inst_id
-		
-		# Sanitize settings
-		units = self.settings["units"]
-		valunits = ("iec", "si", "none")
-		if units not in valunits:
-			units = units.lower()
-			if units in valunits:
-				self.settings["units"] = units
-			else:
-				del self.settings["units"]
 		
 		# Prepare GUI
 		renderer = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
@@ -545,11 +547,16 @@ class Mixtool(Gtk.Application):
 		record.container.finalize().close()
 		record.button.destroy()
 		
-		# Delete new files if they are still empty
-		if record.isnew:
+		if not record.stat.st_size:
+			# File was initially empty, means it was created by Mixtool.
 			try:
-				if not os.stat(record.path).st_size:
+				stat = os.stat(record.path)
+				if not stat.st_size and os.path.samestat(stat, record.stat):
+					# File is still empty, so remove it.
 					os.remove(record.path)
+					if record.existed:
+						# `existed` means something was there before.
+						os.rename(record.path + ".bak", record.path)
 			except OSError:
 				pass
 	
@@ -872,6 +879,7 @@ class Mixtool(Gtk.Application):
 	def _open_files(self, files: list, new: mixlib.Version = None) -> None:
 		"""Open `files` and create a new tab for each one."""
 		window = self.get_active_window()
+		backup = self.settings["backup"]
 		fd_support = os.stat in os.supports_fd
 		errors = []
 		
@@ -882,11 +890,11 @@ class Mixtool(Gtk.Application):
 				path = os.path.realpath(file.get_path())
 				stat = None
 				
-				# If the file exists, stat it now
+				# Check if file exists
 				try:
 					stat = os.stat(path)
 				except OSError as problem:
-					if not (new is not None and isinstance(problem, FileNotFoundError)):
+					if new is None or not isinstance(problem, FileNotFoundError):
 						errors.append((problem.errno, path))
 						continue
 				else:
@@ -902,13 +910,21 @@ class Mixtool(Gtk.Application):
 				
 				try:
 					if stat is None:
-						isnew = True
+						existed = False
 						stream = open(path, "w+b")
-						# Stat files that didn't exist before
-						stat = os.stat(stream.fileno() if fd_support else path)
 					else:
-						isnew = False
-						stream = open(path, "r+b")
+						existed = True
+						if new is None or not backup:
+							stream = open(path, "r+b")
+						else:
+							bakpath = path + ".bak"
+							if os.path.lexists(bakpath):
+								stream = open(path, "r+b")
+							else:
+								os.rename(path, bakpath)
+								stream = open(path, "w+b")
+					# Stat real file (not racy if `fd_support` is True)
+					stat = os.stat(stream.fileno() if fd_support else path)
 				except OSError as problem:
 					errors.append((problem.errno, path))
 				else:
@@ -940,7 +956,7 @@ class Mixtool(Gtk.Application):
 						button.show()
 						
 						# Create the file record
-						record = FileRecord(path, stat, container, store, button, isnew)
+						record = FileRecord(path, stat, container, store, button, existed)
 						self._files.append(record)
 						
 						# Connect the signal

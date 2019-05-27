@@ -1,6 +1,6 @@
 ---
-title: Installing
-canonical: installing.html
+title: Installation
+canonical: installation.html
 ---
 
 Running development versions

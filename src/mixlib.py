@@ -263,12 +263,12 @@ class MixFile(object):
 			# Start empty (new file)
 			if type(new) is not Version:
 				raise TypeError("`new` must be a Version enumeration member or None")
-			if version is Version.RG:
+			if new is Version.RG:
 				raise NotImplementedError("RG MIX files are not yet supported")
 			self._stream = stream
 			self._index = {}
 			self._contents = []
-			self._version = version
+			self._version = new
 			self._flags = 0
 			return
 		
