@@ -605,10 +605,10 @@ class Mixtool(Gtk.Application):
 	
 	def _get_fallback_directory(self, path: str) -> str:
 		"""Return the deepest accessible directory of `path`."""
-		if not os.path.isabs(path):
-			path = self.home_path
-		else:
+		if os.path.isabs(path):
 			path = os.path.normpath(path)
+		else:
+			path = self.home_path
 		
 		while not (os.access(path, 5) and os.path.isdir(path)):
 			ppath = os.path.dirname(path)
@@ -890,11 +890,10 @@ class Mixtool(Gtk.Application):
 				instream = record.container._stream
 				orgpos = instream.tell()
 				remaining = instream.seek(0, io.SEEK_END)
+				if not remaining:
+					return True
+				instream.seek(0)
 				try:
-					if remaining:
-						instream.seek(0)
-					else:
-						return True
 					# FIXME: Add error handling
 					with open(bakpath, "wb") as outstream:
 						buflen = min(remaining, mixlib.BLOCKSIZE)
