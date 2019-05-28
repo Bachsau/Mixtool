@@ -26,6 +26,7 @@ __author__ = "Bachsau"
 # Standard modules
 import sys
 import os
+import io
 import collections
 import collections.abc
 import re
@@ -377,7 +378,7 @@ class Mixtool(Gtk.Application):
 			renderer = Gtk.CellRendererText(xalign=1.0, family="Monospace")
 			column = self._builder.get_object(column_id)
 			column.pack_start(renderer, False)
-			column.set_cell_data_func(renderer, self.render_formatted_size, data)
+			column.set_cell_data_func(renderer, self._render_formatted_size, data)
 		self.motd = random.choice((
 			"CABAL is order",
 			"Don’t throw stones in glass houses without proper protection",
@@ -636,6 +637,7 @@ class Mixtool(Gtk.Application):
 				self.settings["nowarn"] = nowarn | 2
 				self._save_settings()
 		
+		self._check_make_backup()
 		record = self._files[-1]
 		names = self._get_selected_names()
 		for filename in names:
@@ -675,7 +677,7 @@ class Mixtool(Gtk.Application):
 		fstring = "{0:.2f} {1}" if curdim else "{0:d} {1}"
 		return fstring.format(value, units[curdim])
 	
-	def render_formatted_size(
+	def _render_formatted_size(
 		self,
 		column: Gtk.TreeViewColumn,
 		renderer: Gtk.CellRendererText,
@@ -875,6 +877,39 @@ class Mixtool(Gtk.Application):
 				content.offset,
 				content.alloc - content.size
 			))
+	
+	def _check_make_backup(self) -> bool:
+		"""Backup the current file if backups are enabled and none exists.
+		
+		Return False to abort pending operations, else True.
+		"""
+		if self.settings["backup"]:
+			record = self._files[-1]
+			bakpath = record.path + ".bak"
+			if record.existed and not os.path.lexists(bakpath):
+				instream = record.container._stream
+				orgpos = instream.tell()
+				remaining = instream.seek(0, io.SEEK_END)
+				try:
+					if remaining:
+						instream.seek(0)
+					else:
+						return True
+					# FIXME: Add error handling
+					with open(bakpath, "wb") as outstream:
+						buflen = min(remaining, mixlib.BLOCKSIZE)
+						buffer = memoryview(bytearray(buflen))
+						while remaining >= buflen:
+							remaining -= instream.readinto(buffer)
+							outstream.write(buffer)
+						if remaining:
+							buffer = buffer[:remaining]
+							instream.readinto(buffer)
+							outstream.write(buffer)
+						del buffer
+				finally:
+					instream.seek(orgpos)
+		return True
 	
 	def _open_files(self, files: list, new: mixlib.Version = None) -> None:
 		"""Open `files` and create a new tab for each one."""

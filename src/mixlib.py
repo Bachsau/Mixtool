@@ -830,22 +830,20 @@ class MixFile(object):
 		if node is None:
 			raise MixFSError("File not found")
 		
-		self._stream.seek(node.offset)
 		with open(dest, "wb") as outstream:
-			buflen = BLOCKSIZE
-			if node.size > buflen:
-				buffer = memoryview(bytearray(buflen))
-				remaining = node.size
-				while remaining >= buflen:
-					remaining -= self._stream.readinto(buffer)
-					outstream.write(buffer)
-				if remaining:
-					buffer = buffer[:remaining]
-					self._stream.readinto(buffer)
-					outstream.write(buffer)
-			else:
-				buffer = self._stream.read(node.size)
+			instream = self._stream
+			instream.seek(node.offset)
+			remaining = node.size
+			buflen = min(remaining, BLOCKSIZE)
+			buffer = memoryview(bytearray(buflen))
+			while remaining >= buflen:
+				remaining -= instream.readinto(buffer)
 				outstream.write(buffer)
+			if remaining:
+				buffer = buffer[:remaining]
+				instream.readinto(buffer)
+				outstream.write(buffer)
+			del buffer
 	
 	# Insert a new, empty file
 	def add_inode(self, name, alloc=4096):
