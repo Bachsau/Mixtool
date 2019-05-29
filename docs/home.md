@@ -38,14 +38,32 @@ will be more about changes under the hood than adding new features. I know that 
 encrypted headers is crucial, but it will have to wait until Alpha 0.3, when the code cleanup
 is complete.
 
-Licensing
-----------
+Versioning
+-----------
+
+Mixtool tries to follow the [Semantic Versioning specification][0], even
+though, as a front-end application, it has no public API to be used by
+other applications. Alpha versions released during rapid development are
+tagged v0.x.x and should be safe to run without causing mayhem. They are
+usually released when a milestone is reached. No features are guaranteed
+to work. Everything can change during this period and neither binaries
+nor upgrade routines are provided. Final versions will be tagged v1.x.x
+and have their pre-releases suffixed by “-beta” or “-rc”, optionally
+followed by a dot and some number. The suffix “-volatile” is used in
+trunk between releases and denotes changing code prior to a release. It
+is never used in tags. Version descriptions used in headlines or about
+dialogs are not semantic, may include codenames, and are solely meant
+for human perception.
+
+License
+--------
 
 | Software      | Documentation              |
 | ------------- | -------------------------- |
-| [![GPLv3]][0] | [![GPLv3]][0] [![GFDL]][1] |
+| [![GPLv3]][1] | [![GPLv3]][1] [![GFDL]][2] |
 
 [GPLv3]: assets/gpl3.svg
 [GFDL]: assets/gfdl.svg
-[0]: javascript:self.location='gpl3.html'
-[1]: javascript:self.location='gfdl.html'
+[0]: https://semver.org/spec/v2.0.0.html
+[1]: javascript:self.location='gpl3.html'
+[2]: javascript:self.location='gfdl.html'

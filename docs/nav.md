@@ -8,7 +8,7 @@ canonical: nav.html
 * [Installation](installation.html)
 * [Usage](usage.html)
 * [Packaging](packaging.html)
-<!-- * Contributing -->
+* [Contributing](contributing.html)
 
 
 [//]: #
