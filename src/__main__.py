@@ -664,6 +664,16 @@ class Mixtool(Gtk.Application):
 			adapted_names.append(adapted_name)
 		return adapted_names
 	
+	def _rename_by_dialog(self, names: list, message: str) -> list:
+		"""Take a list of names and suggestions, return a new one after editing."""
+		# (original, suggestion) => (original, decission)
+		pass
+	
+	def invoke_rename_dialog(self, widget: Gtk.Widget) -> None:
+		"""Rename selected files by using a dialog."""
+		# Use _rename_by_dialog
+		pass
+	
 	def _format_size(self, value: int) -> str:
 		"""Convert `value` to a human-readable size string."""
 		if self.size_units is None:

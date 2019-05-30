@@ -12,6 +12,9 @@ ehthumbs.db
 __pycache__/
 *.py[cod]
 
+# Compiled resources
+*.gresource
+
 # Jekyll build directory
 /docs/_site/
 

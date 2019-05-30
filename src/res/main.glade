@@ -952,7 +952,7 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                     <property name="can_focus">False</property>
                     <property name="margin_left">25</property>
                     <property name="margin_bottom">10</property>
-                    <property name="label">Accept only letters from A to Z, digits, dots, hyphens and underscores in file names for maximum compatibility.</property>
+                    <property name="label">Accept only letters from A to Z, digits, dots, hyphens and underscores in file names for maximum compatibility. Mixtool will ask for new names when you add files that do not meet these specifications.</property>
                     <property name="wrap">True</property>
                     <property name="max_width_chars">63</property>
                     <property name="xalign">0</property>
@@ -1048,7 +1048,7 @@ MIX files of version 1 support neither checksums nor encrypted headers.</propert
                     <property name="can_focus">False</property>
                     <property name="margin_left">25</property>
                     <property name="margin_bottom">10</property>
-                    <property name="label">When this option is set, Mixtool will automatically create backups of modified files. Backups will be saved by the original filename suffixed by "~". No backup is made if such a file already exists.</property>
+                    <property name="label">If this option is set, Mixtool will automatically create backups of modified files. Backups will be saved by the original filename suffixed by “~”. No backup is made if such a file already exists.</property>
                     <property name="wrap">True</property>
                     <property name="max_width_chars">63</property>
                     <property name="xalign">0</property>

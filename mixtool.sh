@@ -35,11 +35,12 @@ find_path() {
 }
 
 trap false INT
-export LC_ALL=en_US.UTF-8
-export G_SLICE=debug-blocks
-export GTK_THEME=Adwaita
-#export G_RESOURCE_OVERLAYS=/com/bachsau/mixtool=res
 appdir=$(find_path "$0")
+export LC_ALL=en_US.UTF-8
+#export G_SLICE=debug-blocks
+export G_ENABLE_DIAGNOSTIC=1
+export GTK_THEME=Adwaita
+export G_RESOURCE_OVERLAYS="/com/bachsau/mixtool=$appdir/src/res"
 mkdir -p "$appdir/logs"
 olog=$appdir/logs/output.log
 elog=$appdir/logs/$(date '+errors_%y%m%d-%H%M%S.log')

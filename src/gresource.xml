@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--﻿
+	Copyright (C) 2015-2019 Sven Heinemann (Bachsau)
+
+	This file is part of Mixtool.
+
+	Mixtool is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	Mixtool is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with Mixtool.  If not, see <https://www.gnu.org/licenses/>.
+-->
+<gresources>
+	<gresource prefix="/com/bachsau/mixtool">
+		<file preprocess="xml-stripblanks" compressed="true">main.glade</file>
+		<file>icons/mixtool.png</file>
+		<file compressed="true">icons/toolbar_about.svg</file>
+		<file compressed="true">icons/toolbar_close.svg</file>
+		<file compressed="true">icons/toolbar_delete.svg</file>
+		<file compressed="true">icons/toolbar_extract.svg</file>
+		<file compressed="true">icons/toolbar_insert.svg</file>
+		<file compressed="true">icons/toolbar_new.svg</file>
+		<file compressed="true">icons/toolbar_open.svg</file>
+		<file compressed="true">icons/toolbar_optimize.svg</file>
+		<file compressed="true">icons/toolbar_properties.svg</file>
+		<file compressed="true">icons/toolbar_quit.svg</file>
+		<file compressed="true">icons/toolbar_settings.svg</file>
+		<file compressed="true">icons/warning.svg</file>
+	</gresource>
+</gresources>
