@@ -116,7 +116,7 @@ class MixFSError(MixError):
 				return newcls(*args)
 		
 		# Initialize special attributes
-		self = super().__new__(cls, *args)
+		self = MixError.__new__(cls, *args)
 		for attr in MixFSError.__slots__:
 			setattr(self, attr, None)
 		return self
@@ -138,13 +138,13 @@ class MixFSError(MixError):
 		if attr in MixFSError.__slots__:
 			setattr(self, attr, None)
 		else:
-			super().__delattr__(attr)
+			MixError.__delattr__(self, attr)
 	
 	def __str__(self):
 		"""Return string representation."""
 		if self.errno is not None and self.strerror is not None:
 			return "[Errno {0!s}] {1!s}".format(self.errno, self.strerror)
-		return super().__str__()
+		return MixError.__str__(self)
 	
 	@property
 	def characters_written(self) -> int:
@@ -477,27 +477,25 @@ class MixFile(object):
 				raise ValueError("Key exceeds maximum value")
 			return key
 		return genkey(name, self._version)
-		
-	# Move contents in stream
-	# Not to be called from outside
-	def _move_internal(self, rpos, wpos, size):
-		"""Internal move method..."""
-		
-		blocks, rest = divmod(size, BLOCKSIZE)
-
-		if blocks:
-			buffer = bytearray(BLOCKSIZE)
+	
+	def _copy_blocks(self, rpos, wpos, length):
+		"""Copy `length` bytes from `rpos` to `wpos`."""
+		if length:
+			stream = self._stream
+			buflen = min(length, BLOCKSIZE)
+			blocks, rest = divmod(buflen, BLOCKSIZE)
+			buffer = memoryview(bytearray(buflen))
 			for i in range(blocks):
-				self._stream.seek(rpos)
-				rpos += self._stream.readinto(buffer)
-				self._stream.seek(wpos)
-				wpos += self._stream.write(buffer)
-
-		if rest:
-			self._stream.seek(rpos)
-			buffer = self._stream.read(rest)
-			self._stream.seek(wpos)
-			self._stream.write(buffer)
+				stream.seek(rpos)
+				rpos += stream.readinto(buffer)
+				stream.seek(wpos)
+				wpos += stream.write(buffer)
+			if rest:
+				buffer = buffer[:rest]
+				stream.seek(rpos)
+				stream.readinto(buffer)
+				stream.seek(wpos)
+				stream.write(buffer)
 	
 	# Public method to list the MIX file's contents
 	def get_contents(self) -> list:
@@ -698,7 +696,7 @@ class MixFile(object):
 					self._contents.insert(index, self._contents[0])
 					del self._contents[0]
 
-				self._move_internal(rpos, wpos, size)
+				self._copy_blocks(rpos, wpos, size)
 
 			self._contents[-1].alloc = self._contents[-1].size
 
@@ -727,7 +725,7 @@ class MixFile(object):
 						nextoffset += inode.size
 						i += 1
 
-					self._move_internal(rpos, wpos, size)
+					self._copy_blocks(rpos, wpos, size)
 
 				else:
 					inode.alloc = inode.size

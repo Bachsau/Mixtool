@@ -29,57 +29,57 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
   <object class="GtkImage" id="Toolbar.About.Icon">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="pixbuf">icons/toolbar_about.svg</property>
+    <property name="resource">/com/bachsau/mixtool/icons/toolbar_about.svg</property>
   </object>
   <object class="GtkImage" id="Toolbar.Close.Icon">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="pixbuf">icons/toolbar_close.svg</property>
+    <property name="resource">/com/bachsau/mixtool/icons/toolbar_close.svg</property>
   </object>
   <object class="GtkImage" id="Toolbar.Delete.Icon">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="pixbuf">icons/toolbar_delete.svg</property>
+    <property name="resource">/com/bachsau/mixtool/icons/toolbar_delete.svg</property>
   </object>
   <object class="GtkImage" id="Toolbar.Extract.Icon">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="pixbuf">icons/toolbar_extract.svg</property>
+    <property name="resource">/com/bachsau/mixtool/icons/toolbar_extract.svg</property>
   </object>
   <object class="GtkImage" id="Toolbar.Insert.Icon">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="pixbuf">icons/toolbar_insert.svg</property>
+    <property name="resource">/com/bachsau/mixtool/icons/toolbar_insert.svg</property>
   </object>
   <object class="GtkImage" id="Toolbar.New.Icon">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="pixbuf">icons/toolbar_new.svg</property>
+    <property name="resource">/com/bachsau/mixtool/icons/toolbar_new.svg</property>
   </object>
   <object class="GtkImage" id="Toolbar.Open.Icon">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="pixbuf">icons/toolbar_open.svg</property>
+    <property name="resource">/com/bachsau/mixtool/icons/toolbar_open.svg</property>
   </object>
   <object class="GtkImage" id="Toolbar.Optimize.Icon">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="pixbuf">icons/toolbar_optimize.svg</property>
+    <property name="resource">/com/bachsau/mixtool/icons/toolbar_optimize.svg</property>
   </object>
   <object class="GtkImage" id="Toolbar.Properties.Icon">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="pixbuf">icons/toolbar_properties.svg</property>
+    <property name="resource">/com/bachsau/mixtool/icons/toolbar_properties.svg</property>
   </object>
   <object class="GtkImage" id="Toolbar.Quit.Icon">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="pixbuf">icons/toolbar_quit.svg</property>
+    <property name="resource">/com/bachsau/mixtool/icons/toolbar_quit.svg</property>
   </object>
   <object class="GtkImage" id="Toolbar.Settings.Icon">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="pixbuf">icons/toolbar_settings.svg</property>
+    <property name="resource">/com/bachsau/mixtool/icons/toolbar_settings.svg</property>
   </object>
   <object class="GtkApplicationWindow" id="MainWindow">
     <property name="width_request">267</property>
@@ -89,7 +89,6 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="role">main</property>
     <property name="window_position">center</property>
     <property name="default_height">500</property>
-    <property name="icon">icons/mixtool.png</property>
     <property name="show_menubar">False</property>
     <signal name="delete-event" handler="on_quit_clicked" swapped="no"/>
     <child>
@@ -524,7 +523,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="artists">Sven Heinemann (Bachsau)
 Daniel Foré (danrabbit)
 Sam Hewitt (snwh)</property>
-    <property name="logo">icons/mixtool.png</property>
+    <property name="logo">resource:///com/bachsau/mixtool/icons/mixtool.png</property>
     <property name="license_type">gpl-3-0</property>
     <child>
       <placeholder/>
@@ -1373,7 +1372,7 @@ Most Linux desktops can be configured to use either.</property>
           <object class="GtkImage">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="pixbuf">icons/warning.svg</property>
+            <property name="resource">/com/bachsau/mixtool/icons/warning.svg</property>
           </object>
           <packing>
             <property name="expand">False</property>

@@ -42,7 +42,7 @@ import gi
 gi.require_version("Pango", "1.0")
 gi.require_version("Gdk", "3.0")
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, GObject, Gio, Pango, Gdk, Gtk
+from gi.repository import GLib, GObject, Gio, Pango, Gdk, GdkPixbuf, Gtk
 
 # Local modules
 import mixlib
@@ -212,11 +212,12 @@ class Mixtool(Gtk.Application):
 		Gtk.Application.__init__(
 			self,
 			application_id="com.bachsau.mixtool",
-			flags=Gio.ApplicationFlags.HANDLES_OPEN
+			flags=Gio.ApplicationFlags.HANDLES_OPEN,
+			resource_base_path=None
 		)
-		self.set_resource_base_path(None)
 		
 		# Initialize mandatory attributes
+		self._startup_complete = False
 		self._data_path_blocked = False
 		self._files = []
 	
@@ -227,10 +228,34 @@ class Mixtool(Gtk.Application):
 		Gtk.Application.do_startup(self)
 		Gdk.Screen.get_default().set_resolution(96.0)
 		
-		# Parse GUI file
+		# Load resources
 		app_path = os.path.dirname(os.path.realpath(__file__))
-		gui_file = os.sep.join((app_path, "res", "main.glade"))
-		self._builder = Gtk.Builder.new_from_file(gui_file)
+		try:
+			resources = Gio.resource_load(os.sep.join((app_path, "gui.gresource")))
+		except GLib.Error as problem:
+			print(problem.message,file=sys.stderr)
+			overlays = os.environ.get("G_RESOURCE_OVERLAYS")
+			if not (overlays and re.search("(?:^|{0})/com/bachsau/mixtool(?:/[^/{0}=]+)*=".format(GLib.SEARCHPATH_SEPARATOR_S), overlays)):
+				alert("Interface data could not be loaded:", "e", secondary="\n\n".join((problem.message, "Mixtool will quit.")))
+				sys.exit(1)
+			del overlays
+		else:
+			Gio.resources_register(resources)
+			del resources
+		
+		# Parse interface definitions
+		self._builder = Gtk.Builder()
+		try:
+			self._builder.add_from_resource("/com/bachsau/mixtool/main.glade")
+			Gtk.Window.set_default_icon(GdkPixbuf.Pixbuf.new_from_resource("/com/bachsau/mixtool/icons/mixtool.png"))
+		except GLib.Error as problem:
+			print(problem.message,file=sys.stderr)
+			alert("Interface definitions could not be loaded:", "e", secondary="\n\n".join((
+				problem.message,
+				"The data file “{0}” might be damaged.".format(os.sep.join((app_path, "gui.gresource"))),
+				"Mixtool will quit."
+			)))
+			sys.exit(1)
 		self._builder.connect_signals({
 			"on_new_clicked": self.invoke_new_dialog,
 			"on_open_clicked": self.invoke_open_dialog,
@@ -393,6 +418,7 @@ class Mixtool(Gtk.Application):
 			"Your orders – My ideas"
 		))
 		self._apply_settings()
+		self._startup_complete = True
 	
 	def _apply_settings(self) -> None:
 		"""Apply settings that should have an immediate effect on appearance."""
@@ -1117,6 +1143,15 @@ class Mixtool(Gtk.Application):
 	# is invoked without parameters.
 	def do_activate(self) -> None:
 		"""Create a new main window or present an existing one."""
+		if not self._startup_complete:
+			message = "Application startup failed."
+			print(message,file=sys.stderr)
+			alert(message, "e", secondary=
+				"Mixtool’s startup routine terminated unexpectedly.\n"
+				"This is most likely to happen due to programming errors.\n\n"
+				"Please report a bug if you are not using a development version."
+			)
+			sys.exit(1)
 		window = self.get_active_window()
 		if window is None:
 			window = self._builder.get_object("MainWindow")
