@@ -63,7 +63,8 @@ class Configuration(collections.abc.MutableMapping):
 	
 	__slots__ = ("_defaults", "_parser", "_section")
 	
-	key_chars = re.compile("[0-9_a-z]*", re.ASCII)
+	_key_chars = re.compile("[0-9_a-z]*", re.ASCII)
+	_types = frozenset((bool, int, float, str, bytes))
 	
 	def __init__(self, product: str) -> None:
 		"""Initialize the configuration manager."""
@@ -91,15 +92,15 @@ class Configuration(collections.abc.MutableMapping):
 			dtype = type(default)
 			try:
 				if dtype is bool:
-					return self._parser.getboolean(self._section, identifier)
+					return self._parser.getboolean(self._section, identifier, raw=True)
 				if dtype is int:
-					return self._parser.getint(self._section, identifier)
+					return self._parser.getint(self._section, identifier, raw=True)
 				if dtype is float:
-					return self._parser.getfloat(self._section, identifier)
+					return self._parser.getfloat(self._section, identifier, raw=True)
 				if dtype is str:
-					return parse.unquote(self._parser.get(self._section, identifier), errors="strict")
+					return parse.unquote(self._parser.get(self._section, identifier, raw=True), errors="strict")
 				if dtype is bytes:
-					return parse.unquote_to_bytes(self._parser.get(self._section, identifier))
+					return parse.unquote_to_bytes(self._parser.get(self._section, identifier, raw=True))
 			except ValueError:
 				self._parser.remove_option(self._section, identifier)
 		return default
@@ -169,11 +170,11 @@ class Configuration(collections.abc.MutableMapping):
 			raise TypeError("Identifiers must be strings")
 		if not identifier:
 			raise ValueError("Identifiers must not be empty")
-		if not self.key_chars.fullmatch(identifier):
+		if not self._key_chars.fullmatch(identifier):
 			raise ValueError("Identifier contains invalid characters")
 		if identifier in self._defaults:
 			raise ValueError("Identifier already registered")
-		if type(default) not in (bool, int, float, str, bytes):
+		if type(default) not in self._types:
 			raise TypeError("Unsupported type")
 		self._defaults[identifier] = default
 	
@@ -199,12 +200,12 @@ class Mixtool(Gtk.Application):
 	"""Main application controller"""
 	
 	# Characters allowed when simple names are enforced
-	simple_chars = re.compile("[-.\\w]*", re.ASCII)
+	_simple_chars = re.compile("[-.\\w]*", re.ASCII)
 	
 	# The GtkFileFilter used by open/save dialogs
-	file_filter = Gtk.FileFilter()
-	file_filter.set_name("MIX files")
-	file_filter.add_pattern("*.[Mm][Ii][Xx]")
+	_file_filter = Gtk.FileFilter()
+	_file_filter.set_name("MIX files")
+	_file_filter.add_pattern("*.[Mm][Ii][Xx]")
 	
 	# Object initializer
 	def __init__(self) -> None:
@@ -228,29 +229,28 @@ class Mixtool(Gtk.Application):
 		Gtk.Application.do_startup(self)
 		Gdk.Screen.get_default().set_resolution(96.0)
 		
-		# Load resources
+		# Load resource file
 		app_path = os.path.dirname(os.path.realpath(__file__))
 		try:
 			resources = Gio.resource_load(os.sep.join((app_path, "gui.gresource")))
 		except GLib.Error as problem:
-			print(problem.message,file=sys.stderr)
+			print(problem.message, file=sys.stderr)
 			overlays = os.environ.get("G_RESOURCE_OVERLAYS")
 			if not (overlays and re.search("(?:^|{0})/com/bachsau/mixtool(?:/[^/{0}=]+)*=".format(GLib.SEARCHPATH_SEPARATOR_S), overlays)):
-				alert("Interface data could not be loaded:", "e", secondary="\n\n".join((problem.message, "Mixtool will quit.")))
+				alert("Interface data could not be loaded.", "e", secondary="\n\n".join((problem.message, "Mixtool will quit.")))
 				sys.exit(1)
 			del overlays
 		else:
 			Gio.resources_register(resources)
-			del resources
 		
 		# Parse interface definitions
 		self._builder = Gtk.Builder()
 		try:
-			self._builder.add_from_resource("/com/bachsau/mixtool/main.glade")
 			Gtk.Window.set_default_icon(GdkPixbuf.Pixbuf.new_from_resource("/com/bachsau/mixtool/icons/mixtool.png"))
+			self._builder.add_from_resource("/com/bachsau/mixtool/main.glade")
 		except GLib.Error as problem:
-			print(problem.message,file=sys.stderr)
-			alert("Interface definitions could not be loaded:", "e", secondary="\n\n".join((
+			print(problem.message, file=sys.stderr)
+			alert("Interface definitions could not be loaded.", "e", secondary="\n\n".join((
 				problem.message,
 				"The data file “{0}” might be damaged.".format(os.sep.join((app_path, "gui.gresource"))),
 				"Mixtool will quit."
@@ -307,28 +307,29 @@ class Mixtool(Gtk.Application):
 			self._reserved_filenames = frozenset((".", ".."))
 			self._reserved_filechars = re.compile("[/]", re.ASCII)
 		
+		# Set path to configuration file
+		self.config_file = os.sep.join((self.data_path, "settings.ini"))
+		
 		# Create non-existent directories
 		if not os.path.isdir(self.data_path):
 			try:
 				os.makedirs(self.data_path, 448)
 			except Exception as problem:
-				self._data_path_blocked = True
 				if isinstance(problem, OSError):
-					problem_description = problem.strerror
+					problem_description = "Failed to make directory “{0}”: {1}".format(problem.filename, problem.strerror)
 				else:
-					problem_description = "Internal error"
-				alert(
-					"Mixtool was not able to create its data directory.", "w",
-					secondary="{0}:\n{1}\n\n".format(problem_description, self.data_path)
-					+ "Your settings will not be retained."
-				)
-		
-		# Set path to configuration file
-		self.config_file = os.sep.join((self.data_path, "settings.ini"))
+					problem_description = "Unexpected “{0}”: {1}".format(type(problem).__name__, str(problem))
+				print(problem_description, file=sys.stderr)
+				alert("Profile directory could not be created.", "w", secondary="\n\n".join((
+						problem_description,
+						"Your settings will not be retained and the names database is not available."
+				)))
+				self._data_path_blocked = True
 		
 		# Set up the configuration manager
 		self.settings = Configuration("Mixtool")
 		self.settings.register("version", "")
+		self.settings.register("nowarn", 0)
 		self.settings.register("instid", 0)
 		self.settings.register("simplenames", True)
 		self.settings.register("insertlower", True)
@@ -340,7 +341,6 @@ class Mixtool(Gtk.Application):
 		self.settings.register("units", "iec")
 		self.settings.register("mixdir", self.home_path)
 		self.settings.register("extdir", self.home_path)
-		self.settings.register("nowarn", 0)
 		
 		if not self._data_path_blocked:
 			# Read configuration file
@@ -350,21 +350,23 @@ class Mixtool(Gtk.Application):
 				pass
 			except Exception as problem:
 				if isinstance(problem, OSError):
-					problem_description = problem.strerror
+					problem_description = "Failed to open file “{0}”: {1}".format(problem.filename, problem.strerror)
 				elif isinstance(problem, UnicodeError):
-					problem_description = "Contains non-ASCII characters"
+					problem_description = "Error processing the file at “{0}”: {1}".format(self.config_file, "Contains non-ASCII characters")
 				elif isinstance(problem, configparser.Error):
-					problem_description = "Contains incomprehensible structures"
+					problem_description = "Error processing the file at “{0}”: {1}".format(self.config_file, "Contains incomprehensible structures")
 				else:
-					problem_description = repr(problem)
-				alert(
-					"Mixtool is unable to read its configuration file.", "w",
-					secondary="{0}:\n{1}\n\n".format(problem_description, self.data_path)
-					+ "Your settings will be reset."
-				)
+					problem_description = "Unexpected “{0}”: {1}".format(type(problem).__name__, str(problem))
+				print(problem_description, file=sys.stderr)
+				alert("Settings could not be restored.", "w", secondary="\n\n".join((
+						problem_description,
+						"Your settings will be reset."
+				)))
 			
-			# Sanitize settings
-			self.settings["version"] = __version__
+			# Update and sanitize settings
+			nowarn = self.settings["nowarn"]
+			if nowarn & 1 and re.match("[1-9]\\d*(?:\\.\\d+){,2}(?:\\+|$)", self.settings["version"], re.ASCII):
+				self.settings["nowarn"] = nowarn & -2
 			units = self.settings["units"]
 			valunits = ("iec", "si", "none")
 			if units not in valunits:
@@ -373,6 +375,7 @@ class Mixtool(Gtk.Application):
 					self.settings["units"] = units
 				else:
 					del self.settings["units"]
+			self.settings["version"] = __version__
 			
 			# Initialize the installation id
 			# (to be used with online features)
@@ -845,7 +848,7 @@ class Mixtool(Gtk.Application):
 			action=Gtk.FileChooserAction.SAVE,
 			do_overwrite_confirmation=True,
 			extra_widget=version_box,
-			filter=self.file_filter
+			filter=self._file_filter
 		)
 		try:
 			dialog.add_buttons(
@@ -880,7 +883,7 @@ class Mixtool(Gtk.Application):
 			transient_for=window,
 			action=Gtk.FileChooserAction.OPEN,
 			select_multiple=True,
-			filter=self.file_filter
+			filter=self._file_filter
 		)
 		try:
 			dialog.add_buttons(
@@ -1184,18 +1187,16 @@ class Mixtool(Gtk.Application):
 			try:
 				self.settings.save(self.config_file)
 			except Exception as problem:
-				self._data_path_blocked = True
-				
 				if isinstance(problem, OSError):
-					problem_description = problem.strerror
+					problem_description = "Failed to open file “{0}”: {1}".format(problem.filename, problem.strerror)
 				else:
-					problem_description = "Internal error"
-				
-				alert(
-					"Mixtool was not able to write its configuration file.", "w",
-					secondary="{0}:\n{1}\n\n".format(problem_description, self.data_path)
-					+ "Changed settings will not be retained."
-				)
+					problem_description = "Unexpected “{0}”: {1}".format(type(problem).__name__, str(problem))
+				print(problem_description, file=sys.stderr)
+				alert("Settings could not be saved.", "w", secondary="\n\n".join((
+						problem_description,
+						"Changes to your settings will be discarded when Mixtool quits."
+				)))
+				self._data_path_blocked = True
 			else:
 				print("Saved configuration file.", file=sys.stderr)
 				return True
