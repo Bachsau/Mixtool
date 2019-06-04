@@ -20,6 +20,7 @@
 <gresources>
 	<gresource prefix="/com/bachsau/mixtool">
 		<file preprocess="xml-stripblanks" compressed="true">main.glade</file>
+		<file compressed="true">motd.txt</file>
 		<file>icons/mixtool.png</file>
 		<file compressed="true">icons/toolbar_about.svg</file>
 		<file compressed="true">icons/toolbar_close.svg</file>

@@ -220,6 +220,7 @@ class Mixtool(Gtk.Application):
 		# Initialize mandatory attributes
 		self._startup_complete = False
 		self._data_path_blocked = False
+		self._motd = None
 		self._files = []
 	
 	# This is run when Gtk.Application initializes the first instance.
@@ -230,9 +231,9 @@ class Mixtool(Gtk.Application):
 		Gdk.Screen.get_default().set_resolution(96.0)
 		
 		# Load resource file
-		app_path = os.path.dirname(os.path.realpath(__file__))
+		resource_file = os.sep.join((os.path.dirname(os.path.realpath(__file__)), "gui.gresource"))
 		try:
-			resources = Gio.resource_load(os.sep.join((app_path, "gui.gresource")))
+			resources = Gio.resource_load(resource_file)
 		except GLib.Error as problem:
 			print(problem.message, file=sys.stderr)
 			overlays = os.environ.get("G_RESOURCE_OVERLAYS")
@@ -243,16 +244,20 @@ class Mixtool(Gtk.Application):
 		else:
 			Gio.resources_register(resources)
 		
+		try:
+			Gtk.Window.set_default_icon(GdkPixbuf.Pixbuf.new_from_resource("/com/bachsau/mixtool/icons/mixtool.png"))
+		except GLib.Error:
+			pass
+		
 		# Parse interface definitions
 		self._builder = Gtk.Builder()
 		try:
-			Gtk.Window.set_default_icon(GdkPixbuf.Pixbuf.new_from_resource("/com/bachsau/mixtool/icons/mixtool.png"))
 			self._builder.add_from_resource("/com/bachsau/mixtool/main.glade")
 		except GLib.Error as problem:
 			print(problem.message, file=sys.stderr)
-			alert("Interface definitions could not be loaded.", "e", secondary="\n\n".join((
+			alert("Interface could not be set up.", "e", secondary="\n\n".join((
 				problem.message,
-				"The data file “{0}” might be damaged.".format(os.sep.join((app_path, "gui.gresource"))),
+				"The data file “{0}” might be damaged.".format(resource_file),
 				"Mixtool will quit."
 			)))
 			sys.exit(1)
@@ -329,8 +334,8 @@ class Mixtool(Gtk.Application):
 		# Set up the configuration manager
 		self.settings = Configuration("Mixtool")
 		self.settings.register("version", "")
-		self.settings.register("nowarn", 0)
 		self.settings.register("instid", 0)
+		self.settings.register("nowarn", 0)
 		self.settings.register("simplenames", True)
 		self.settings.register("insertlower", True)
 		self.settings.register("decrypt", True)
@@ -407,19 +412,6 @@ class Mixtool(Gtk.Application):
 			column = self._builder.get_object(column_id)
 			column.pack_start(renderer, False)
 			column.set_cell_data_func(renderer, self._render_formatted_size, data)
-		self.motd = random.choice((
-			"CABAL is order",
-			"Don’t throw stones in glass houses without proper protection",
-			"For Kane",
-			"If I am cut, do I not bleed?",
-			"I’ve got a present for ya",
-			"Kane lives in death",
-			"Rubber shoes in motion",
-			"The technology of peace",
-			"Tiberium is the way and the life",
-			"You can’t kill the messiah",
-			"Your orders – My ideas"
-		))
 		self._apply_settings()
 		self._startup_complete = True
 	
@@ -442,22 +434,23 @@ class Mixtool(Gtk.Application):
 		else:
 			self._set_status(None, None, None)
 	
-	def _set_status(self, text=Ellipsis, version=Ellipsis, overhead=Ellipsis) -> None:
+	def _set_status(self, text=..., version=..., overhead=...) -> None:
 		"""Update the specified fields of the status bar.
 		
 		Passing None sets the default *not-applicable* value.
 		Passing ... does not change a fields current value.
 		"""
-		if text is not Ellipsis:
+		if text is not ...:
 			label_widget = self._builder.get_object("StatusBar.Text")
 			if text is None:
-				label_widget.set_text(
-					"Ready" if self.settings["nomotd"] else self.motd
-				)
+				if self.settings["nomotd"] or self._motd is None and not self._set_motd():
+					label_widget.set_text("Ready")
+				else:
+					label_widget.set_text(self._motd)
 			else:
 				label_widget.set_text(text)
 		
-		if version is not Ellipsis:
+		if version is not ...:
 			label_widget = self._builder.get_object("StatusBar.Version")
 			if version is None:
 				label_widget.set_text("–")
@@ -465,7 +458,7 @@ class Mixtool(Gtk.Application):
 				label_widget.set_text(version.name)
 			label_widget.set_has_tooltip(version is mixlib.Version.TS)
 		
-		if overhead is not Ellipsis:
+		if overhead is not ...:
 			label_widget = self._builder.get_object("StatusBar.Overhead")
 			if overhead:
 				label_widget.set_text(self._format_size(overhead) + " overhead")
@@ -476,6 +469,36 @@ class Mixtool(Gtk.Application):
 				else:
 					label_widget.set_text("No overhead")
 				label_widget.set_has_tooltip(False)
+	
+	def _set_motd(self) -> bool:
+		"""Set a new MOTD. Return True on success, else False."""
+		stream = None
+		try:
+			stream = Gio.DataInputStream(
+				base_stream=Gio.resources_open_stream("/com/bachsau/mixtool/motd.txt", Gio.ResourceLookupFlags.NONE),
+				newline_type=Gio.DataStreamNewlineType.ANY
+			)
+			lines = [line[0] for line in iter(stream.read_line_utf8, (None, 0))]
+		except Exception as problem:
+			if isinstance(problem, GLib.Error):
+				problem_description = problem.message
+			else:
+				problem_description = "Unexpected “{0}”: {1}".format(type(problem).__name__, str(problem))
+			print(problem_description, file=sys.stderr)
+			self.settings["nomotd"] = True
+			alert("MOTD could not be set.", "w", self.get_active_window(), secondary="\n\n".join((
+				problem.message,
+				"MOTD has been disabled."
+			)))
+			self._save_settings()
+		else:
+			if lines:
+				self._motd = random.choice(lines)
+				return True
+		finally:
+			if stream is not None:
+				stream.close()
+		return False
 	
 	def invoke_properties_dialog(self, widget: Gtk.Widget) -> None:
 		"""Show a dialog to modify the current file’s properties."""
@@ -1079,6 +1102,7 @@ class Mixtool(Gtk.Application):
 			
 			title = button.get_label() + " – Mixtool"
 			self._builder.get_object("MainWindow").set_title(title)
+			self._set_status(..., record.container.get_version(), record.container.get_overhead())
 			
 			content_list = self._builder.get_object("ContentList")
 			content_list.set_model(record.store)
@@ -1127,7 +1151,7 @@ class Mixtool(Gtk.Application):
 			else:
 				status = "{0} files in MIX".format(mixlen)
 				valid = False
-			self._set_status(status, record.container.get_version(), record.container.get_overhead())
+			self._set_status(status)
 		else:
 			valid = False
 		
@@ -1192,7 +1216,7 @@ class Mixtool(Gtk.Application):
 				else:
 					problem_description = "Unexpected “{0}”: {1}".format(type(problem).__name__, str(problem))
 				print(problem_description, file=sys.stderr)
-				alert("Settings could not be saved.", "w", secondary="\n\n".join((
+				alert("Settings could not be saved.", "w", self.get_active_window(), secondary="\n\n".join((
 						problem_description,
 						"Changes to your settings will be discarded when Mixtool quits."
 				)))
