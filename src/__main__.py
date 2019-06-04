@@ -490,7 +490,6 @@ class Mixtool(Gtk.Application):
 				problem.message,
 				"MOTD has been disabled."
 			)))
-			self._save_settings()
 		else:
 			if lines:
 				self._motd = random.choice(lines)
@@ -560,7 +559,6 @@ class Mixtool(Gtk.Application):
 			if self._builder.get_object("Settings.ResetWarnings").get_active():
 				del self.settings["nowarn"]
 			self._apply_settings()
-			self._save_settings()
 	
 	def restore_default_settings(self, widget: Gtk.Widget) -> None:
 		"""Set all widgets in the settings dialog to reflect the defaults."""
@@ -636,6 +634,7 @@ class Mixtool(Gtk.Application):
 	def do_shutdown(self) -> None:
 		"""Finalize the application."""
 		try:
+			self._save_settings()
 			self._builder.get_object("MainWindow").destroy()
 		finally:
 			Gtk.Application.do_shutdown(self)
@@ -687,7 +686,6 @@ class Mixtool(Gtk.Application):
 				return
 			if self._builder.get_object("DeletionWarning.Disable").get_active():
 				self.settings["nowarn"] = nowarn | 2
-				self._save_settings()
 		
 		self._check_make_backup()
 		record = self._files[-1]
@@ -756,8 +754,7 @@ class Mixtool(Gtk.Application):
 		window = widget.get_toplevel()
 		record = self._files[-1]
 		etl = self.settings["extracttolast"]
-		saved_path = self.settings["extdir"] if etl else os.path.dirname(record.path)
-		browse_path = self._get_fallback_directory(saved_path)
+		browse_path = self._get_fallback_directory(self.settings["extdir"] if etl else os.path.dirname(record.path))
 		names = self._get_selected_names()
 		multi = len(names) > 1
 		if multi:
@@ -814,10 +811,7 @@ class Mixtool(Gtk.Application):
 					break
 			
 			if etl:
-				# Save last used directory
-				if browse_path != saved_path:
-					self.settings["extdir"] = browse_path
-					self._save_settings()
+				self.settings["extdir"] = browse_path
 			
 			# Extract the files
 			curdest = destpath
@@ -841,8 +835,7 @@ class Mixtool(Gtk.Application):
 	def invoke_new_dialog(self, widget: Gtk.Widget) -> None:
 		"""Show a file chooser dialog and create a new file."""
 		window = widget.get_toplevel()
-		saved_path = self.settings["mixdir"]
-		browse_path = self._get_fallback_directory(saved_path)
+		browse_path = self._get_fallback_directory(self.settings["mixdir"])
 		name_base = "new"
 		name_ext = ".mix"
 		suggestion = name_base + name_ext
@@ -883,15 +876,8 @@ class Mixtool(Gtk.Application):
 			response = dialog.run()
 			dialog.hide()
 			if response == Gtk.ResponseType.ACCEPT:
-				# Save last used directory
-				browse_path = dialog.get_current_folder()
-				if browse_path != saved_path:
-					self.settings["mixdir"] = browse_path
-					self._save_settings()
-				
-				# Open the files
-				version = getattr(mixlib.Version, version_chooser.get_active_id())
-				self._open_files(dialog.get_files(), version)
+				self.settings["mixdir"] = dialog.get_current_folder()
+				self._open_files(dialog.get_files(), getattr(mixlib.Version, version_chooser.get_active_id()))
 		finally:
 			dialog.destroy()
 	
@@ -899,8 +885,7 @@ class Mixtool(Gtk.Application):
 	def invoke_open_dialog(self, widget: Gtk.Widget) -> None:
 		"""Show a file chooser dialog and open selected files."""
 		window = widget.get_toplevel()
-		saved_path = self.settings["mixdir"]
-		browse_path = self._get_fallback_directory(saved_path)
+		browse_path = self._get_fallback_directory(self.settings["mixdir"])
 		dialog = Gtk.FileChooserDialog(
 			title="Open MIX file",
 			transient_for=window,
@@ -917,13 +902,7 @@ class Mixtool(Gtk.Application):
 			response = dialog.run()
 			dialog.hide()
 			if response == Gtk.ResponseType.ACCEPT:
-				# Save last used directory
-				browse_path = dialog.get_current_folder()
-				if browse_path != saved_path:
-					self.settings["mixdir"] = browse_path
-					self._save_settings()
-				
-				# Open the files
+				self.settings["mixdir"] = dialog.get_current_folder()
 				self._open_files(dialog.get_files())
 		finally:
 			dialog.destroy()
@@ -1193,7 +1172,6 @@ class Mixtool(Gtk.Application):
 				dialog.hide()
 				if self._builder.get_object("VersionWarning.Disable").get_active():
 					self.settings["nowarn"] = nowarn | 1
-					self._save_settings()
 		else:
 			window.present()
 			print("Activated main window on behalf of remote controller.", file=sys.stderr)
