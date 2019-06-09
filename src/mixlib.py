@@ -41,6 +41,7 @@ __author__ = "Bachsau"
 import sys
 import os
 import io
+import warnings
 import collections
 import enum
 import struct
@@ -234,7 +235,7 @@ MixRecord = collections.namedtuple("MixRecord", ("name", "size", "alloc", "offse
 class MixFile(object):
 	"""Manage MIX files, one file per instance."""
 	
-	__slots__ = ("_dirty", "_stream", "_open", "_index", "_contents", "_version", "_flags")
+	__slots__ = ("_stream", "_dirty", "_open", "_index", "_contents", "_version", "_flags")
 	
 	def __init__(self, stream: io.BufferedIOBase, new: Version = None):
 		"""Parse a MIX from `stream`, which must be a buffered file object.
@@ -244,8 +245,8 @@ class MixFile(object):
 		"""
 		
 		# Initialize mandatory attributes
-		self._dirty = False
 		self._stream = None
+		self._dirty = False
 		self._open = []
 		
 		# If stream is, for example, a raw I/O object, files could be destroyed
@@ -424,12 +425,12 @@ class MixFile(object):
 		# TODO: Close all contained files as soon as
 		#       `self.open()` gets implemented.
 		if self._dirty:
-				self.write_index()
+			self.write_index()
 		stream = self._stream
 		self._stream = None
 		stream.seek(0)
 		return stream
-
+	
 	# Dirty bit is only used to prevent file corruption,
 	# not for index-only changes like renames, etc.
 	def __del__(self) -> None:
@@ -437,14 +438,14 @@ class MixFile(object):
 		
 		Suppress any errors as they occur.
 		"""
-		try:
-			if self._stream is not None:
-				print("MixFile object destroyed without being finalized.", file=sys.stderr)
+		if self._stream is not None:
+			try:
 				if self._dirty and not self._stream.closed():
 					self.write_index()
-		except Exception:
-			pass
-
+			except Exception:
+				pass
+			warnings.warn("MixFile instance destroyed without being finalized.", RuntimeWarning)
+	
 	# Central file-finding method
 	# Also used to add missing names to the index
 	def _get_node(self, name: str) -> _MixNode:
