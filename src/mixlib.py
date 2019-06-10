@@ -446,20 +446,6 @@ class MixFile(object):
 				pass
 			warnings.warn("MixFile instance destroyed without being finalized.", RuntimeWarning)
 	
-	# Central file-finding method
-	# Also used to add missing names to the index
-	def _get_node(self, name: str) -> _MixNode:
-		"""Return the node for `name` or None if not found.
-
-		Add `name` to the node if it’s missing.
-		
-		ValueError is raised if `name` is not valid.
-		"""
-		node = self._index.get(self._get_key(name))
-		if node is not None and node.name is None and not name.startswith(("0x", "0X")):
-				node.name = name
-		return node
-	
 	# Get key for any *valid* name
 	def _get_key(self, name: str) -> int:
 		"""Return the key for `name`, regardless of it being in the MIX.
@@ -538,7 +524,12 @@ class MixFile(object):
 		
 		ValueError is raised if `name` is not valid.
 		"""
-		return self._get_node(name) is not None
+		node = self._index.get(self._get_key(name))
+		if node is None:
+			return False
+		if node.name is None and not name.startswith(("0x", "0X")):
+			node.name = name
+		return True
 	
 	# Rename a file in the MIX (New method)
 	def rename(self, old: str, new: str) -> bool:
@@ -785,7 +776,7 @@ class MixFile(object):
 		'MixFSError' is raised if the file is not found.
 		"""
 		
-		inode = self._get_node(name)
+		inode = self._index.get(self._get_key(name))
 
 		if inode is None:
 			raise MixFSError("File not found")
@@ -801,9 +792,6 @@ class MixFile(object):
 		ValueError is raised if `name` is not valid.
 		"""
 		
-		# We're not using self._get_node() here, because
-		# there's no reason in adding a name to a file,
-		# that's going to be deleted.
 		key = self._get_key(name)
 		node = self._index.pop(key, None)
 		
@@ -824,7 +812,7 @@ class MixFile(object):
 		MixFSError is raised if the file is not found.
 		ValueError is raised if `name` is not valid.
 		"""
-		node = self._get_node(name)
+		node = self._index.get(self._get_key(name))
 		
 		if node is None:
 			raise MixFSError("File not found")
@@ -961,7 +949,7 @@ class MixIO(io.BufferedIOBase):
 	def __init__(self, container: MixFile, name: str, flags: int) -> None:
 		"""Initialize an abstract stream for `name` on top of `container`."""
 		self._container = container
-		self._node = container._get_node(name)
+		self._node = container._index.get(container._get_key(name))
 		# FIXME: This should probably raise ValueError instead of failing silently on container error
 		self.__readable = flags & 1 and container._stream.readable()
 		self.__writable = flags & 2 and container._stream.writable()
