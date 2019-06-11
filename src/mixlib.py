@@ -27,7 +27,7 @@ __all__ = [
 	"MixReadOnlyError",
 	"MixNotFoundError",
 	"MixExistsError",
-	"MixReservedError",
+	"MixKeyError",
 	"Version",
 	"MixRecord",
 	"MixFile",
@@ -110,7 +110,7 @@ class MixFSError(MixError):
 					1: MixReadOnlyError,  # Container not writable
 					2: MixNotFoundError,  # File not found
 					3: MixExistsError,    # File exists
-					4: MixReservedError   # Reserved key (name tables)
+					4: MixKeyError        # Reserved key (name tables)
 				}
 			newcls = cls.__errnomap.get(args[0])
 			if newcls is not None:
@@ -198,7 +198,7 @@ class MixExistsError(MixFSError):
 	"""
 
 
-class MixReservedError(MixFSError):
+class MixKeyError(MixFSError):
 	"""Raised when trying to set a name evaluating to a reserved key.
 	
 	See help(MixFSError) for accurate signature.
@@ -447,9 +447,9 @@ class MixFile(object):
 			warnings.warn("MixFile instance destroyed without being finalized.", RuntimeWarning)
 	
 	# Get key for any *valid* name
-	def _get_key(self, name: str) -> int:
+	def _get_key(self, name: str, nohex: bool = False) -> int:
 		"""Return the key for `name`, regardless of it being in the MIX.
-
+		
 		ValueError is raised if `name` is not valid.
 		"""
 		if not isinstance(name, str):
@@ -457,6 +457,8 @@ class MixFile(object):
 		if not name:
 			raise ValueError("Names must not be empty")
 		if name.startswith(("0x", "0X")):
+			if nohex:
+				raise ValueError("Keys are not allowed here")
 			key = int(name, 16)
 			if not key:
 				raise ValueError("Keys must not be zero")
@@ -511,54 +513,47 @@ class MixFile(object):
 		"""Return the number of files in the MIX."""
 		return len(self._contents)
 	
-	# Public method to get the MIX version
 	def get_version(self) -> Version:
 		"""Return MIX version."""
 		return self._version
 	
-	# Public method to add missing names
-	def test(self, name: str):
-		"""Return True if the MIX contains a file of `name`, else False.
-		
-		Add `name` to its node if it’s missing.
+	def test(self, name: str) -> bool:
+		"""Return True if `name` resolves to a file in the MIX, else False.
 		
 		ValueError is raised if `name` is not valid.
 		"""
-		node = self._index.get(self._get_key(name))
+		return self._get_key(name) in self._index
+	
+	def name(self, name: str) -> str:
+		"""Set the name of the file it resolves to and return its previous one.
+		
+		Hexadecimal names are not permitted for this operation.
+		ValueError is raised if `name` is not valid.
+		MixFSError is raised if the file is not found.
+		"""
+		node = self._index.get(self._get_key(name, True))
 		if node is None:
-			return False
-		if node.name is None and not name.startswith(("0x", "0X")):
-			node.name = name
-		return True
+			raise MixFSError(2, name, None, "File not found")
+		old_name = node.name or hex(node.key)
+		node.name = name
+		return old_name
 	
 	# Rename a file in the MIX (New method)
 	def rename(self, old: str, new: str) -> bool:
-		"""Rename a contained file and return True if there were any changes.
+		"""Rename a file and return True if there were any changes, else False.
 		
 		ValueError is raised if any name is not valid.
-		
 		MixFSError is raised if a file named `old` does not exist,
 		a file named `new` already exists or a key collision occurs.
 		"""
-		oldkey = self._get_key(old)
-		node = self._index.get(oldkey)
-		
+		old_key = self._get_key(old)
+		node = self._index.get(old_key)
 		if node is None:
 			raise MixFSError(2, old, None, "File not found")
+		new_key = self._get_key(new) if old != new else old_key
 		
-		if old == new:
-			# Maybe the user wants to add a missing name
-			# by giving it twice...
-			if node.name is None and not new.startswith(("0x", "0X")):
-				node.name = new
-				return True
-			return False
-		
-		newkey = self._get_key(new)
-		
-		if newkey == oldkey:
-			# We already know that `old` exists,
-			# so `old` and `new` refer to the same file.
+		if old_key == new_key:
+			# `old` and `new` refer to the same file.
 			if new.startswith(("0x", "0X")):
 				# We do not delete names
 				return False
@@ -567,28 +562,20 @@ class MixFile(object):
 			node.name = new
 			return True
 		
-		conflict_node = self._index.get(newkey)
+		conflict_node = self._index.get(new_key)
 		if conflict_node is not None:
-			# In this case a different file named `new` already exists,
-			# but we never miss a chance to add missing names
-			if node.name is None and not old.startswith(("0x", "0X")):
-				node.name = old
-			if conflict_node.name is None:
-				conflict_name = hex(conflict_node.key)
-				if not new.startswith(("0x", "0X")):
-					conflict_node.name = new
-			else:
-				conflict_name = conflict_node.name
-			raise MixFSError(3, new, conflict_name, "File exists")
+			# In this case a different file named `new` already exists.
+			# We return it as filename2 because it could differ in case of a key collision.
+			raise MixFSError(3, new, conflict_node.name or hex(conflict_node.key), "File exists")
 		
-		if newkey in (1422054725, 913179935):
+		if new_key in (1422054725, 913179935):
 			# These are namelists
 			raise MixFSError(4, new, None, "Evaluation to reserved key")
 		
 		# Checks complete. It's going to be a "real" name change
-		del self._index[oldkey]
-		self._index[newkey] = node
-		node.key = newkey
+		del self._index[old_key]
+		self._index[new_key] = node
+		node.key = new_key
 		node.name = None if new.startswith(("0x", "0X")) else new
 
 	# Change MIX version
@@ -771,9 +758,9 @@ class MixFile(object):
 
 	# Get a file out of the MIX
 	def get_file(self, name):
-		"""Return the contents of 'name' as a single bytes object.
+		"""Return the contents of `name` as a single bytes object.
 
-		'MixFSError' is raised if the file is not found.
+		MixFSError is raised if the file is not found.
 		"""
 		
 		inode = self._index.get(self._get_key(name))
