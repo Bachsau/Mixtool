@@ -157,7 +157,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                 <property name="visible">True</property>
                 <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
-                <property name="tooltip_text">Optimize the MIX file for distribution by removing all overhead and shrinking it to its minimum size.</property>
+                <property name="tooltip_text">Optimize the MIX file for distribution by removing all spare space and shrinking it to its minimum size.</property>
                 <property name="label">O_ptimize</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">Toolbar.Optimize.Icon</property>
@@ -388,12 +388,12 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
                   </object>
                 </child>
                 <child>
-                  <object class="GtkTreeViewColumn" id="ContentList.Overhead">
+                  <object class="GtkTreeViewColumn" id="ContentList.Spare">
                     <property name="resizable">True</property>
                     <property name="sizing">fixed</property>
                     <property name="fixed_width">150</property>
                     <property name="min_width">30</property>
-                    <property name="title">Overhead</property>
+                    <property name="title">Spare</property>
                     <property name="clickable">True</property>
                     <property name="alignment">1</property>
                     <property name="sort_column_id">3</property>
@@ -446,7 +446,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               <object class="GtkLabel" id="StatusBar.Version">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="tooltip_text">TS, RA2 and YR share the same file format version.</property>
+                <property name="tooltip_text">MIX file format version. TS also includes RA2 and YR as they all use the same version.</property>
                 <property name="margin_left">10</property>
                 <property name="margin_right">10</property>
                 <property name="margin_top">6</property>
@@ -475,7 +475,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
               <object class="GtkLabel" id="StatusBar.Overhead">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="tooltip_text">Having overhead means there is unused space inside the MIX caused by prior editing. Choose “Optimize” to reclaim it.</property>
+                <property name="tooltip_text">Total amount of spare space induced by prior editing. Choose “Optimize” to reclaim it.</property>
                 <property name="margin_left">10</property>
                 <property name="margin_right">10</property>
                 <property name="margin_top">6</property>
@@ -517,7 +517,7 @@ along with Mixtool.  If not, see <http://www.gnu.org/licenses/>.
     <property name="copyright">Copyright © 2015–2019 Sven Heinemann (Bachsau)</property>
     <property name="comments">An editor for Westwood Studios’ MIX files</property>
     <property name="website">http://go.bachsau.com/mixtool</property>
-    <property name="website_label">Visit Mixtool website</property>
+    <property name="website_label">Visit website</property>
     <property name="authors">Sven Heinemann (Bachsau)</property>
     <property name="documenters">Sven Heinemann (Bachsau)</property>
     <property name="artists">Sven Heinemann (Bachsau)

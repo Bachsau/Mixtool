@@ -57,26 +57,38 @@ ENCODING: str = "cp1252"  # Western Windows
 class _MixNode(object):
 	"""Nodes used by MixFile instances to store index data."""
 	
-	__slots__ = ("key", "offset", "size", "alloc", "name", "links")
-
-	def __init__(self, key: int, offset: int, size: int, alloc: int, name: str):
+	__slots__ = ("key", "offset", "size", "spare", "name")
+	
+	def __init__(self, key: int, offset: int, size: int, spare: int, name: str = None):
 		"""Initialize the node."""
 		self.key    = key
 		self.offset = offset
 		self.size   = size
-		self.alloc  = alloc
+		self.spare  = spare
 		self.name   = name
-		self.links  = 0
-
+	
 	def __repr__(self):
 		"""Return string representation."""
+		if self.name is None:
+			return "_MixNode({0!r}, {1!r}, {2!r}, {3!r})".format(
+				self.key, self.offset, self.size, self.spare
+			)
 		return "_MixNode({0!r}, {1!r}, {2!r}, {3!r}, {4!r})".format(
-			self.key, self.offset, self.size, self.alloc, self.name
+			self.key, self.offset, self.size, self.spare, self.name
 		)
-
+	
 	def __delattr__(self, attr):
 		"""Raise TypeError."""
 		raise TypeError("Cannot delete node attributes")
+	
+	# Temporary compatibility functions
+	@property
+	def alloc(self):
+		return self.size + self.spare
+	
+	@alloc.setter
+	def alloc(self, value):
+		self.spare = value - self.size
 
 
 class MixError(Exception):
@@ -227,7 +239,7 @@ class Version(enum.Enum):
 
 
 # A named tuple for metadata returned to the user
-MixRecord = collections.namedtuple("MixRecord", ("name", "size", "alloc", "offset"))
+MixRecord = collections.namedtuple("MixRecord", ("name", "size", "spare", "offset"))
 
 
 # Instances represent a single MIX file.
@@ -252,7 +264,7 @@ class MixFile(object):
 		# If stream is, for example, a raw I/O object, files could be destroyed
 		# without ever raising an error, so check this.
 		if not isinstance(stream, io.BufferedIOBase):
-			raise TypeError("`stream` must be an instance of io.BufferedIOBase")
+			raise TypeError("`stream` must be a buffered binary file object")
 		
 		if not stream.readable():
 			raise ValueError("`stream` must be readable")
@@ -329,7 +341,7 @@ class MixFile(object):
 			if offset + size > filesize:
 				raise MixParseError("Content extends beyond end of file")
 
-			index[key] = _MixNode(key, offset, size, size, None)
+			index[key] = _MixNode(key, offset, size, 0)
 
 		if len(index) != filecount:
 			raise MixParseError("Duplicate key")
@@ -396,9 +408,9 @@ class MixFile(object):
 		# Calculate alloc values
 		# This is the size up to wich a file may grow without needing a move
 		for i in range(len(contents) - 1):
-			contents[i].alloc = contents[i+1].offset - contents[i].offset
+			contents[i].spare = contents[i+1].offset - contents[i].offset - contents[i].size
 
-			if contents[i].alloc < contents[i].size:
+			if contents[i].spare < 0:
 				raise MixParseError("Overlapping file boundaries")
 
 		# Populate the object
@@ -492,7 +504,7 @@ class MixFile(object):
 		return [MixRecord(
 			node.name or hex(node.key),
 			node.size,
-			node.alloc,
+			node.spare,
 			node.offset
 		) for node in self._contents]
 	
@@ -501,7 +513,7 @@ class MixFile(object):
 		# TODO: Implement
 		return 0
 	
-	# Public version of get_node()
+	# Public version of self._get_node()
 	def stat(self, name: str) -> MixRecord:
 		"""Return a tuple holding the attributes of the file called `name`."""
 		# TODO: Implement
@@ -538,7 +550,6 @@ class MixFile(object):
 		node.name = name
 		return old_name
 	
-	# Rename a file in the MIX (New method)
 	def rename(self, old: str, new: str) -> bool:
 		"""Rename a file and return True if there were any changes, else False.
 		
@@ -588,23 +599,23 @@ class MixFile(object):
 		"""
 		if self._version.needs_conversion(version):
 			# This means we have to generate new keys for all names
-			newindex = {}
+			new_index = {}
 			reserved = (1422054725, 913179935)
 			for node in self._contents:
 				if node.name is None:
 					raise MixFSError("Conversion impossible with names missing")
 				
-				newkey = genkey(node.name, version)
-				if newkey in reserved:
+				new_key = genkey(node.name, version)
+				if new_key in reserved:
 					# These are namelists
 					raise MixFSError("Evaluation to reserved key")
-				newindex[newkey] = node
+				new_index[new_key] = node
 			
-			if len(newindex) != len(self._contents):
+			if len(new_index) != len(self._contents):
 				# FIXME: Check in conversion, put filenames in exception
 				raise MixFSError("Key collision")
 			
-			self._index = newindex
+			self._index = new_index
 			
 			for key, node in self._index.items():
 				node.key = key
@@ -737,7 +748,7 @@ class MixFile(object):
 		bodysize = self._contents[0].offset - bodyoffset if filecount else 0
 		files = sorted(self._index.items(), key=lambda i: i[1].offset)
 		dbkey = 1422054725 if self._version in (Version.TD, Version.RA) else 913179935
-		files.append((dbkey, _MixNode(None, dboffset, dbsize, dbsize)))
+		files.append((dbkey, _MixNode(dbkey, dboffset, dbsize, 0)))
 
 		self._stream.seek(indexoffset)
 		for key, inode in files:
@@ -755,25 +766,20 @@ class MixFile(object):
 		self._stream.write(bodysize.to_bytes(4, "little"))
 
 		self._stream.flush()
-
-	# Get a file out of the MIX
-	def get_file(self, name):
+	
+	def get_bytes(self, name: str) -> bytes:
 		"""Return the contents of `name` as a single bytes object.
 
 		MixFSError is raised if the file is not found.
 		"""
-		
-		inode = self._index.get(self._get_key(name))
-
-		if inode is None:
-			raise MixFSError("File not found")
-
-		self._stream.seek(inode.offset)
-		return self._stream.read(inode.size)
-
-	# Remove a file from the MIX
+		node = self._index.get(self._get_key(name))
+		if node is None:
+			raise MixFSError(2, name, None, "File not found")
+		self._stream.seek(node.offset)
+		return self._stream.read(node.size)
+	
 	def delete(self, name):
-		"""Remove `name` from the MIX
+		"""Remove `name` from the MIX.
 
 		MixFSError is raised if the file is open or does not exist.
 		ValueError is raised if `name` is not valid.
@@ -857,7 +863,7 @@ class MixFile(object):
 			index = 0
 			offset = minoffset
 
-		inode = _MixNode(name, offset, 0, alloc)
+		inode = _MixNode(key, offset, 0, alloc, name)
 		self._index[key] = inode
 		self._contents.insert(index, inode)
 
@@ -929,7 +935,7 @@ class MixFile(object):
 
 # MixIO instaces are used to work with contained files as if they were real
 class MixIO(io.BufferedIOBase):
-	"""Access files inside MIXes like files on disk."""
+	"""Access contained files like files on disk."""
 	
 	__slots__ = ("_container", "_node", "__cursor", "__readable", "__writable")
 	
@@ -941,21 +947,23 @@ class MixIO(io.BufferedIOBase):
 		self.__readable = flags & 1 and container._stream.readable()
 		self.__writable = flags & 2 and container._stream.writable()
 		self.__cursor = 0
-		self._node.links += 1
 	
 	def readable(self) -> bool:
-		# FIXME: Check if we can exchange OSError by MixIOError
-		"""Return True if the stream can be read from. If False, read() will raise OSError."""
+		"""Return True if the stream can be read from.
+		
+		If False, reading methods will raise io.UnsupportedOperation.
+		"""
 		if self.closed:
 			raise ValueError("I/O operation on closed file")
-
 		return self._container._stream.readable()
 	
 	def writable(self) -> bool:
-		"""Return True if the stream supports writing. If False, write() and truncate() will raise OSError."""
+		"""Return True if the stream supports writing.
+		
+		If False, writing methods will raise io.UnsupportedOperation.
+		"""
 		if self.closed:
 			raise ValueError("I/O operation on closed file")
-
 		return self.__writable()
 	
 	def seekable(self):
@@ -965,7 +973,7 @@ class MixIO(io.BufferedIOBase):
 	def close(self):
 		"""
 		Flush and close this stream.
-
+		
 		This method has no effect if the file is already closed. Once the file is closed,
 		any operation on the file (e.g. reading or writing) will raise `ValueError`.
 		"""

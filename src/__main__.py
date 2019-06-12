@@ -201,6 +201,7 @@ class Mixtool(Gtk.Application):
 	
 	# Characters allowed when simple names are enforced
 	_simple_chars = re.compile("[-.\\w]*", re.ASCII)
+	_hex_digits = re.compile("[\\dA-Fa-f]*", re.ASCII)  # Check & ask on inserts
 	
 	# The GtkFileFilter used by open/save dialogs
 	_file_filter = Gtk.FileFilter()
@@ -406,7 +407,7 @@ class Mixtool(Gtk.Application):
 		for column_id, data in (
 			("ContentList.Size", 1),
 			("ContentList.Offset", 2),
-			("ContentList.Overhead", 3)
+			("ContentList.Spare", 3)
 		):
 			renderer = Gtk.CellRendererText(xalign=1.0, family="Monospace")
 			column = self._builder.get_object(column_id)
@@ -454,21 +455,22 @@ class Mixtool(Gtk.Application):
 			label_widget = self._builder.get_object("StatusBar.Version")
 			if version is None:
 				label_widget.set_text("–")
+				label_widget.set_has_tooltip(False)
 			else:
 				label_widget.set_text(version.name)
-			label_widget.set_has_tooltip(version is mixlib.Version.TS)
+				label_widget.set_has_tooltip(True)
 		
 		if overhead is not ...:
 			label_widget = self._builder.get_object("StatusBar.Overhead")
-			if overhead:
+			if overhead is None:
+				label_widget.set_text("–")
+				label_widget.set_has_tooltip(False)
+			elif overhead:
 				label_widget.set_text(self._format_size(overhead) + " overhead")
 				label_widget.set_has_tooltip(True)
 			else:
-				if overhead is None:
-					label_widget.set_text("–")
-				else:
-					label_widget.set_text("No overhead")
-				label_widget.set_has_tooltip(False)
+				label_widget.set_text("No overhead")
+				label_widget.set_has_tooltip(True)
 	
 	def _set_motd(self) -> bool:
 		"""Set a new MOTD. Return True on success, else False."""
@@ -916,7 +918,7 @@ class Mixtool(Gtk.Application):
 				content.name,
 				content.size,
 				content.offset,
-				content.alloc - content.size
+				content.spare
 			))
 	
 	def _check_make_backup(self) -> bool:
@@ -1019,7 +1021,7 @@ class Mixtool(Gtk.Application):
 								content.name,
 								content.size,
 								content.offset,
-								content.alloc - content.size
+								content.spare
 							))
 						
 						# Add a button
