@@ -32,7 +32,6 @@ import collections.abc
 import re
 import signal
 import random
-import uuid
 import configparser
 from urllib import parse
 import traceback  # for debugging
@@ -335,7 +334,6 @@ class Mixtool(Gtk.Application):
 		# Set up the configuration manager
 		self.settings = Configuration("Mixtool")
 		self.settings.register("version", "")
-		self.settings.register("instid", 0)
 		self.settings.register("nowarn", 0)
 		self.settings.register("simplenames", True)
 		self.settings.register("insertlower", True)
@@ -382,22 +380,6 @@ class Mixtool(Gtk.Application):
 				else:
 					del self.settings["units"]
 			self.settings["version"] = __version__
-			
-			# Initialize the installation id
-			# (to be used with online features)
-			try:
-				inst_id = uuid.UUID(int=self.settings["instid"])
-			except ValueError:
-				inst_id = None
-			if inst_id is not None\
-			and inst_id.variant == uuid.RFC_4122\
-			and inst_id.version == 4:
-				self.inst_id = inst_id
-			else:
-				inst_id = uuid.uuid4()
-				self.settings["instid"] = inst_id.int
-				if self._save_settings():
-					self.inst_id = inst_id
 		
 		# Prepare GUI
 		renderer = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)

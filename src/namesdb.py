@@ -115,7 +115,21 @@ class NamesDB(object):
 	
 	# To get instid for comparison
 	def query_instid() -> uuid.UUID:
-		pass
+		# Moved here from __main__.py
+		# (needs rework)
+		try:
+			inst_id = uuid.UUID(int=self.settings["instid"])
+		except ValueError:
+			inst_id = None
+		if inst_id is not None\
+		and inst_id.variant == uuid.RFC_4122\
+		and inst_id.version == 4:
+			self.inst_id = inst_id
+		else:
+			inst_id = uuid.uuid4()
+			self.settings["instid"] = inst_id.int
+			if self._save_settings():
+				self.inst_id = inst_id
 	
 	def close(self):
 		if self._db is not None:
