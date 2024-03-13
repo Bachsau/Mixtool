@@ -4,7 +4,7 @@ canonical: contributing.html
 ---
 
 Contributing to Mixtool
-========================
+=======================
 
 All aspects of Mixtool’s development are managed on [GitHub][0].
 
@@ -19,4 +19,4 @@ filling out the [contact form][1] on my website.
 to me!**
 
 [0]: https://github.com/Bachsau/Mixtool
-[1]: http://www.bachsau.com/contact/
+[1]: https://www.bachsau.com/contact/

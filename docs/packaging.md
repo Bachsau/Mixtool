@@ -4,6 +4,6 @@ canonical: packaging.html
 ---
 
 Packaging
-==========
+=========
 
 Coming soon… 😇

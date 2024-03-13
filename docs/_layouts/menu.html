@@ -12,7 +12,7 @@
 		</script>
 		<title>Mixtool – {{ page.title }}</title>
 		<base target="main">{% if page.canonical %}
-		<link rel="canonical" href="http://dev.bachsau.com/Mixtool/{{ page.canonical }}">{% endif %}
+		<link rel="canonical" href="https://dev.bachsau.com/Mixtool/{{ page.canonical }}">{% endif %}
 		<link rel="icon" type="image/vnd.microsoft.icon" href="assets/favicon.ico">
 		<link rel="stylesheet" type="text/css" href="assets/general.css">
 		<style>
@@ -45,10 +45,8 @@
 		<p style="margin-bottom:20px;font-style:italic;">Alpha 0.2 (WIP)</p>
 {{ content | strip }}
 		<div style="margin-top:60px;text-align:center;">
-			<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_parent">
-				<input type="hidden" name="cmd" value="_s-xclick">
-				<input type="hidden" name="hosted_button_id" value="8KPB96C786PKA">
-				<input type="image" src="assets/donate.gif" name="submit" alt="Donate">
+			<form action="https://go.bachsau.com/mtdonate" method="get" target="_parent">
+				<input type="image" src="assets/donate.gif" alt="Donate">
 			</form>
 		</div>
 	</body>

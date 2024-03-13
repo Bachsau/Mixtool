@@ -4,6 +4,6 @@ canonical: usage.html
 ---
 
 Usage
-======
+=====
 
 Coming soon… 😇

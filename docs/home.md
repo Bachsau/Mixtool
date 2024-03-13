@@ -5,7 +5,7 @@ lightbox: true
 ---
 
 Welcome to Mixtool!
-====================
+===================
 
 Mixtool is a platform independent editor for Westwood&nbsp;Studios’ MIX files.  
 These files are used by the classic Command&nbsp;&amp;&nbsp;Conquer games.
@@ -23,7 +23,7 @@ To run the alpha version, you also need to have recent versions of Python&nbsp;3
 GTK+&nbsp;3 and PyGObject installed. Final versions will be packaged for easy use by everyone.
 
 Notes on development
----------------------
+--------------------
 
 Mixtool is developed and tested on an [Arch Linux](https://www.archlinux.org/) system.
 Even though most things also work on Windows and macOS, I’m not going to optimize for
@@ -39,7 +39,7 @@ encrypted headers is crucial, but it will have to wait until Alpha 0.3, when the
 is complete.
 
 Versioning
------------
+----------
 
 Mixtool tries to follow the [Semantic Versioning specification][0], even
 though, as a front-end application, it has no public API to be used by
@@ -56,7 +56,7 @@ dialogs are not semantic, may include codenames, and are solely meant
 for human perception.
 
 License
---------
+-------
 
 | Software      | Documentation              |
 | ------------- | -------------------------- |
